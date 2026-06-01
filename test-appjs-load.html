@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>测试 app.js 加载</title>
+</head>
+<body>
+    <h1>测试 app.js 是否加载</h1>
+    <div id="result"></div>
+    
+    <script>
+        console.log('HTML inline script 执行');
+    </script>
+    
+    <script src="app.js"></script>
+    
+    <script>
+        console.log('=== 检查 app.js 是否加载 ===');
+        const result = document.getElementById('result');
+        
+        if (typeof initMIDI === 'function') {
+            result.innerHTML = '<p style="color: green; font-size: 24px;">✅ app.js 加载成功！</p>';
+            console.log('✅ initMIDI:', typeof initMIDI);
+            console.log('✅ midiInitialized:', typeof midiInitialized);
+            console.log('✅ userManager:', typeof userManager);
+        } else {
+            result.innerHTML = '<p style="color: red; font-size: 24px;">❌ app.js 未加载</p>';
+            console.error('❌ initMIDI:', typeof initMIDI);
+            console.error('❌ midiInitialized:', typeof midiInitialized);
+        }
+    </script>
+</body>
+</html>

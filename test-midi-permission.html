@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIDI 权限测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 50px;
+            text-align: center;
+        }
+        button {
+            padding: 20px 40px;
+            font-size: 18px;
+            margin: 20px;
+            cursor: pointer;
+        }
+        .log {
+            background: #f0f0f0;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>MIDI 权限请求测试</h1>
+    <p>点击下面的按钮应该弹出 MIDI 权限请求对话框</p>
+    
+    <button id="testBtn1">测试 1: 直接请求权限</button>
+    <button id="testBtn2">测试 2: 通过函数请求</button>
+    
+    <div class="log" id="log"></div>
+
+    <script>
+        const log = document.getElementById('log');
+        
+        function addLog(msg) {
+            log.textContent += msg + '\n';
+            console.log(msg);
+        }
+        
+        // 测试 1: 直接请求
+        document.getElementById('testBtn1').addEventListener('click', async () => {
+            addLog('🖱️ 按钮被点击');
+            
+            if (!navigator.requestMIDIAccess) {
+                addLog('❌ 浏览器不支持 Web MIDI API');
+                return;
+            }
+            
+            addLog('✅ 浏览器支持 Web MIDI API');
+            addLog('📡 正在请求 MIDI 权限...');
+            
+            try {
+                const access = await navigator.requestMIDIAccess({ sysex: false });
+                addLog('✅ 权限已授予！');
+                
+                for (let input of access.inputs.values()) {
+                    addLog(`设备: ${input.name}`);
+                }
+            } catch (error) {
+                addLog(`❌ 请求失败: ${error.message}`);
+            }
+        });
+        
+        // 测试 2: 通过函数
+        async function requestMidiPermission() {
+            addLog('🖱️ 函数被调用');
+            
+            if (!navigator.requestMIDIAccess) {
+                addLog('❌ 浏览器不支持 Web MIDI API');
+                return;
+            }
+            
+            addLog('✅ 浏览器支持 Web MIDI API');
+            addLog('📡 正在请求 MIDI 权限...');
+            
+            try {
+                const access = await navigator.requestMIDIAccess({ sysex: false });
+                addLog('✅ 权限已授予！');
+                
+                for (let input of access.inputs.values()) {
+                    addLog(`设备: ${input.name}`);
+                }
+            } catch (error) {
+                addLog(`❌ 请求失败: ${error.message}`);
+            }
+        }
+        
+        document.getElementById('testBtn2').addEventListener('click', requestMidiPermission);
+        
+        // 页面加载时的日志
+        addLog('页面已加载');
+        addLog(`浏览器: ${navigator.userAgent}`);
+        addLog(`Web MIDI API 支持: ${!!navigator.requestMIDIAccess}`);
+        
+        // 测试 body 点击事件
+        document.body.addEventListener('click', () => {
+            addLog('👆 Body 点击事件触发');
+        }, {once: true});
+    </script>
+</body>
+</html>
