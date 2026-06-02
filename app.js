@@ -3567,13 +3567,8 @@ function handleIntervalRandomPlay() {
     });
     
     // 显示状态信息
-    // 在测试模式下不显示答案，只显示提示
-    if (intervalAppState.currentMode === 'test') {
-        updateIntervalStatus('请听题后在琴键上选择两个音');
-    } else {
-        const intervalName = getIntervalName(getIntervalSemitones(questionNotes[0], questionNotes[1]));
-        updateIntervalStatus(`已出题：${intervalName}，请听题后在琴键上选择两个音`);
-    }
+    // 在测试模式和练习模式下都不显示答案，只显示提示
+    updateIntervalStatus('请听题后在琴键上选择两个音');
 }
 
 // 重复播放功能 - 音程听辨
