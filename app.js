@@ -6566,8 +6566,13 @@ function initSinglePiano() {
             }
         }, { passive: true });
         
-        // 添加click事件作为后备，确保移动端轻触也能响应
+        // 添加click事件作为后备（仅在非触摸设备上使用）
         key.addEventListener('click', (e) => {
+            // 如果已经通过触摸事件处理过，就不再处理
+            if (hasPlayed) {
+                hasPlayed = false; // 重置标志
+                return;
+            }
             e.preventDefault();
             handlePianoNoteOnSingle(note);
         });
@@ -6633,8 +6638,13 @@ function initSinglePiano() {
             }
         }, { passive: true });
         
-        // 添加click事件作为后备，确保移动端轻触也能响应
+        // 添加click事件作为后备（仅在非触摸设备上使用）
         key.addEventListener('click', (e) => {
+            // 如果已经通过触摸事件处理过，就不再处理
+            if (hasPlayed) {
+                hasPlayed = false; // 重置标志
+                return;
+            }
             e.preventDefault();
             handlePianoNoteOnSingle(note);
         });
@@ -6712,8 +6722,13 @@ function initIntervalPiano() {
             }
         }, { passive: true });
         
-        // 添加click事件作为后备，确保移动端轻触也能响应
+        // 添加click事件作为后备（仅在非触摸设备上使用）
         key.addEventListener('click', (e) => {
+            // 如果已经通过触摸事件处理过，就不再处理
+            if (hasPlayed) {
+                hasPlayed = false; // 重置标志
+                return;
+            }
             e.preventDefault();
             handlePianoNoteOnInterval(note);
         });
@@ -6779,8 +6794,13 @@ function initIntervalPiano() {
             }
         }, { passive: true });
         
-        // 添加click事件作为后备，确保移动端轻触也能响应
+        // 添加click事件作为后备（仅在非触摸设备上使用）
         key.addEventListener('click', (e) => {
+            // 如果已经通过触摸事件处理过，就不再处理
+            if (hasPlayed) {
+                hasPlayed = false; // 重置标志
+                return;
+            }
             e.preventDefault();
             handlePianoNoteOnInterval(note);
         });
