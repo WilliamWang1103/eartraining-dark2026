@@ -1747,6 +1747,264 @@ body {
     max-width: 100%;
 }
 
+/* 节奏听辨专用样式 */
+.rhythm-metronome-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin: 15px 0;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+.metronome-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 200px;
+}
+
+.metronome-control label {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+    white-space: nowrap;
+}
+
+.metronome-slider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.metronome-slider input[type="range"] {
+    flex: 1;
+    height: 6px;
+}
+
+.metronome-slider span {
+    min-width: 40px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #ffd966;
+}
+
+.metronome-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.rhythm-params-section {
+    display: flex;
+    gap: 15px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+}
+
+.param-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+    min-width: 120px;
+}
+
+.param-group label {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.param-group select {
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 14px;
+}
+
+.rhythm-answer-area {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+    min-height: 60px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+}
+
+.rhythm-answer-slot {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 217, 102, 0.5);
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #fff;
+    font-size: 14px;
+}
+
+.rhythm-answer-slot:hover {
+    background: rgba(255, 217, 102, 0.2);
+    border-color: #ffd966;
+}
+
+.rhythm-answer-slot.filled {
+    background: rgba(255, 217, 102, 0.3);
+    border-color: #ffd966;
+    font-weight: bold;
+}
+
+.rhythm-tabs-section {
+    margin: 15px 0;
+}
+
+.rhythm-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.rhythm-tab-btn {
+    flex: 1;
+    padding: 10px 20px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.rhythm-tab-btn.active {
+    background: #667eea;
+    border-color: #667eea;
+    color: #fff;
+}
+
+.rhythm-tab-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.rhythm-type-content {
+    display: none;
+}
+
+.rhythm-type-content.active {
+    display: block;
+}
+
+.rhythm-buttons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+}
+
+.rhythm-btn {
+    padding: 12px 15px;
+    border: 2px solid rgba(255, 217, 102, 0.4);
+    background: rgba(255, 217, 102, 0.1);
+    color: #ffd966;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.rhythm-btn:hover {
+    background: rgba(255, 217, 102, 0.2);
+    border-color: #ffd966;
+    transform: translateY(-2px);
+}
+
+.rhythm-btn.selected {
+    background: #ffd966;
+    border-color: #ffd966;
+    color: #1a1a2e;
+    font-weight: bold;
+}
+
+.rhythm-handwriting-section {
+    margin: 15px 0;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.handwriting-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.handwriting-hint {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+#rhythm-canvas {
+    width: 100%;
+    height: 120px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    touch-action: none;
+    cursor: crosshair;
+}
+
+/* 移动端适配 */
+@media (max-width: 420px) {
+    .rhythm-metronome-section {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .metronome-control {
+        min-width: 0;
+    }
+    
+    .metronome-actions {
+        justify-content: space-between;
+    }
+    
+    .rhythm-params-section {
+        flex-direction: column;
+    }
+    
+    .param-group {
+        min-width: 0;
+    }
+    
+    .rhythm-buttons-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .rhythm-answer-area {
+        flex-direction: column;
+    }
+    
+    .rhythm-answer-slot {
+        min-width: 0;
+    }
+}
+
 #rhythm-staff-container {
     max-width: 100%;
     overflow-x: auto;

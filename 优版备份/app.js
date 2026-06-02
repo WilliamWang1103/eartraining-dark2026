@@ -15,7 +15,7 @@ const chordAppState = {
     scaleDifficulty: 1,
     currentScale: 'C大调', // 当前调式调性
     scaleNotes: [], // 当前调式包含的音符
-    inversion: 'all',
+    inversion: '0',  // 默认只出原位和弦（0=原位，'all'=全部转位）
     selectedNotes: [], // 存储用户点击的音符
     selectedChordType: null,
     currentChord: null,
@@ -287,7 +287,7 @@ const scaleDifficultyConfig = {
             "a自然小调": ["A", "B", "C", "D", "E", "F", "G"],
             "a和声小调": ["A", "B", "C", "D", "E", "F", "G#"]
         },
-        notes: ['G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G#3', 'G#4', 'Ab3', 'Ab4']
+        notes: ['G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G#3', 'G#4']
     },
     2: {
         name: "2级: 一升调号调",
@@ -298,7 +298,7 @@ const scaleDifficultyConfig = {
             "e自然小调": ["E", "F#", "G", "A", "B", "C", "D"],
             "e和声小调": ["E", "F#", "G", "A", "B", "C", "D#"]
         },
-        notes: ['G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F#4', 'Eb4', 'Eb5', 'D#4', 'D#5']
+        notes: ['G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'F#3', 'F#4', 'D#4']
     },
     3: {
         name: "3级: 一降调号调",
@@ -309,7 +309,7 @@ const scaleDifficultyConfig = {
             "d自然小调": ["D", "E", "F", "G", "A", "Bb", "C"],
             "d和声小调": ["D", "E", "F", "G", "A", "Bb", "C#"]
         },
-        notes: ['G3', 'A3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'C5', 'D5', 'E5', 'F5', 'A#3', 'A#4', 'C#4', 'C#5', 'Db4', 'Db5']
+        notes: ['G3', 'A3', 'A#3', 'A#4', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'C5', 'D5', 'E5', 'F5', 'C#4', 'C#5']
     },
     4: {
         name: "4级: 二升调号调",
@@ -320,7 +320,7 @@ const scaleDifficultyConfig = {
             "b自然小调": ["B", "C#", "D", "E", "F#", "G", "A"],
             "b和声小调": ["B", "C#", "D", "E", "F#", "G", "A#"]
         },
-        notes: ['G3', 'A3', 'B3', 'D4', 'E4', 'G4', 'A4', 'B4', 'D5', 'E5', 'F#4', 'C#4', 'C#5', 'A#3', 'A#4', 'Bb3', 'Bb4']
+        notes: ['B3', 'C#4', 'D4', 'E4', 'F#4', 'G4', 'A4', 'B4', 'C#5', 'D5', 'E5', 'A#3', 'A#4']
     },
     5: {
         name: "5级: 二降调号调",
@@ -331,7 +331,7 @@ const scaleDifficultyConfig = {
             "g自然小调": ["G", "A", "Bb", "C", "D", "Eb", "F"],
             "g和声小调": ["G", "A", "Bb", "C", "D", "Eb", "F#"]
         },
-        notes: ['G3', 'A3', 'C4', 'D4', 'F4', 'G4', 'A4', 'C5', 'D5', 'F5', 'A#3', 'A#4', 'D#4', 'D#5', 'F#4', 'Gb4']
+        notes: ['G3', 'A3', 'A#3', 'Bb3', 'Bb4', 'A#4', 'C4', 'C5', 'D4', 'D5', 'D#4', 'Eb4', 'Eb5', 'F4', 'F5', 'G4', 'A4', 'F#4', 'Gb4']
     },
     6: {
         name: "6级: 三升调号调",
@@ -342,7 +342,7 @@ const scaleDifficultyConfig = {
             "f#自然小调": ["F#", "G#", "A", "B", "C#", "D", "E"],
             "f#和声小调": ["F#", "G#", "A", "B", "C#", "D", "E#"]
         },
-        notes: ['A3', 'B3', 'D4', 'E4', 'F4', 'A4', 'B4', 'D5', 'E5', 'F5', 'F#4', 'C#4', 'C#5', 'G#3', 'G#4']
+        notes: ['G#3', 'A3', 'B3', 'C#4', 'D4', 'E4', 'F#4', 'G#4', 'A4', 'B4', 'C#5', 'D5', 'E5', 'F5']
     },
     7: {
         name: "7级: 三降调号调",
@@ -353,7 +353,7 @@ const scaleDifficultyConfig = {
             "c自然小调": ["C", "D", "Eb", "F", "G", "Ab", "Bb"],
             "c和声小调": ["C", "D", "Eb", "F", "G", "Ab", "B"]
         },
-        notes: ['G3', 'B3', 'C4', 'D4', 'F4', 'G4', 'B4', 'C5', 'D5', 'F5', 'D#4', 'D#5', 'G#3', 'G#4', 'A#3', 'A#4', 'B3', 'B4']
+        notes: ['G3', 'G#3', 'A#3', 'B3', 'C4', 'D4', 'D#4', 'F4', 'G4', 'G#4', 'A#4', 'C5', 'D5', 'D#5', 'F5', 'B4']
     },
     8: {
         name: "8级: 所有调式",
@@ -373,12 +373,12 @@ const difficultyConfig = {
         chords: chordTypes.filter(c => c.difficulty <= 1)
     },
     2: {
-        name: "2级: 七和弦基础",
+        name: "2级: 常用七和弦",
         description: "加入属七和弦、小七和弦、大七和弦",
         chords: chordTypes.filter(c => c.difficulty <= 2)
     },
     3: {
-        name: "3级: 扩展七和弦",
+        name: "3级: 其他七和弦",
         description: "加入半减七和弦、减七和弦、小大七和弦",
         chords: chordTypes.filter(c => c.difficulty <= 3)
     },
@@ -1091,9 +1091,55 @@ function initChordPiano() {
         else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
         else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
         key.appendChild(octaveLabel);
-        key.addEventListener('mousedown', () => handlePianoNoteOnChord(note));
+        // 桌面端事件
+        key.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            handlePianoNoteOnChord(note);
+        });
         key.addEventListener('mouseup', () => handlePianoNoteOffChord(note));
         key.addEventListener('mouseleave', () => handlePianoNoteOffChord(note));
+        
+        // 移动端触摸事件（按下立即发声，支持滚动）
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isScrolling = false;
+        let hasPlayed = false;
+        
+        key.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isScrolling = false;
+            hasPlayed = false;
+            
+            // 按下时立即发声（关键：按下就播放）
+            handlePianoNoteOnChord(note);
+            hasPlayed = true;
+        }, { passive: true });
+        
+        key.addEventListener('touchmove', (e) => {
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            const diffX = Math.abs(touchX - touchStartX);
+            const diffY = Math.abs(touchY - touchStartY);
+            
+            // 如果水平移动距离大于垂直移动，认为是滚动
+            if (diffX > diffY && diffX > 10) {
+                isScrolling = true;
+                // 滚动时停止发声
+                if (hasPlayed) {
+                    handlePianoNoteOffChord(note);
+                    hasPlayed = false;
+                }
+            }
+        }, { passive: true });
+        
+        key.addEventListener('touchend', (e) => {
+            // 如果已经因为滚动停止了，就不再处理
+            if (!isScrolling && hasPlayed) {
+                // 点击结束，停止发声
+                handlePianoNoteOffChord(note);
+            }
+        }, { passive: true });
         piano.appendChild(key);
     });
     invalidatePianoMetrics();
@@ -1105,9 +1151,54 @@ function initChordPiano() {
         key.innerHTML = `<span class="note-name">${note.display}</span>`;
         key.dataset.note = note.note;
         key.style.left = calculateBlackKeyLeft(note.position);
-        key.addEventListener('mousedown', () => handlePianoNoteOnChord(note));
+        // 桌面端事件
+        key.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            handlePianoNoteOnChord(note);
+        });
         key.addEventListener('mouseup', () => handlePianoNoteOffChord(note));
         key.addEventListener('mouseleave', () => handlePianoNoteOffChord(note));
+        
+        // 移动端触摸事件（按下立即发声，支持滚动）
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isScrolling = false;
+        let hasPlayed = false;
+        
+        key.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isScrolling = false;
+            hasPlayed = false;
+            
+            // 按下时立即发声
+            handlePianoNoteOnChord(note);
+            hasPlayed = true;
+        }, { passive: true });
+        
+        key.addEventListener('touchmove', (e) => {
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            const diffX = Math.abs(touchX - touchStartX);
+            const diffY = Math.abs(touchY - touchStartY);
+            
+            // 如果水平移动距离大于垂直移动，认为是滚动
+            if (diffX > diffY && diffX > 10) {
+                isScrolling = true;
+                // 滚动时停止发声
+                if (hasPlayed) {
+                    handlePianoNoteOffChord(note);
+                    hasPlayed = false;
+                }
+            }
+        }, { passive: true });
+        
+        key.addEventListener('touchend', (e) => {
+            if (!isScrolling && hasPlayed) {
+                // 点击结束，停止发声
+                handlePianoNoteOffChord(note);
+            }
+        }, { passive: true });
         piano.appendChild(key);
     });
     applyScaleRestrictionsToPiano();
@@ -1973,11 +2064,24 @@ function updateCurrentTime() {
 
 // 启动和弦用时计时器
 function startChordElapsedTimeTimer() {
+    // 先停止之前的计时器（防止重复启动）
+    stopChordElapsedTimeTimer();
+    
     chordAppState.elapsedTime = 0;
     updateChordElapsedTimeDisplay();
     
     chordAppState.elapsedTimeTimer = setInterval(() => {
         chordAppState.elapsedTime += 0.01; // 每 10 毫秒增加
+        
+        // 保护机制：如果用时超过 60 分钟（3600秒），自动停止
+        if (chordAppState.elapsedTime > 3600) {
+            console.warn('⚠️ 测试用时超过60分钟，自动停止计时器');
+            stopChordElapsedTimeTimer();
+            updateChordStatus('测试时间过长，已自动结束。请重新开始测试。');
+            setTimeout(() => endChordTestMode(), 2000);
+            return;
+        }
+        
         updateChordElapsedTimeDisplay();
     }, 10);
 }
@@ -3463,8 +3567,8 @@ function handleIntervalRandomPlay() {
     });
     
     // 显示状态信息
-    const intervalName = getIntervalName(getIntervalSemitones(questionNotes[0], questionNotes[1]));
-    updateIntervalStatus(`已出题：${intervalName}，请听题后在琴键上选择两个音`);
+    // 在测试模式和练习模式下都不显示答案，只显示提示
+    updateIntervalStatus('请听题后在琴键上选择两个音');
 }
 
 // 重复播放功能 - 音程听辨
@@ -4572,11 +4676,24 @@ function stopTimeUpdateSingle() {
 
 // 启动用时计时器
 function startElapsedTimeTimer() {
+    // 先停止之前的计时器（防止重复启动）
+    stopElapsedTimeTimer();
+    
     singleAppState.elapsedTime = 0;
     updateElapsedTimeDisplay();
     
     singleAppState.elapsedTimeTimer = setInterval(() => {
         singleAppState.elapsedTime += 0.01; // 每 10 毫秒增加
+        
+        // 保护机制：如果用时超过 60 分钟（3600秒），自动停止
+        if (singleAppState.elapsedTime > 3600) {
+            console.warn('⚠️ 测试用时超过60分钟，自动停止计时器');
+            stopElapsedTimeTimer();
+            updateSingleStatus('测试时间过长，已自动结束。请重新开始测试。');
+            setTimeout(() => endSingleTestMode(), 2000);
+            return;
+        }
+        
         updateElapsedTimeDisplay();
     }, 10);
 }
@@ -4619,11 +4736,24 @@ function stopTimeUpdateInterval() {
 
 // 启动音程用时计时器
 function startIntervalElapsedTimeTimer() {
+    // 先停止之前的计时器（防止重复启动）
+    stopIntervalElapsedTimeTimer();
+    
     intervalAppState.elapsedTime = 0;
     updateIntervalElapsedTimeDisplay();
     
     intervalAppState.elapsedTimeTimer = setInterval(() => {
         intervalAppState.elapsedTime += 0.01; // 每 10 毫秒增加
+        
+        // 保护机制：如果用时超过 60 分钟（3600秒），自动停止
+        if (intervalAppState.elapsedTime > 3600) {
+            console.warn('⚠️ 测试用时超过60分钟，自动停止计时器');
+            stopIntervalElapsedTimeTimer();
+            updateIntervalStatus('测试时间过长，已自动结束。请重新开始测试。');
+            setTimeout(() => endIntervalTestMode(), 2000);
+            return;
+        }
+        
         updateIntervalElapsedTimeDisplay();
     }, 10);
 }
@@ -5402,6 +5532,11 @@ function initIntervalPage() {
             const config = intervalLevelConfig[intervalAppState.currentLevel];
             if (config) {
                 updateIntervalStatus(`已选择：${config.description}`);
+            }
+            
+            // 如果在性质听辨模式，重新初始化性质按钮
+            if (intervalAppState.currentFunction === 'quality') {
+                initIntervalQualityButtons();
             }
             
             // 如果在风云榜单模式，重新渲染榜单
@@ -6375,9 +6510,54 @@ function initSinglePiano() {
         else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
         else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
         key.appendChild(octaveLabel);
-        key.addEventListener('mousedown', () => handlePianoNoteOnSingle(note));
+        // 桌面端事件
+        key.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            handlePianoNoteOnSingle(note);
+        });
         key.addEventListener('mouseup', () => handlePianoNoteOffSingle(note));
         key.addEventListener('mouseleave', () => handlePianoNoteOffSingle(note));
+        
+        // 移动端触摸事件（按下立即发声，支持滚动）
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isScrolling = false;
+        let hasPlayed = false;
+        
+        key.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isScrolling = false;
+            hasPlayed = false;
+            
+            // 按下时立即发声
+            handlePianoNoteOnSingle(note);
+            hasPlayed = true;
+        }, { passive: true });
+        
+        key.addEventListener('touchmove', (e) => {
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            const diffX = Math.abs(touchX - touchStartX);
+            const diffY = Math.abs(touchY - touchStartY);
+            
+            // 如果水平移动距离大于垂直移动，认为是滚动
+            if (diffX > diffY && diffX > 10) {
+                isScrolling = true;
+                // 滚动时停止发声
+                if (hasPlayed) {
+                    handlePianoNoteOffSingle(note);
+                    hasPlayed = false;
+                }
+            }
+        }, { passive: true });
+        
+        key.addEventListener('touchend', (e) => {
+            if (!isScrolling && hasPlayed) {
+                // 点击结束，停止发声
+                handlePianoNoteOffSingle(note);
+            }
+        }, { passive: true });
         piano.appendChild(key);
     });
     invalidatePianoMetrics();
@@ -6389,9 +6569,54 @@ function initSinglePiano() {
         key.innerHTML = note.display;
         key.dataset.note = note.note;
         key.style.left = calculateBlackKeyLeft(note.position);
-        key.addEventListener('mousedown', () => handlePianoNoteOnSingle(note));
+        // 桌面端事件
+        key.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            handlePianoNoteOnSingle(note);
+        });
         key.addEventListener('mouseup', () => handlePianoNoteOffSingle(note));
         key.addEventListener('mouseleave', () => handlePianoNoteOffSingle(note));
+        
+        // 移动端触摸事件（按下立即发声，支持滚动）
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isScrolling = false;
+        let hasPlayed = false;
+        
+        key.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isScrolling = false;
+            hasPlayed = false;
+            
+            // 按下时立即发声
+            handlePianoNoteOnSingle(note);
+            hasPlayed = true;
+        }, { passive: true });
+        
+        key.addEventListener('touchmove', (e) => {
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            const diffX = Math.abs(touchX - touchStartX);
+            const diffY = Math.abs(touchY - touchStartY);
+            
+            // 如果水平移动距离大于垂直移动，认为是滚动
+            if (diffX > diffY && diffX > 10) {
+                isScrolling = true;
+                // 滚动时停止发声
+                if (hasPlayed) {
+                    handlePianoNoteOffSingle(note);
+                    hasPlayed = false;
+                }
+            }
+        }, { passive: true });
+        
+        key.addEventListener('touchend', (e) => {
+            if (!isScrolling && hasPlayed) {
+                // 点击结束，停止发声
+                handlePianoNoteOffSingle(note);
+            }
+        }, { passive: true });
         piano.appendChild(key);
     });
     applyScaleRestrictionsToPiano();
@@ -6415,9 +6640,54 @@ function initIntervalPiano() {
         else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
         else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
         key.appendChild(octaveLabel);
-        key.addEventListener('mousedown', () => handlePianoNoteOnInterval(note));
+        // 桌面端事件
+        key.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            handlePianoNoteOnInterval(note);
+        });
         key.addEventListener('mouseup', () => handlePianoNoteOffInterval(note));
         key.addEventListener('mouseleave', () => handlePianoNoteOffInterval(note));
+        
+        // 移动端触摸事件（按下立即发声，支持滚动）
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isScrolling = false;
+        let hasPlayed = false;
+        
+        key.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isScrolling = false;
+            hasPlayed = false;
+            
+            // 按下时立即发声和选择
+            handlePianoNoteOnInterval(note);
+            hasPlayed = true;
+        }, { passive: true });
+        
+        key.addEventListener('touchmove', (e) => {
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            const diffX = Math.abs(touchX - touchStartX);
+            const diffY = Math.abs(touchY - touchStartY);
+            
+            // 如果水平移动距离大于垂直移动，认为是滚动
+            if (diffX > diffY && diffX > 10) {
+                isScrolling = true;
+                // 滚动时停止发声
+                if (hasPlayed) {
+                    handlePianoNoteOffInterval(note);
+                    hasPlayed = false;
+                }
+            }
+        }, { passive: true });
+        
+        key.addEventListener('touchend', (e) => {
+            if (!isScrolling && hasPlayed) {
+                // 点击结束，停止发声
+                handlePianoNoteOffInterval(note);
+            }
+        }, { passive: true });
         piano.appendChild(key);
     });
     invalidatePianoMetrics();
@@ -6429,9 +6699,54 @@ function initIntervalPiano() {
         key.innerHTML = `<span class="note-name">${note.display}</span>`;
         key.dataset.note = note.note;
         key.style.left = calculateBlackKeyLeft(note.position);
-        key.addEventListener('mousedown', () => handlePianoNoteOnInterval(note));
+        // 桌面端事件
+        key.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            handlePianoNoteOnInterval(note);
+        });
         key.addEventListener('mouseup', () => handlePianoNoteOffInterval(note));
         key.addEventListener('mouseleave', () => handlePianoNoteOffInterval(note));
+        
+        // 移动端触摸事件（按下立即发声，支持滚动）
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isScrolling = false;
+        let hasPlayed = false;
+        
+        key.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isScrolling = false;
+            hasPlayed = false;
+            
+            // 按下时立即发声和选择
+            handlePianoNoteOnInterval(note);
+            hasPlayed = true;
+        }, { passive: true });
+        
+        key.addEventListener('touchmove', (e) => {
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            const diffX = Math.abs(touchX - touchStartX);
+            const diffY = Math.abs(touchY - touchStartY);
+            
+            // 如果水平移动距离大于垂直移动，认为是滚动
+            if (diffX > diffY && diffX > 10) {
+                isScrolling = true;
+                // 滚动时停止发声
+                if (hasPlayed) {
+                    handlePianoNoteOffInterval(note);
+                    hasPlayed = false;
+                }
+            }
+        }, { passive: true });
+        
+        key.addEventListener('touchend', (e) => {
+            if (!isScrolling && hasPlayed) {
+                // 点击结束，停止发声
+                handlePianoNoteOffInterval(note);
+            }
+        }, { passive: true });
         piano.appendChild(key);
     });
     applyScaleRestrictionsToPiano();

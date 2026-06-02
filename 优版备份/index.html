@@ -182,6 +182,9 @@
                             <li><strong>旋律播放：</strong>从低到高逐个播放和弦中的音符</li>
                             <li><strong>提交答案：</strong>确认您在琴键上选择的音符或和弦性质</li>
                             <li><strong>显示答案：</strong>查看正确答案及琴键位置</li>
+                            <li><strong>基础三和弦：</strong>大、小、增、减四种三和弦</li>
+                            <li><strong>常用七和弦：</strong>大小七、小小七、减小七、减减七和弦</li>
+                            <li><strong>其他七和弦：</strong>大大七、小大七、增大七</li>
                         </ul>
                     </div>
 
@@ -197,6 +200,13 @@
                             <label for="difficulty-chord">级别</label>
                             <select id="difficulty-chord" title="难度级别">
                                 <!-- 选项将通过JS动态生成 -->
+                            </select>
+                        </div>
+
+                        <div class="difficulty-selector compact">
+                            <label for="inversion-chord">转位</label>
+                            <select id="inversion-chord" title="和弦转位">
+                                <!-- 转位选项将通过JS动态生成 -->
                             </select>
                         </div>
 
@@ -1011,7 +1021,7 @@
     </div>
 
     <!-- 所有 JavaScript 逻辑已移至 app.js -->
-    <script src="app.js"></script>
+    <script src="app.js?v=20260601"></script>
 </body>
 
 </html>
