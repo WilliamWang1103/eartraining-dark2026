@@ -6525,7 +6525,6 @@ function initSinglePiano() {
         let hasPlayed = false;
         
         key.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // 阻止默认滚动行为
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isScrolling = false;
@@ -6534,10 +6533,9 @@ function initSinglePiano() {
             // 按下时立即发声
             handlePianoNoteOnSingle(note);
             hasPlayed = true;
-        }, { passive: false });
+        }, { passive: true });
         
         key.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // 阻止默认滚动行为
             const touchX = e.touches[0].clientX;
             const touchY = e.touches[0].clientY;
             const diffX = Math.abs(touchX - touchStartX);
@@ -6552,7 +6550,7 @@ function initSinglePiano() {
                     hasPlayed = false;
                 }
             }
-        }, { passive: false });
+        }, { passive: true });
         
         key.addEventListener('touchend', (e) => {
             if (!isScrolling && hasPlayed) {
@@ -6586,7 +6584,6 @@ function initSinglePiano() {
         let hasPlayed = false;
         
         key.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // 阻止默认滚动行为
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isScrolling = false;
@@ -6595,10 +6592,9 @@ function initSinglePiano() {
             // 按下时立即发声
             handlePianoNoteOnSingle(note);
             hasPlayed = true;
-        }, { passive: false });
+        }, { passive: true });
         
         key.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // 阻止默认滚动行为
             const touchX = e.touches[0].clientX;
             const touchY = e.touches[0].clientY;
             const diffX = Math.abs(touchX - touchStartX);
@@ -6613,7 +6609,7 @@ function initSinglePiano() {
                     hasPlayed = false;
                 }
             }
-        }, { passive: false });
+        }, { passive: true });
         
         key.addEventListener('touchend', (e) => {
             if (!isScrolling && hasPlayed) {
@@ -6659,7 +6655,6 @@ function initIntervalPiano() {
         let hasPlayed = false;
         
         key.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // 阻止默认滚动行为
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isScrolling = false;
@@ -6668,10 +6663,9 @@ function initIntervalPiano() {
             // 按下时立即发声和选择
             handlePianoNoteOnInterval(note);
             hasPlayed = true;
-        }, { passive: false });
+        }, { passive: true });
         
         key.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // 阻止默认滚动行为
             const touchX = e.touches[0].clientX;
             const touchY = e.touches[0].clientY;
             const diffX = Math.abs(touchX - touchStartX);
@@ -6686,7 +6680,7 @@ function initIntervalPiano() {
                     hasPlayed = false;
                 }
             }
-        }, { passive: false });
+        }, { passive: true });
         
         key.addEventListener('touchend', (e) => {
             if (!isScrolling && hasPlayed) {
@@ -6720,7 +6714,6 @@ function initIntervalPiano() {
         let hasPlayed = false;
         
         key.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // 阻止默认滚动行为
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isScrolling = false;
@@ -6729,10 +6722,9 @@ function initIntervalPiano() {
             // 按下时立即发声和选择
             handlePianoNoteOnInterval(note);
             hasPlayed = true;
-        }, { passive: false });
+        }, { passive: true });
         
         key.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // 阻止默认滚动行为
             const touchX = e.touches[0].clientX;
             const touchY = e.touches[0].clientY;
             const diffX = Math.abs(touchX - touchStartX);
@@ -6747,7 +6739,7 @@ function initIntervalPiano() {
                     hasPlayed = false;
                 }
             }
-        }, { passive: false });
+        }, { passive: true });
         
         key.addEventListener('touchend', (e) => {
             if (!isScrolling && hasPlayed) {
