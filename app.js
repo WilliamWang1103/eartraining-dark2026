@@ -5745,18 +5745,27 @@ function startRhythmPracticeMode() {
     rhythmAppState.currentMode = 'practice';
     rhythmAppState.testInProgress = false;
     
-    // 隐藏计分板和计时器
+    // 练习模式隐藏测试相关的元素
     const statsPanel = document.querySelector('#practice-test-content-rhythm .stats-panel');
     const timePanel = document.querySelector('#practice-test-content-rhythm .time-panel');
+    const leaderboardContent = document.getElementById('leaderboard-content-rhythm');
+    const testEndContent = document.getElementById('rhythm-test-end-content');
+    
     if (statsPanel) statsPanel.style.display = 'none';
     if (timePanel) timePanel.style.display = 'none';
+    if (leaderboardContent) leaderboardContent.style.display = 'none';
+    if (testEndContent) testEndContent.style.display = 'none';
     
-    // 显示结束测试按钮
+    // 显示练习控制元素
+    const practiceContent = document.getElementById('practice-test-content-rhythm');
+    if (practiceContent) practiceContent.style.display = 'block';
+    
+    // 隐藏结束测试按钮
     const endTestBtn = document.getElementById('end-test-btn-rhythm');
     if (endTestBtn) endTestBtn.style.display = 'none';
     
     updateRhythmButtonStates();
-    updateRhythmStatus('练习模式已开始，请点击“随机播放”开始练习');
+    updateRhythmStatus('练习模式已开始，请点击"随机播放"开始练习');
 }
 
 // 开始测试模式
