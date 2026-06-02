@@ -1,3 +1,832 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>音乐听觉综合训练系统 - 和弦听辨</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/abcjs@6.5.2/dist/abcjs-basic-min.js"></script>
+    <!-- VexFlow - 音乐记谱法渲染库 -->
+    <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+    <script>
+        (function () {
+            function loadLocal() {
+                if (typeof ABCJS === 'undefined') {
+                    var s = document.createElement('script');
+                    s.src = './lib/abcjs-basic-min.js';
+                    s.onload = function () { console.info('Loaded local abcjs fallback'); };
+                    s.onerror = function () { console.warn('abcjs CDN and local fallback both failed'); };
+                    document.head.appendChild(s);
+                }
+            }
+            window.addEventListener('load', function () { setTimeout(loadLocal, 1200); });
+        })();
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link rel="stylesheet" href="styles.css">
+
+</head>
+
+<body>
+    <div class="app-wrapper">
+    <!-- 首页 -->
+    <div id="home-page" class="page active">
+        <div class="container">
+            <div class="home-page">
+                <div class="home-header">
+                    <h1>🎵 音乐听觉综合训练系统</h1>
+                    <p class="welcome-message">欢迎使用内蒙古民族大学音乐学院学习陪伴程序</p>
+                </div>
+
+
+
+                <!-- 学生信息模块 -->
+                <div class="user-info-card">
+                    <h3>学生信息</h3>
+                    <div class="form-group">
+                        <label for="school">学校</label>
+                        <input type="text" id="school" class="form-input" placeholder="内蒙古民族大学音乐学院">
+                    </div>
+                    <div class="form-group">
+                        <label for="major-class">专业班级</label>
+                        <input type="text" id="major-class" class="form-input" placeholder="2025级音乐学1班">
+                    </div>
+                    <div class="form-group">
+                        <label for="name">姓名</label>
+                        <input type="text" id="name" class="form-input" placeholder="请输入姓名">
+                    </div>
+                    <div class="form-group">
+                        <label for="teacher">指导教师</label>
+                        <input type="text" id="teacher" class="form-input" placeholder="王向辉">
+                    </div>
+                    <button id="save-user" class="btn save">保存信息</button>
+                    <div id="save-status" class="save-status"></div>
+                </div>
+
+                <!-- 练习模式选择 -->
+                <div class="practice-mode-selector">
+                    <h3>选择练习模式</h3>
+                </div>
+                <!-- 练习模式卡片 -->
+                <div class="mode-cards">
+                    <div class="mode-row">
+                        <div class="mode-card active" data-mode="pitch">
+                            <div class="mode-icon"><i class="fas fa-headphones"></i></div>
+                            <div class="mode-title">单音听辨</div>
+                            <div class="mode-desc">练习单音听辨能力</div>
+                        </div>
+                        <div class="mode-card active" data-mode="interval">
+                            <div class="mode-icon"><i class="fas fa-chart-line"></i></div>
+                            <div class="mode-title">音程听辨</div>
+                            <div class="mode-desc">练习音程听辨</div>
+                        </div>
+                        <div class="mode-card active" data-mode="chord">
+                            <div class="mode-icon"><i class="fas fa-guitar"></i></div>
+                            <div class="mode-title">和弦听辨</div>
+                            <div class="mode-desc">练习和弦听辨</div>
+                        </div>
+                    </div>
+                    <div class="mode-row">
+                        <div class="mode-card active" data-mode="rhythm">
+                            <div class="mode-icon"><i class="fas fa-drum"></i></div>
+                            <div class="mode-title">节奏听辨</div>
+                            <div class="mode-desc">练习节奏感</div>
+                        </div>
+                        <div class="mode-card active" data-mode="melody">
+                            <div class="mode-icon"><i class="fas fa-music"></i></div>
+                            <div class="mode-title">旋律听辨</div>
+                            <div class="mode-desc">练习旋律识别</div>
+                        </div>
+                        <div class="mode-card active" data-mode="comprehensive-exam">
+                            <div class="mode-icon"><i class="fas fa-trophy"></i></div>
+                            <div class="mode-title">综合考试</div>
+                            <div class="mode-desc">模拟考试场景</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div> <!-- .home-page -->
+    </div> <!-- .container -->
+
+    <!-- 和弦练习页面 -->
+    <div id="chord-page" class="page">
+        <div class="container">
+            <div class="exercise-page">
+                <div class="exercise-header">
+                    <h2 class="exercise-title"><i class="fas fa-guitar"></i> 和弦听辨</h2>
+                    <button id="back-home-chord" class="back-btn" title="返回首页">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="window-controls">
+                        <button id="fullscreen-btn-chord" class="window-btn" title="全屏"><i
+                                class="fas fa-expand"></i></button>
+                        <button id="close-btn-chord" class="window-btn" title="关闭"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+
+                <div class="mode-tabs">
+                    <button id="practice-btn-chord" class="tab-btn active">练习模式</button>
+                    <button id="test-btn-chord" class="tab-btn secondary">测试模式</button>
+                    <button id="leaderboard-btn-chord" class="tab-btn exam">风云榜单</button>
+                    <button id="end-test-btn-chord" class="tab-btn warning" style="display:none;">结束测试</button>
+                </div>
+
+                <div class="function-tabs">
+                    <button id="pitch-identification-btn-chord" class="function-tab active">和弦音准听辨</button>
+                    <button id="quality-identification-btn-chord" class="function-tab">和弦性质听辨</button>
+                </div>
+
+                <div id="practice-test-content-chord">
+                    <!-- 计分板（测试模式显示） -->
+                    <div class="stats-panel" id="stats-panel-chord" style="display: none;">
+                        <div class="stat-item">
+                            <div class="stat-label">得分</div>
+                            <div class="stat-value" id="score-chord">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">正确</div>
+                            <div class="stat-value" id="correct-chord">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">错误</div>
+                            <div class="stat-value" id="wrong-chord">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">进度</div>
+                            <div class="stat-value" id="progress-chord">0题</div>
+                        </div>
+                    </div>
+
+                    <!-- 时间显示（测试模式显示） -->
+                    <div class="time-panel" id="time-panel-chord" style="display: none;">
+                        <div class="time-row">
+                            <div class="time-item">
+                                <div class="time-label">当前时间：</div>
+                                <div class="time-display" id="current-time-chord">--</div>
+                            </div>
+                            <div class="time-item">
+                                <div class="time-label">用时：</div>
+                                <div class="time-display" id="elapsed-time-chord">00:00.00</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="practice-instructions">
+                        <h4>📖 练习说明</h4>
+                        <ul>
+                            <li><strong>随机播放：</strong>根据所选调式调性随机出题，播放和弦音响</li>
+                            <li><strong>重复播放：</strong>重复播放最后一题的和弦音响</li>
+                            <li><strong>旋律播放：</strong>从低到高逐个播放和弦中的音符</li>
+                            <li><strong>提交答案：</strong>确认您在琴键上选择的音符或和弦性质</li>
+                            <li><strong>显示答案：</strong>查看正确答案及琴键位置</li>
+                            <li><strong>基础三和弦：</strong>大、小、增、减四种三和弦</li>
+                            <li><strong>常用七和弦：</strong>大小七、小小七、减小七、减减七和弦</li>
+                            <li><strong>其他七和弦：</strong>大大七、小大七、增大七</li>
+                        </ul>
+                    </div>
+
+                    <div class="right-controls">
+                        <div class="difficulty-selector compact">
+                            <label for="scale-difficulty-chord">调式调性</label>
+                            <select id="scale-difficulty-chord" title="调式难度">
+                                <!-- 调式难度选项将通过JS动态生成 -->
+                            </select>
+                        </div>
+
+                        <div class="difficulty-selector compact">
+                            <label for="difficulty-chord">级别</label>
+                            <select id="difficulty-chord" title="难度级别">
+                                <!-- 选项将通过JS动态生成 -->
+                            </select>
+                        </div>
+
+                        <div class="difficulty-selector compact">
+                            <label for="inversion-chord">转位</label>
+                            <select id="inversion-chord" title="和弦转位">
+                                <!-- 转位选项将通过JS动态生成 -->
+                            </select>
+                        </div>
+
+                        <button id="screenshot-btn-chord" class="reset-btn" style="margin-left:auto;">截屏</button>
+                    </div>
+
+                    <!-- 状态消息 -->
+                    <div id="status-chord" class="status-message">请选择模式开始练习</div>
+
+                    <!-- 测试结束区域（测试结束后显示） -->
+                    <div id="chord-test-end-content" style="display: none;">
+                        <div class="test-end-inline">
+                            <!-- 学生信息和总分（同一行） -->
+                            <div class="user-info-with-score">
+                                <div class="compact-user-info-inline">
+                                    <p><strong>学校：</strong><span id="end-school-chord"></span></p>
+                                    <p><strong>专业班级：</strong><span id="end-major-class-chord"></span></p>
+                                    <p><strong>姓名：</strong><span id="end-name-chord"></span> | <strong>指导教师：</strong><span id="end-teacher-chord"></span></p>
+                                    <p><strong>测试结束时间：</strong><span id="end-time-chord"></span></p>
+                                </div>
+                                <div class="score-badge-inline">
+                                    <div class="score-value-inline" id="end-total-score-chord">0</div>
+                                    <div class="score-label-inline">总分</div>
+                                </div>
+                            </div>
+
+                            <!-- 测试结果分析 -->
+                            <div class="test-analysis-panel-inline">
+                                <h3>测试结果分析</h3>
+                                <div id="analysis-content-chord"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 风云榜单 -->
+                    <div id="leaderboard-content-chord" style="display: none;">
+                        <div class="leaderboard-panel">
+                            <div class="leaderboard-config-info" id="leaderboard-config-chord" style="text-align: center; padding: 10px; color: rgba(255, 255, 255, 0.7); font-size: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 10px;">
+                                <!-- 配置信息将动态显示 -->
+                            </div>
+                            <div class="leaderboard-table">
+                                <div class="leaderboard-header">
+                                    <div class="lb-col lb-rank">排名</div>
+                                    <div class="lb-col lb-name">姓名</div>
+                                    <div class="lb-col lb-score">得分</div>
+                                    <div class="lb-col lb-time">用时</div>
+                                </div>
+                                <div id="leaderboard-list-chord" class="leaderboard-list">
+                                    <!-- 榜单数据将动态生成 -->
+                                </div>
+                            </div>
+                            <div class="leaderboard-footer">
+                                <button id="clear-leaderboard-btn-chord" class="btn warning">清空榜单</button>
+                                <button id="back-from-leaderboard-btn-chord" class="btn">返回</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 和弦按钮容器 -->
+                    <div id="chord-buttons-container" class="chord-buttons" style="display:none;">
+                        <div id="chord-layer" class="chord-layer active"></div>
+                    </div>
+
+                    <!-- 钢琴键盘 -->
+                    <div class="piano-container" id="piano-container-chord">
+                        <div class="midi-status" id="midi-status-chord">
+                            <i class="fas fa-music"></i> MIDI: <span id="midi-status-text-chord">点击页面任意位置以连接 MIDI 设备</span>
+                            <button id="connect-midi-btn-chord" class="btn midi-connect-btn" style="margin-left: auto; font-size: 12px; padding: 4px 12px;">
+                                <i class="fas fa-plug"></i> 连接 MIDI
+                            </button>
+                        </div>
+                        <div id="piano-chord" class="piano">
+                            <!-- 白键和黑键由 JS 动态生成 -->
+                        </div>
+                    </div>
+
+                    <div class="play-controls" id="play-controls-chord">
+                        <button id="random-play-btn-chord" class="btn"><i class="fas fa-random"></i> 随机播放</button>
+                        <button id="play-btn-chord" class="btn secondary"><i class="fas fa-play"></i> 重复播放</button>
+                        <button id="play-melodic-btn-chord" class="btn" title="旋律播放"><i class="fas fa-music"></i>
+                            旋律播放</button>
+                        <button id="submit-btn-chord" class="btn"><i class="fas fa-check"></i> 提交答案</button>
+                        <button id="show-answer-btn-chord" class="btn answer-btn">显示答案</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 和弦听辨测试结束页 -->
+    <div id="chord-test-end-page" class="page">
+        <div class="container">
+            <div class="test-end-page">
+                <div class="test-end-header">
+                    <h2>🎉 和弦听辨测试完成！</h2>
+                    <p>您已完成和弦听辨测试，以下是您的成绩报告</p>
+                </div>
+
+                <div class="end-summary">
+                    <div class="item"><strong>调式：</strong> <span id="end-scale-chord">—</span></div>
+                    <div class="item"><strong>级别：</strong> <span id="end-difficulty-chord">—</span></div>
+                </div>
+
+                <!-- 学生信息卡片 - 在测试结果分析区域上方 -->
+                <div class="compact-user-info">
+                    <p><strong>学校：</strong><span id="end-school-chord">内蒙古民族大学音乐学院</span></p>
+                    <p><strong>专业班级：</strong><span id="end-major-class-chord">2025级音乐学1班</span></p>
+                    <p><strong>姓名：</strong><span id="end-name-chord">张三</span></p>
+                    <p><strong>指导教师：</strong><span id="end-teacher-chord">王向辉</span></p>
+                </div>
+
+                <div class="score-summary">
+                    <div class="score-card total-score">
+                        <div class="score-value" id="end-total-score-chord">0</div>
+                        <div class="score-label">总分</div>
+                    </div>
+                    <div class="score-card pitch-score">
+                        <div class="score-value" id="end-pitch-score-chord">0</div>
+                        <div class="score-label">音准得分</div>
+                    </div>
+                    <div class="score-card quality-score">
+                        <div class="score-value" id="end-quality-score-chord">0</div>
+                        <div class="score-label">性质得分</div>
+                    </div>
+                </div>
+
+                <div class="test-analysis-panel">
+                    <h3>测试结果分析</h3>
+                    <div class="analysis-details">
+                        <div id="analysis-content-chord">
+                            <!-- 分析内容将通过JS动态生成 -->
+                        </div>
+                    </div>
+                    <div class="wrong-answers-list" id="wrong-answers-list-chord" style="display: none;">
+                        <h4>错误答案详情：</h4>
+                        <div id="wrong-answers-content-chord">
+                            <!-- 错误答案详情将通过JS动态生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="end-page-buttons">
+                    <button id="view-details-btn-chord" class="btn primary">查看详细报告</button>
+                    <button id="restart-test-btn-chord" class="btn success">重新开始测试</button>
+                    <button id="back-to-home-btn-chord" class="btn">返回首页</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 音程听辨页面（与和弦布局一致） -->
+    <div id="interval-page" class="page">
+        <div class="container">
+            <div class="exercise-page">
+                <div class="exercise-header">
+                    <h2 class="exercise-title"><i class="fas fa-chart-line"></i> 音程听辨</h2>
+                    <button id="back-home-interval" class="back-btn" title="返回首页">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="window-controls">
+                        <button id="fullscreen-btn-interval" class="window-btn" title="全屏">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                        <button id="close-btn-interval" class="window-btn" title="关闭">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 模式切换标签 -->
+                <div class="mode-tabs">
+                    <button id="practice-btn-interval" class="tab-btn active">练习模式</button>
+                    <button id="test-btn-interval" class="tab-btn secondary">测试模式</button>
+                    <button id="leaderboard-btn-interval" class="tab-btn exam">风云榜单</button>
+                    <button id="end-test-btn-interval" class="tab-btn warning" style="display: none;">结束测试</button>
+                </div>
+
+                <!-- 功能标签 -->
+                <div class="function-tabs">
+                    <button id="pitch-identification-btn-interval" class="function-tab active">音程音准听辨</button>
+                    <button id="quality-identification-btn-interval" class="function-tab">音程性质听辨</button>
+                </div>
+
+                <!-- 练习和测试模式的内容 -->
+                <div id="practice-test-content-interval">
+                    <!-- 计分板（测试模式显示） -->
+                    <div class="stats-panel" id="stats-panel-interval" style="display: none;">
+                        <div class="stat-item">
+                            <div class="stat-label">得分</div>
+                            <div class="stat-value" id="score-interval">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">正确</div>
+                            <div class="stat-value" id="correct-interval">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">错误</div>
+                            <div class="stat-value" id="wrong-interval">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">进度</div>
+                            <div class="stat-value" id="progress-interval">0题</div>
+                        </div>
+                    </div>
+
+                    <!-- 时间显示（测试模式显示） -->
+                    <div class="time-panel" id="time-panel-interval" style="display: none;">
+                        <div class="time-row">
+                            <div class="time-item">
+                                <div class="time-label">当前时间：</div>
+                                <div class="time-display" id="current-time-interval">--</div>
+                            </div>
+                            <div class="time-item">
+                                <div class="time-label">用时：</div>
+                                <div class="time-display" id="elapsed-time-interval">00:00.00</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="practice-instructions">
+                        <h4>📖 练习说明</h4>
+                        <ul>
+                            <li><strong>随机播放：</strong>根据所选调式调性随机出题，播放两个音符组成的音程</li>
+                            <li><strong>重复播放：</strong>重复播放最后一题的音响</li>
+                            <li><strong>旋律播放：</strong>从低到高逐个播放音程中的音符</li>
+                            <li><strong>提交答案：</strong>确认您在琴键上选择的两个音或音程性质</li>
+                            <li><strong>显示答案：</strong>查看正确答案及琴键位置</li>
+                        </ul>
+                    </div>
+
+                    <div class="right-controls">
+                        <div class="difficulty-selector compact">
+                            <label for="scale-difficulty-interval">调式调性</label>
+                            <select id="scale-difficulty-interval" title="调式难度">
+                                <!-- 调式难度选项将通过JS动态生成 -->
+                            </select>
+                        </div>
+
+                        <div class="difficulty-selector compact">
+                            <label for="difficulty-interval">级别</label>
+                            <select id="difficulty-interval" title="难度级别">
+                                <!-- 选项将通过JS动态生成 -->
+                            </select>
+                        </div>
+
+                        <button id="screenshot-btn-interval" class="reset-btn" style="margin-left:auto;">截屏</button>
+                    </div>
+
+                    <!-- 状态消息 -->
+                    <div id="status-interval" class="status-message">
+                        请选择模式开始练习
+                    </div>
+
+                    <!-- 测试结束区域（测试结束后显示） -->
+                    <div id="interval-test-end-content" style="display: none;">
+                        <div class="test-end-inline">
+                            <!-- 学生信息和总分（同一行） -->
+                            <div class="user-info-with-score">
+                                <div class="compact-user-info-inline">
+                                    <p><strong>学校：</strong><span id="end-school-interval"></span></p>
+                                    <p><strong>专业班级：</strong><span id="end-major-class-interval"></span></p>
+                                    <p><strong>姓名：</strong><span id="end-name-interval"></span> | <strong>指导教师：</strong><span id="end-teacher-interval"></span></p>
+                                    <p><strong>测试结束时间：</strong><span id="end-time-interval"></span></p>
+                                </div>
+                                <div class="score-badge-inline">
+                                    <div class="score-value-inline" id="end-total-score-interval">0</div>
+                                    <div class="score-label-inline">总分</div>
+                                </div>
+                            </div>
+
+                            <!-- 测试结果分析 -->
+                            <div class="test-analysis-panel-inline">
+                                <h3>测试结果分析</h3>
+                                <div id="analysis-content-interval"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 风云榜单 -->
+                    <div id="leaderboard-content-interval" style="display: none;">
+                        <div class="leaderboard-panel">
+                            <div class="leaderboard-config-info" id="leaderboard-config-interval" style="text-align: center; padding: 10px; color: rgba(255, 255, 255, 0.7); font-size: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 10px;">
+                                <!-- 配置信息将动态显示 -->
+                            </div>
+                            <div class="leaderboard-table">
+                                <div class="leaderboard-header">
+                                    <div class="lb-col lb-rank">排名</div>
+                                    <div class="lb-col lb-name">姓名</div>
+                                    <div class="lb-col lb-score">得分</div>
+                                    <div class="lb-col lb-time">用时</div>
+                                </div>
+                                <div id="leaderboard-list-interval" class="leaderboard-list">
+                                    <!-- 榜单数据将动态生成 -->
+                                </div>
+                            </div>
+                            <div class="leaderboard-footer">
+                                <button id="clear-leaderboard-btn-interval" class="btn warning">清空榜单</button>
+                                <button id="back-from-leaderboard-btn-interval" class="btn">返回</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 音程按钮容器 -->
+                    <div id="interval-buttons-container" class="chord-buttons" style="display: none;">
+                        <div id="interval-layer" class="chord-layer active">
+                            <!-- 音程按钮由JS生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 测试结果 -->
+                    <div id="test-result-interval" class="test-result">
+                    </div>
+
+                    <!-- 测试分析结果 -->
+                    <div id="test-analysis-interval" class="test-analysis">
+                    </div>
+
+                    <!-- 钢琴键盘 -->
+                    <div class="piano-container" id="piano-container-interval">
+                        <div class="midi-status" id="midi-status-interval">
+                            <i class="fas fa-music"></i> MIDI: <span id="midi-status-text-interval">点击页面任意位置以连接 MIDI 设备</span>
+                            <button id="connect-midi-btn-interval" class="btn midi-connect-btn" style="margin-left: auto; font-size: 12px; padding: 4px 12px;">
+                                <i class="fas fa-plug"></i> 连接 MIDI
+                            </button>
+                        </div>
+                        <div id="piano-interval" class="piano">
+                            <!-- 白键和黑键由 JS 动态生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 底部控制按钮 -->
+                    <div class="play-controls" id="play-controls-interval">
+                        <button id="random-play-btn-interval" class="btn">
+                            <i class="fas fa-random"></i> 随机播放
+                        </button>
+                        <button id="play-btn-interval" class="btn secondary">
+                            <i class="fas fa-play"></i> 重复播放
+                        </button>
+                        <button id="play-melodic-btn-interval" class="btn" title="旋律播放">
+                            <i class="fas fa-music"></i> 旋律播放
+                        </button>
+                        <button id="submit-btn-interval" class="btn">
+                            <i class="fas fa-check"></i> 提交答案
+                        </button>
+                        <button id="show-answer-btn-interval" class="btn answer-btn">显示答案</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 音程听辨测试结束页 -->
+    <div id="interval-test-end-page" class="page">
+        <div class="container">
+            <div class="test-end-page">
+                <div class="test-end-header">
+                    <h2>🎉 音程听辨测试完成！</h2>
+                    <p>您已完成音程听辨测试，以下是您的成绩报告</p>
+                </div>
+
+                <div class="compact-user-info">
+                    <p><strong>学校：</strong><span id="end-school-interval"></span></p>
+                    <p><strong>专业班级：</strong><span id="end-major-class-interval"></span></p>
+                    <p><strong>姓名：</strong><span id="end-name-interval"></span></p>
+                    <p><strong>指导教师：</strong><span id="end-teacher-interval"></span></p>
+                    <p><strong>测试结束时间：</strong><span id="end-time-interval"></span></p>
+                </div>
+
+                <div class="score-summary">
+                    <div class="score-card total-score">
+                        <div class="score-value" id="end-total-score-interval">0</div>
+                        <div class="score-label">总分</div>
+                    </div>
+                </div>
+
+                <div class="test-analysis-panel">
+                    <h3>测试结果分析</h3>
+                    <div class="analysis-details">
+                        <div id="analysis-content-chord">
+                            <!-- 分析内容将通过JS动态生成 -->
+                        </div>
+                    </div>
+                    <div class="wrong-answers-list" id="wrong-answers-list-chord" style="display: none;">
+                        <h4>错误答案详情：</h4>
+                        <div id="wrong-answers-content-chord">
+                            <!-- 错误答案详情将通过JS动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 单音听辨页面（与和弦/音程布局一致） -->
+    <div id="single-page" class="page">
+        <div class="container">
+            <div class="exercise-page">
+                <div class="exercise-header">
+                    <h2 class="exercise-title"><i class="fas fa-headphones"></i> 单音听辨</h2>
+                    <button id="back-home-single" class="back-btn" title="返回首页">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="window-controls">
+                        <button id="fullscreen-btn-single" class="window-btn" title="全屏">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                        <button id="close-btn-single" class="window-btn" title="关闭">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mode-tabs">
+                    <button id="practice-btn-single" class="tab-btn active">练习模式</button>
+                    <button id="test-btn-single" class="tab-btn secondary">测试模式</button>
+                    <button id="leaderboard-btn-single" class="tab-btn exam">风云榜单</button>
+                    <button id="end-test-btn-single" class="tab-btn warning" style="display: none;">结束测试</button>
+                </div>
+
+                <div class="function-tabs">
+                    <button id="single-voice-btn" class="function-tab active">单声部音高</button>
+                    <button id="two-voice-btn" class="function-tab">双声部音高</button>
+                    <button id="three-voice-btn" class="function-tab">三声部音高</button>
+                </div>
+
+                <div id="practice-test-content-single">
+                    <!-- 计分板（测试模式显示） -->
+                    <div class="stats-panel" id="stats-panel-single" style="display: none;">
+                        <div class="stat-item">
+                            <div class="stat-label">得分</div>
+                            <div class="stat-value" id="score-single">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">正确</div>
+                            <div class="stat-value" id="correct-single">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">错误</div>
+                            <div class="stat-value" id="wrong-single">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">进度</div>
+                            <div class="stat-value" id="progress-single">0题</div>
+                        </div>
+                    </div>
+
+                    <!-- 时间显示（测试模式显示） -->
+                    <div class="time-panel" id="time-panel-single" style="display: none;">
+                        <div class="time-row">
+                            <div class="time-item">
+                                <div class="time-label">当前时间：</div>
+                                <div class="time-display" id="current-time-single">--</div>
+                            </div>
+                            <div class="time-item">
+                                <div class="time-label">用时：</div>
+                                <div class="time-display" id="elapsed-time-single">00:00.00</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="practice-instructions">
+                        <h4>📖 练习说明</h4>
+                        <ul>
+                            <li><strong>随机播放：</strong>根据所选调式和声部数量随机出题</li>
+                            <li><strong>重复播放：</strong>重复播放最后一题的音响</li>
+                            <li><strong>旋律播放：</strong>双/三声部时，从低到高逐音播放</li>
+                            <li><strong>提交答案：</strong>确认您在琴键上选择的音</li>
+                            <li><strong>显示答案：</strong>查看正确答案及琴键位置</li>
+                        </ul>
+                    </div>
+
+                    <div class="right-controls">
+                            <div class="difficulty-selector compact">
+                                <label for="scale-difficulty-single">调式调性</label>
+                                <select id="scale-difficulty-single" title="调式难度">
+                                </select>
+                            </div>
+
+                            <div class="difficulty-selector compact">
+                                <label for="difficulty-single">级别</label>
+                                <select id="difficulty-single" title="难度级别">
+                                </select>
+                            </div>
+
+                            <button id="screenshot-btn-single" class="reset-btn" style="margin-left:auto;">截屏</button>
+                        </div>
+                    </div>
+
+                    <!-- 状态消息 -->
+                    <div id="status-single" class="status-message">
+                        请选择模式开始练习
+                    </div>
+
+                    <!-- 测试结束区域（测试结束后显示） -->
+                    <div id="single-test-end-content" style="display: none;">
+                        <div class="test-end-inline">
+                            <!-- 学生信息和总分（同一行） -->
+                            <div class="user-info-with-score">
+                                <div class="compact-user-info-inline">
+                                    <p><strong>学校：</strong><span id="end-school-single"></span></p>
+                                    <p><strong>专业班级：</strong><span id="end-major-class-single"></span></p>
+                                    <p><strong>姓名：</strong><span id="end-name-single"></span> | <strong>指导教师：</strong><span id="end-teacher-single"></span></p>
+                                    <p><strong>测试结束时间：</strong><span id="end-time-single"></span></p>
+                                </div>
+                                <div class="score-badge-inline">
+                                    <div class="score-value-inline" id="end-total-score-single">0</div>
+                                    <div class="score-label-inline">总分</div>
+                                </div>
+                            </div>
+
+                            <!-- 测试结果分析 -->
+                            <div class="test-analysis-panel-inline">
+                                <h3>测试结果分析</h3>
+                                <div id="analysis-content-single"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 风云榜单（点击风云榜单按钮显示） -->
+                    <div id="leaderboard-content-single" style="display: none;">
+                        <div class="leaderboard-panel">
+                            <div class="leaderboard-table">
+                                <div class="leaderboard-header">
+                                    <div class="lb-col lb-rank">排名</div>
+                                    <div class="lb-col lb-name">姓名</div>
+                                    <div class="lb-col lb-score">得分</div>
+                                    <div class="lb-col lb-time">用时</div>
+                                </div>
+                                <div id="leaderboard-list-single" class="leaderboard-list">
+                                    <!-- 榜单数据将动态生成 -->
+                                </div>
+                            </div>
+                            <div class="leaderboard-footer">
+                                <button id="clear-leaderboard-btn-single" class="btn warning">清空榜单</button>
+                                <button id="back-from-leaderboard-btn-single" class="btn">返回</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="piano-container" id="piano-container-single">
+                        <div class="midi-status" id="midi-status-single">
+                            <i class="fas fa-music"></i> MIDI: <span id="midi-status-text-single">点击页面任意位置以连接 MIDI 设备</span>
+                            <button id="connect-midi-btn-single" class="btn midi-connect-btn" style="margin-left: auto; font-size: 12px; padding: 4px 12px;">
+                                <i class="fas fa-plug"></i> 连接 MIDI
+                            </button>
+                        </div>
+                        <div id="piano-single" class="piano"></div>
+                    </div>
+
+                    <div class="play-controls" id="play-controls-single">
+                        <button id="random-play-btn-single" class="btn"><i class="fas fa-random"></i> 随机播放</button>
+                        <button id="play-btn-single" class="btn secondary"><i class="fas fa-play"></i> 重复播放</button>
+                        <button id="play-melodic-btn-single" class="btn" title="旋律播放"><i class="fas fa-music"></i>
+                            旋律播放</button>
+                        <button id="submit-btn-single" class="btn"><i class="fas fa-check"></i> 提交答案</button>
+                        <button id="show-answer-btn-single" class="btn answer-btn">显示答案</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 单音听辨测试结束页 -->
+    <div id="single-test-end-page" class="page">
+        <div class="container">
+            <div class="test-end-page">
+                <div class="test-end-header">
+                    <h2>🎉 单音听辨测试完成！</h2>
+                    <p>您已完成单音听辨测试，以下是您的成绩报告</p>
+                </div>
+
+                <div class="compact-user-info">
+                    <p><strong>学校：</strong><span id="end-school-single"></span></p>
+                    <p><strong>专业班级：</strong><span id="end-major-class-single"></span></p>
+                    <p><strong>姓名：</strong><span id="end-name-single"></span></p>
+                    <p><strong>指导教师：</strong><span id="end-teacher-single"></span></p>
+                    <p><strong>测试结束时间：</strong><span id="end-time-single"></span></p>
+                </div>
+
+                <div class="end-summary">
+                    <div class="item"><strong>调式：</strong> <span id="end-scale-single">—</span></div>
+                    <div class="item"><strong>级别：</strong> <span id="end-difficulty-single">—</span></div>
+                </div>
+
+                <div class="score-summary">
+                    <div class="score-card total-score">
+                        <div class="score-value" id="end-total-score-single">0</div>
+                        <div class="score-label">总分</div>
+                    </div>
+                </div>
+
+                <div class="test-results-detail">
+                    <p><strong>正确题数：</strong><span id="end-correct-single">0</span> 题</p>
+                    <p><strong>错误题数：</strong><span id="end-wrong-single">0</span> 题</p>
+                    <p><strong>总题数：</strong><span id="end-total-single">0</span> 题</p>
+                </div>
+
+                <div class="test-comment">
+                    <h3>评语</h3>
+                    <p id="end-comment-single"></p>
+                </div>
+
+                <div class="test-analysis-panel">
+                    <h3>测试结果分析</h3>
+                    <div class="analysis-details">
+                        <div id="analysis-content-single"></div>
+                    </div>
+                </div>
+
+                <div class="end-page-buttons">
+                    <button id="view-details-btn-single" class="btn primary">查看详细报告</button>
+                    <button id="restart-test-btn-single" class="btn success">重新开始测试</button>
+                    <button id="back-to-home-btn-single" class="btn">返回首页</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 节奏听辨页面（新添加） -->
     <div id="rhythm-page" class="page">
         <div class="container">
             <div class="exercise-page">
@@ -24,6 +853,18 @@
                     <button id="end-test-btn-rhythm" class="tab-btn warning" style="display: none;">结束测试</button>
                 </div>
 
+                <!-- 练习说明 -->
+                <div class="practice-instructions" id="practice-instructions-rhythm">
+                    <h4>📖 练习说明</h4>
+                    <ul>
+                        <li><strong>随机播放：</strong>根据所选拍型和数量随机出题，播放节奏音响</li>
+                        <li><strong>选择答案：</strong>点击下方的节奏型按钮，答案会自动填入上方的答案槽位</li>
+                        <li><strong>提交验证：</strong>填写完所有答案后，点击“提交答案”验证正确性</li>
+                        <li><strong>重播题目：</strong>如需再次听题，点击“重复播放”按钮</li>
+                        <li><strong>手写记录：</strong>可以使用手写功能记录您的思考过程</li>
+                    </ul>
+                </div>
+
                 <!-- 功能标签：节奏型听辨 / 节拍听辨 -->
                 <div class="function-tabs">
                     <button id="rhythm-identify-btn" class="function-tab active">节奏型听辨</button>
@@ -31,62 +872,50 @@
                 </div>
 
                 <div id="practice-test-content-rhythm">
-                    <!-- 计分板（测试模式显示） -->
-                    <div class="stats-panel" id="stats-panel-rhythm" style="display: none;">
-                        <div class="stat-item">
-                            <div class="stat-value" id="score-rhythm">0</div>
-                            <div class="stat-label">得分</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" id="correct-rhythm">0</div>
-                            <div class="stat-label">正确</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" id="wrong-rhythm">0</div>
-                            <div class="stat-label">错误</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" id="progress-rhythm">0/20</div>
-                            <div class="stat-label">进度</div>
-                        </div>
-                    </div>
-
-                    <!-- 时间显示（测试模式显示） -->
-                    <div class="time-panel" id="time-panel-rhythm" style="display: none;">
-                        <div class="current-time">当前时间：</div>
-                        <div class="time-display" id="current-time-rhythm">--</div>
-                    </div>
-
-                    <!-- 练习说明 -->
-                    <div class="practice-instructions" id="practice-instructions-rhythm">
-                        <h4>📖 练习说明</h4>
-                        <ul>
-                            <li><strong>随机播放：</strong>根据所选拍型和数量随机出题，播放节奏音响</li>
-                            <li><strong>重复播放：</strong>重复播放最后一题的节奏音响</li>
-                            <li><strong>播放上屏节奏：</strong>播放您在答案区选择的节奏</li>
-                            <li><strong>提交答案：</strong>确认您选择的节奏型</li>
-                            <li><strong>显示答案：</strong>查看正确答案</li>
-                            <li><strong>1拍节奏型：</strong>四分、八分、十六分等基础节奏</li>
-                            <li><strong>2拍节奏型：</strong>二分、附点、切分等复合节奏</li>
-                        </ul>
-                    </div>
-
-                    <!-- 节拍器控制区 -->
-                    <div class="rhythm-metronome-section">
-                        <div class="metronome-control">
-                            <label for="rhythm-bpm">节拍器 (BPM)</label>
-                            <div class="metronome-slider">
-                                <input id="rhythm-bpm" type="range" min="40" max="200" value="66">
-                                <span id="bpm-display-rhythm">66</span>
+                    <div class="top-controls">
+                        <div class="stats-panel">
+                            <div class="stat-item">
+                                <div class="stat-value" id="score-rhythm">0</div>
+                                <div class="stat-label">得分</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="correct-rhythm">0</div>
+                                <div class="stat-label">正确</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="wrong-rhythm">0</div>
+                                <div class="stat-label">错误</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="progress-rhythm">0/20</div>
+                                <div class="stat-label">进度</div>
                             </div>
                         </div>
-                        <div class="metronome-actions">
-                            <button id="toggle-metronome-rhythm" class="btn">节拍器 开</button>
-                            <button id="reset-test-btn-rhythm" class="reset-btn">清零</button>
+                        <div class="time-panel">
+                            <div class="current-time">当前时间：</div>
+                            <div class="time-display" id="current-time-rhythm">--</div>
+                        </div>
+
+                        <div class="right-controls" style="flex:1;min-width:0;">
+                            <!-- 节拍器占据左侧，可拉长滑块；开关与清零在右侧靠边 -->
+                            <div style="display:flex;align-items:center;width:100%;gap:12px;flex-wrap:wrap;">
+                                <div style="display:flex;flex-direction:column;flex:1;min-width:0;">
+                                    <label for="rhythm-bpm" style="font-size:12px;margin-bottom:6px;">节拍器 (BPM)</label>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <input id="rhythm-bpm" type="range" min="40" max="200" value="66"
+                                            style="flex:1;">
+                                        <div id="bpm-display-rhythm" style="width:48px;text-align:center;">90</div>
+                                    </div>
+                                </div>
+
+                                <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+                                    <button id="toggle-metronome-rhythm" class="btn">节拍器 开</button>
+                                    <button id="reset-test-btn-rhythm" class="reset-btn">清零</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- 状态消息 -->
                     <div id="status-rhythm" class="status-message">请选择模式开始练习</div>
 
                     <!-- 参数选择：拍型与数量 -->
@@ -109,9 +938,15 @@
                         </div>
                     </div>
 
-                    <!-- 答案上屏区 -->
+                    <!-- 五线谱显示区域 -->
+                    <div id="rhythm-staff-container" style="margin:15px 0;padding:15px;background:#f9f9f9;border-radius:8px;display:none;max-width:100%;overflow-x:auto;">
+                        <h4 style="margin:0 0 10px 0;font-size:14px;color:#666;">🎼 节奏显示</h4>
+                        <div id="rhythm-staff-display" style="min-height:150px;"></div>
+                    </div>
+
+                    <!-- 答案上屏区：会根据数量动态创建可编辑的槽位 -->
                     <div id="rhythm-answer-area" class="rhythm-answer-area">
-                        <!-- 槽位由JS动态生成 -->
+                        <!-- 槽位由JS生成 -->
                     </div>
 
                     <!-- 节奏型选项卡 -->
@@ -127,12 +962,12 @@
                                 <button class="rhythm-btn" data-rhythm="四分">四分</button>
                                 <button class="rhythm-btn" data-rhythm="2个八分">2个八分</button>
                                 <button class="rhythm-btn" data-rhythm="4个十六分">4个十六分</button>
-                                <button class="rhythm-btn" data-rhythm="后十六">后十六</button>
-                                <button class="rhythm-btn" data-rhythm="小切分">小切分</button>
-                                <button class="rhythm-btn" data-rhythm="前十六">前十六</button>
-                                <button class="rhythm-btn" data-rhythm="小附点">小附点</button>
-                                <button class="rhythm-btn" data-rhythm="小后附点">小后附点</button>
-                                <button class="rhythm-btn" data-rhythm="三连音">三连音</button>
+                                <button class="rhythm-btn" data-rhythm="前八后十六">前八后十六</button>
+                                <button class="rhythm-btn" data-rhythm="前十六后八">前十六后八</button>
+                                <button class="rhythm-btn" data-rhythm="八分休止+八分">八分休止+八分</button>
+                                <button class="rhythm-btn" data-rhythm="八分+八分休止">八分+八分休止</button>
+                                <button class="rhythm-btn" data-rhythm="附点八分+十六">附点八分+十六</button>
+                                <button class="rhythm-btn" data-rhythm="十六+附点八分">十六+附点八分</button>
                             </div>
                         </div>
                         
@@ -142,63 +977,115 @@
                                 <button class="rhythm-btn" data-rhythm="二分">二分</button>
                                 <button class="rhythm-btn" data-rhythm="八分大切分">八分大切分</button>
                                 <button class="rhythm-btn" data-rhythm="十六分大切分">十六分大切分</button>
-                                <button class="rhythm-btn" data-rhythm="前十六大切分">前十六大切分</button>
-                                <button class="rhythm-btn" data-rhythm="后十六大切分">后十六大切分</button>
-                                <button class="rhythm-btn" data-rhythm="八分大附点">八分大附点</button>
-                                <button class="rhythm-btn" data-rhythm="八分大后附点">八分大后附点</button>
-                                <button class="rhythm-btn" data-rhythm="十六分大附点">十六分大附点</button>
-                                <button class="rhythm-btn" data-rhythm="十六分大后附点">十六分大后附点</button>
+                                <button class="rhythm-btn" data-rhythm="前附点四分+八分">前附点四分+八分</button>
+                                <button class="rhythm-btn" data-rhythm="八分+后附点四分">八分+后附点四分</button>
+                                <button class="rhythm-btn" data-rhythm="四分+2个八分">四分+2个八分</button>
+                                <button class="rhythm-btn" data-rhythm="2个八分+四分">2个八分+四分</button>
+                                <button class="rhythm-btn" data-rhythm="4个八分">4个八分</button>
+                                <button class="rhythm-btn" data-rhythm="8个十六分">8个十六分</button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 手写区域 -->
-                    <div class="rhythm-handwriting-section">
-                        <div class="handwriting-controls">
-                            <button id="handwrite-mode-btn" class="btn">写（已启用）</button>
+                    <!-- 触屏速记区域（手写） -->
+                    <div id="rhythm-handwriting" style="margin:8px 0;display:flex;flex-direction:column;gap:6px;display:none;">
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <button id="handwrite-mode-btn" class="btn">写</button>
                             <button id="hand-erase-btn" class="btn">擦</button>
-                            <span class="handwriting-hint">（触屏或鼠标绘图，擦会清空画布）</span>
+                            <div style="font-size:12px;color:#666;">（触屏或鼠标绘图，擦会清空画布）</div>
                         </div>
-                        <canvas id="rhythm-canvas" width="800" height="120"></canvas>
+                        <canvas id="rhythm-canvas" width="800" height="120"
+                            style="border:1px solid #ddd;border-radius:6px;touch-action: none;background:#fff;"></canvas>
                     </div>
 
-                    <!-- 测试结果显示区 -->
+                    <!-- 节奏选项按钮容器（供预览与直接选择节奏型） -->
+                    <div id="rhythm-buttons-container" class="chord-buttons" style="max-width:100%;overflow-x:auto;">
+                        <div id="rhythm-layer" class="chord-layer active">
+                            <!-- 节奏按钮由JS生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 已移除弹窗式选择面板，使用页面内候选行（#rhythm-candidates-row）替代 -->
+
                     <div id="test-result-rhythm" class="test-result"></div>
                     <div id="test-analysis-rhythm" class="test-analysis"></div>
 
-                    <!-- 底部控制按钮 -->
+                    <!-- 底部控制按钮（与其他页面保持一致） -->
                     <div class="play-controls" id="play-controls-rhythm">
                         <button id="random-play-btn-rhythm" class="btn"><i class="fas fa-random"></i> 随机播放</button>
                         <button id="play-btn-rhythm" class="btn secondary"><i class="fas fa-play"></i> 重复播放</button>
-                        <button id="play-melodic-btn-rhythm" class="btn" title="播放您上屏的节奏"><i class="fas fa-music"></i> 播放上屏节奏</button>
+                        <button id="play-melodic-btn-rhythm" class="btn" title="播放您上屏的节奏"><i class="fas fa-music"></i>
+                            播放上屏节奏</button>
                         <button id="submit-btn-rhythm" class="btn"><i class="fas fa-check"></i> 提交答案</button>
                         <button id="show-answer-btn-rhythm" class="btn answer-btn">显示答案</button>
                     </div>
                 </div>
 
-                <!-- 风云榜单 -->
+                <!-- 风云榜单区域 -->
                 <div id="leaderboard-content-rhythm" style="display: none;">
-                    <div class="leaderboard-panel">
-                        <div class="leaderboard-config-info" id="leaderboard-config-rhythm" style="text-align: center; padding: 10px; color: rgba(255, 255, 255, 0.7); font-size: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 10px;">
-                            <!-- 配置信息将动态显示 -->
+                    <div class="leaderboard-section">
+                        <h3 style="margin-bottom: 15px;">🏆 风云榜单</h3>
+                        <div id="leaderboard-config-rhythm" class="leaderboard-config" style="margin-bottom: 15px;padding: 10px;background: rgba(255,255,255,0.05);border-radius: 8px;">
+                            <!-- 当前配置信息 -->
                         </div>
-                        <div class="leaderboard-table">
-                            <div class="leaderboard-header">
-                                <div class="lb-col lb-rank">排名</div>
-                                <div class="lb-col lb-name">姓名</div>
-                                <div class="lb-col lb-score">得分</div>
-                                <div class="lb-col lb-time">用时</div>
-                            </div>
-                            <div id="leaderboard-list-rhythm" class="leaderboard-list">
-                                <!-- 榜单数据将动态生成 -->
-                            </div>
+                        <div id="leaderboard-list-rhythm" class="leaderboard-list">
+                            <!-- 榜单数据由JS加载 -->
                         </div>
-                        <div class="leaderboard-footer">
-                            <button id="clear-leaderboard-btn-rhythm" class="btn warning">清空榜单</button>
-                            <button id="back-from-leaderboard-btn-rhythm" class="btn">返回</button>
-                        </div>
+                        <button id="back-from-leaderboard-btn-rhythm" class="btn" style="margin-top: 15px;width: 100%;">
+                            <i class="fas fa-arrow-left"></i> 返回练习
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- 节奏听辨测试结束页 -->
+    <div id="rhythm-test-end-page" class="page">
+        <div class="container">
+            <div class="test-end-page">
+                <div class="test-end-header">
+                    <h2>🎉 节奏听辨测试完成！</h2>
+                    <p>您已完成节奏听辨测试，以下是您的成绩报告</p>
+                </div>
+
+                <div class="compact-user-info">
+                    <p><strong>学校：</strong><span id="end-school-rhythm"></span></p>
+                    <p><strong>专业班级：</strong><span id="end-major-class-rhythm"></span></p>
+                    <p><strong>姓名：</strong><span id="end-name-rhythm"></span></p>
+                    <p><strong>指导教师：</strong><span id="end-teacher-rhythm"></span></p>
+                </div>
+
+                <div class="end-summary">
+                    <div class="item"><strong>调式：</strong> <span id="end-scale-rhythm">—</span></div>
+                    <div class="item"><strong>级别：</strong> <span id="end-difficulty-rhythm">—</span></div>
+                </div>
+
+                <div class="score-summary">
+                    <div class="score-card total-score">
+                        <div class="score-value" id="end-total-score-rhythm">0</div>
+                        <div class="score-label">总分</div>
+                    </div>
+                </div>
+
+                <div class="test-analysis-panel">
+                    <h3>测试结果分析</h3>
+                    <div class="analysis-details">
+                        <div id="analysis-content-rhythm"></div>
+                    </div>
+                </div>
+
+                <div class="end-page-buttons">
+                    <button id="view-details-btn-rhythm" class="btn primary">查看详细报告</button>
+                    <button id="restart-test-btn-rhythm" class="btn success">重新开始测试</button>
+                    <button id="back-to-home-btn-rhythm" class="btn">返回首页</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 所有 JavaScript 逻辑已移至 app.js -->
+    <script src="app.js?v=20260601"></script>
+</body>
+
+</html>

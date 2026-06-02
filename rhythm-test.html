@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>节奏听辨练习 - 新版测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .exercise-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .exercise-title {
+            font-size: 24px;
+            color: #ffd966;
+        }
+        
+        .mode-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .tab-btn.active {
+            background: #ffd966;
+            color: #1a1a2e;
+            font-weight: bold;
+        }
+        
+        .function-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .function-tab {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .function-tab.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: #fff;
+        }
+        
+        .stats-panel {
+            display: flex;
+            justify-content: space-around;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            flex: 1;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffd966;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 5px;
+        }
+        
+        .practice-instructions {
+            background: rgba(255, 217, 102, 0.1);
+            border: 1px solid rgba(255, 217, 102, 0.3);
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+        }
+        
+        .practice-instructions h4 {
+            color: #ffd966;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .practice-instructions ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .practice-instructions li {
+            padding: 5px 0;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+        }
+        
+        .metronome-section {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .metronome-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .metronome-control label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            white-space: nowrap;
+        }
+        
+        .metronome-slider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+        
+        .metronome-slider input[type="range"] {
+            flex: 1;
+            height: 6px;
+        }
+        
+        .metronome-slider span {
+            min-width: 40px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffd966;
+        }
+        
+        .metronome-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #ffd966;
+            color: #1a1a2e;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #ffe082;
+            transform: translateY(-2px);
+        }
+        
+        .reset-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #ff6b6b;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .status-message {
+            padding: 15px;
+            background: rgba(255, 217, 102, 0.1);
+            border: 1px solid rgba(255, 217, 102, 0.3);
+            border-radius: 12px;
+            text-align: center;
+            color: #ffd966;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .params-section {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .param-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+        }
+        
+        .param-group label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .param-group select {
+            padding: 10px 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        
+        .answer-area {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            min-height: 60px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+        }
+        
+        .answer-slot {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 217, 102, 0.5);
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #fff;
+            font-size: 15px;
+        }
+        
+        .answer-slot:hover {
+            background: rgba(255, 217, 102, 0.2);
+            border-color: #ffd966;
+        }
+        
+        .answer-slot.filled {
+            background: rgba(255, 217, 102, 0.3);
+            border-color: #ffd966;
+            font-weight: bold;
+        }
+        
+        .rhythm-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .rhythm-tab {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        .rhythm-tab.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: #fff;
+        }
+        
+        .rhythm-content {
+            display: none;
+        }
+        
+        .rhythm-content.active {
+            display: block;
+        }
+        
+        .rhythm-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .rhythm-btn {
+            padding: 15px;
+            border: 2px solid rgba(255, 217, 102, 0.4);
+            background: rgba(255, 217, 102, 0.1);
+            color: #ffd966;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        
+        .rhythm-btn:hover {
+            background: rgba(255, 217, 102, 0.2);
+            border-color: #ffd966;
+            transform: translateY(-2px);
+        }
+        
+        .rhythm-btn.selected {
+            background: #ffd966;
+            border-color: #ffd966;
+            color: #1a1a2e;
+            font-weight: bold;
+        }
+        
+        .play-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .play-controls .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .metronome-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .metronome-control {
+                min-width: 0;
+            }
+            
+            .params-section {
+                flex-direction: column;
+            }
+            
+            .rhythm-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .answer-area {
+                flex-direction: column;
+            }
+            
+            .answer-slot {
+                min-width: 0;
+            }
+            
+            .play-controls .btn {
+                min-width: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="exercise-header">
+            <h2 class="exercise-title"> 节奏听辨练习</h2>
+            <button class="btn" onclick="history.back()">← 返回</button>
+        </div>
+        
+        <div class="mode-tabs">
+            <button class="tab-btn active">练习模式</button>
+            <button class="tab-btn">测试模式</button>
+            <button class="tab-btn">风云榜单</button>
+        </div>
+        
+        <div class="function-tabs">
+            <button class="function-tab active">节奏型听辨</button>
+            <button class="function-tab">节拍听辨</button>
+        </div>
+        
+        <div class="stats-panel" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">得分</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">正确</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">错误</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">0/20</div>
+                <div class="stat-label">进度</div>
+            </div>
+        </div>
+        
+        <div class="practice-instructions">
+            <h4> 练习说明</h4>
+            <ul>
+                <li><strong>随机播放：</strong>根据所选拍型和数量随机出题，播放节奏音响</li>
+                <li><strong>重复播放：</strong>重复播放最后一题的节奏音响</li>
+                <li><strong>播放上屏节奏：</strong>播放您在答案区选择的节奏</li>
+                <li><strong>提交答案：</strong>确认您选择的节奏型</li>
+                <li><strong>显示答案：</strong>查看正确答案</li>
+                <li><strong>1拍节奏型：</strong>四分、八分、十六分等基础节奏</li>
+                <li><strong>2拍节奏型：</strong>二分、附点、切分等复合节奏</li>
+            </ul>
+        </div>
+        
+        <div class="metronome-section">
+            <div class="metronome-control">
+                <label>节拍器 (BPM)</label>
+                <div class="metronome-slider">
+                    <input type="range" min="40" max="200" value="66" id="bpm-slider">
+                    <span id="bpm-value">66</span>
+                </div>
+            </div>
+            <div class="metronome-actions">
+                <button class="btn">节拍器 开</button>
+                <button class="reset-btn">清零</button>
+            </div>
+        </div>
+        
+        <div class="status-message">练习模式已开始，请点击"随机播放"开始练习</div>
+        
+        <div class="params-section">
+            <div class="param-group">
+                <label>拍型</label>
+                <select id="beat-type">
+                    <option value="1">一拍（四分）</option>
+                    <option value="2">二拍（二分）</option>
+                </select>
+            </div>
+            <div class="param-group">
+                <label>数量</label>
+                <select id="quantity">
+                    <option value="2">2</option>
+                    <option value="4">4</option>
+                    <option value="6">6</option>
+                    <option value="8">8</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="answer-area" id="answer-area">
+            <div class="answer-slot">点击选择第 1 个节奏</div>
+            <div class="answer-slot">点击选择第 2 个节奏</div>
+        </div>
+        
+        <div class="rhythm-tabs">
+            <button class="rhythm-tab active" onclick="switchRhythmType(1)">1拍节奏型</button>
+            <button class="rhythm-tab" onclick="switchRhythmType(2)">2拍节奏型</button>
+        </div>
+        
+        <div class="rhythm-content active" id="rhythm-type-1">
+            <div class="rhythm-grid">
+                <button class="rhythm-btn" onclick="selectRhythm(this)">四分</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">2个八分</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">4个十六分</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">后十六</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">小切分</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">前十六</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">小附点</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">小后附点</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">三连音</button>
+            </div>
+        </div>
+        
+        <div class="rhythm-content" id="rhythm-type-2">
+            <div class="rhythm-grid">
+                <button class="rhythm-btn" onclick="selectRhythm(this)">二分</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">八分大切分</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">十六分大切分</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">前十六大切分</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">后十六大切分</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">八分大附点</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">八分大后附点</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">十六分大附点</button>
+                <button class="rhythm-btn" onclick="selectRhythm(this)">十六分大后附点</button>
+            </div>
+        </div>
+        
+        <div class="play-controls">
+            <button class="btn">🔀 随机播放</button>
+            <button class="btn">▶ 重复播放</button>
+            <button class="btn">🎵 播放上屏节奏</button>
+            <button class="btn">✓ 提交答案</button>
+            <button class="btn">显示答案</button>
+        </div>
+    </div>
+    
+    <script>
+        // BPM滑块
+        document.getElementById('bpm-slider').addEventListener('input', function() {
+            document.getElementById('bpm-value').textContent = this.value;
+        });
+        
+        // 切换节奏类型
+        function switchRhythmType(type) {
+            document.querySelectorAll('.rhythm-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.rhythm-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('rhythm-type-' + type).classList.add('active');
+            
+            // 清空答案区
+            document.querySelectorAll('.answer-slot').forEach(slot => {
+                slot.textContent = slot.dataset.index ? `点击选择第 ${parseInt(slot.dataset.index) + 1} 个节奏` : '点击选择节奏';
+                slot.classList.remove('filled');
+            });
+            document.querySelectorAll('.rhythm-btn.selected').forEach(btn => btn.classList.remove('selected'));
+        }
+        
+        // 选择节奏
+        function selectRhythm(btn) {
+            const rhythm = btn.textContent;
+            const slots = document.querySelectorAll('.answer-slot');
+            
+            // 找到第一个空槽
+            let targetSlot = null;
+            for (let slot of slots) {
+                if (!slot.classList.contains('filled')) {
+                    targetSlot = slot;
+                    break;
+                }
+            }
+            
+            if (targetSlot) {
+                targetSlot.textContent = rhythm;
+                targetSlot.classList.add('filled');
+                
+                document.querySelectorAll('.rhythm-btn.selected').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+            } else {
+                alert('答案区已满，请先清空或修改');
+            }
+        }
+        
+        // 数量变化时更新答案区
+        document.getElementById('quantity').addEventListener('change', function() {
+            const count = parseInt(this.value);
+            const answerArea = document.getElementById('answer-area');
+            answerArea.innerHTML = '';
+            
+            for (let i = 0; i < count; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'answer-slot';
+                slot.dataset.index = i;
+                slot.textContent = `点击选择第 ${i + 1} 个节奏`;
+                answerArea.appendChild(slot);
+            }
+            
+            document.querySelectorAll('.rhythm-btn.selected').forEach(btn => btn.classList.remove('selected'));
+        });
+    </script>
+</body>
+</html>

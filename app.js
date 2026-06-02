@@ -5753,6 +5753,78 @@ function switchRhythmType(type) {
     updateRhythmStatus(`已切换到${type}拍节奏型`);
 }
 
+// 初始化答案区
+function initRhythmAnswerArea() {
+    const answerArea = document.getElementById('rhythm-answer-area');
+    if (!answerArea) return;
+    
+    answerArea.innerHTML = '';
+    
+    const quantity = document.getElementById('quantity-rhythm');
+    const count = quantity ? parseInt(quantity.value) : 2;
+    
+    for (let i = 0; i < count; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'rhythm-answer-slot';
+        slot.textContent = `点击选择第 ${i + 1} 个节奏`;
+        slot.dataset.index = i;
+        answerArea.appendChild(slot);
+    }
+    
+    rhythmAppState.selectedRhythms = new Array(count).fill(null);
+}
+
+// 清空答案
+function clearRhythmAnswer() {
+    const slots = document.querySelectorAll('.rhythm-answer-slot');
+    slots.forEach(slot => {
+        slot.textContent = `点击选择第 ${parseInt(slot.dataset.index) + 1} 个节奏`;
+        slot.classList.remove('filled');
+    });
+    
+    document.querySelectorAll('.rhythm-btn.selected').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    const quantity = document.getElementById('quantity-rhythm');
+    const count = quantity ? parseInt(quantity.value) : 2;
+    rhythmAppState.selectedRhythms = new Array(count).fill(null);
+}
+
+// 选择节奏
+function selectRhythm(rhythm, btn) {
+    // 找到第一个空槽或当前选中的槽
+    const slots = document.querySelectorAll('.rhythm-answer-slot');
+    let targetSlot = null;
+    let targetIndex = -1;
+    
+    for (let i = 0; i < slots.length; i++) {
+        if (!slots[i].classList.contains('filled')) {
+            targetSlot = slots[i];
+            targetIndex = i;
+            break;
+        }
+    }
+    
+    if (!targetSlot) {
+        updateRhythmStatus('答案区已满，请先清空或修改');
+        return;
+    }
+    
+    // 更新槽位显示
+    targetSlot.textContent = rhythm;
+    targetSlot.classList.add('filled');
+    
+    // 更新按钮状态
+    document.querySelectorAll('.rhythm-btn.selected').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    
+    // 保存选择
+    rhythmAppState.selectedRhythms[targetIndex] = rhythm;
+    
+    updateRhythmStatus(`已选择：${rhythm}`);
+}
+
 // 开始练习模式
 function startRhythmPracticeMode() {
     rhythmAppState.currentMode = 'practice';
