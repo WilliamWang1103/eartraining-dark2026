@@ -826,6 +826,17 @@ body {
     .right-controls {
         gap: 6px;
     }
+    
+    /* 节奏听辨页面移动端优化 */
+    #rhythm-page .right-controls {
+        min-width: 0 !important;
+        flex-wrap: wrap;
+    }
+    
+    #rhythm-page .top-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }
 
 .practice-instructions {
