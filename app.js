@@ -6565,17 +6565,6 @@ function initSinglePiano() {
                 handlePianoNoteOffSingle(note);
             }
         }, { passive: true });
-        
-        // 添加click事件作为后备（仅在非触摸设备上使用）
-        key.addEventListener('click', (e) => {
-            // 如果已经通过触摸事件处理过，就不再处理
-            if (hasPlayed) {
-                hasPlayed = false; // 重置标志
-                return;
-            }
-            e.preventDefault();
-            handlePianoNoteOnSingle(note);
-        });
         piano.appendChild(key);
     });
     invalidatePianoMetrics();
@@ -6637,17 +6626,6 @@ function initSinglePiano() {
                 handlePianoNoteOffSingle(note);
             }
         }, { passive: true });
-        
-        // 添加click事件作为后备（仅在非触摸设备上使用）
-        key.addEventListener('click', (e) => {
-            // 如果已经通过触摸事件处理过，就不再处理
-            if (hasPlayed) {
-                hasPlayed = false; // 重置标志
-                return;
-            }
-            e.preventDefault();
-            handlePianoNoteOnSingle(note);
-        });
         piano.appendChild(key);
     });
     applyScaleRestrictionsToPiano();
@@ -6721,17 +6699,6 @@ function initIntervalPiano() {
                 handlePianoNoteOffInterval(note);
             }
         }, { passive: true });
-        
-        // 添加click事件作为后备（仅在非触摸设备上使用）
-        key.addEventListener('click', (e) => {
-            // 如果已经通过触摸事件处理过，就不再处理
-            if (hasPlayed) {
-                hasPlayed = false; // 重置标志
-                return;
-            }
-            e.preventDefault();
-            handlePianoNoteOnInterval(note);
-        });
         piano.appendChild(key);
     });
     invalidatePianoMetrics();
@@ -6793,17 +6760,6 @@ function initIntervalPiano() {
                 handlePianoNoteOffInterval(note);
             }
         }, { passive: true });
-        
-        // 添加click事件作为后备（仅在非触摸设备上使用）
-        key.addEventListener('click', (e) => {
-            // 如果已经通过触摸事件处理过，就不再处理
-            if (hasPlayed) {
-                hasPlayed = false; // 重置标志
-                return;
-            }
-            e.preventDefault();
-            handlePianoNoteOnInterval(note);
-        });
         piano.appendChild(key);
     });
     applyScaleRestrictionsToPiano();
