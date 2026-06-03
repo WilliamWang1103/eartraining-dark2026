@@ -16,8 +16,10 @@
 }
 
 * {
-    scrollbar-width: none;    /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE/Edge */
 }
 
 body {
@@ -25,12 +27,16 @@ body {
     background: linear-gradient(145deg, #0a1a2a 0%, #051016 100%);
     min-height: 100vh;
     display: flex;
-    justify-content: center;  /* ← 水平居中关键 */
-    align-items: center;      /* ← 垂直居中关键 */
-    padding: 0;               /* ← 当前是 0，确保没有内边距 */
+    justify-content: center;
+    /* ← 水平居中关键 */
+    align-items: center;
+    /* ← 垂直居中关键 */
+    padding: 0;
+    /* ← 当前是 0，确保没有内边距 */
     margin: 0;
     color: #e0e0e0;
-    overflow-y: auto;         /* 允许垂直滚动 */
+    overflow-y: auto;
+    /* 允许垂直滚动 */
 }
 
 /* 隐藏滚动条但保留滚动功能 */
@@ -41,26 +47,34 @@ body::-webkit-scrollbar {
 }
 
 body {
-    scrollbar-width: none;    /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE/Edge */
 }
 
 .app-wrapper {
     width: 100%;
-    max-width: 450px;         /* ← 手机宽度限制 */
-    height: 95vh;             /* ← 手机高度 */
+    max-width: 450px;
+    /* ← 手机宽度限制 */
+    height: 95vh;
+    /* ← 手机高度 */
     max-height: 850px;
     background: rgba(20, 30, 40, 0.92);
     backdrop-filter: blur(2px);
-    border-radius: 44px;      /* ← 圆角效果 */
+    border-radius: 44px;
+    /* ← 圆角效果 */
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     overflow: hidden;
-    overflow-x: hidden;       /* ← 防止横向溢出 */
-    overflow-y: auto;         /* 允许内容滚动 */
+    overflow-x: hidden;
+    /* ← 防止横向溢出 */
+    overflow-y: auto;
+    /* 允许内容滚动 */
     display: flex;
     flex-direction: column;
     border: 1px solid rgba(255, 255, 255, 0.15);
-    margin: 0 auto;           /* ← 确保在 body 中水平居中 */
+    margin: 0 auto;
+    /* ← 确保在 body 中水平居中 */
 }
 
 /* 隐藏 app-wrapper 的滚动条 */
@@ -71,8 +85,10 @@ body {
 }
 
 .app-wrapper {
-    scrollbar-width: none;    /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE/Edge */
 }
 
 .container {
@@ -705,7 +721,7 @@ body {
     background: rgba(0, 0, 0, 0.3);
     border-radius: 20px;
     flex: 1;
-    min-width: 200px;
+    min-width: 120px;
 }
 
 .stat-item {
@@ -726,7 +742,7 @@ body {
 
 .time-panel {
     flex: 1;
-    min-width: 200px;
+    min-width: 120px;
     padding: 10px;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 20px;
@@ -774,8 +790,30 @@ body {
     display: flex;
     gap: 8px;
     align-items: center;
-    flex-wrap: nowrap;
-    white-space: nowrap;
+    flex-wrap: wrap;
+    white-space: normal;
+    min-width: 0;
+}
+
+.right-controls>div {
+    min-width: 0;
+    flex: 1 1 0;
+}
+
+#rhythm-page .top-controls {
+    flex-wrap: wrap;
+}
+
+#rhythm-page .top-controls>div {
+    min-width: 0;
+    width: 100%;
+    flex: 1 1 100%;
+}
+
+#rhythm-page .right-controls input[type="range"] {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
 }
 
 .difficulty-selector.compact label {
@@ -816,26 +854,81 @@ body {
     width: 56px;
 }
 
-@media (max-width: 420px) {
+@media (max-width: 480px) {
+
     #scale-difficulty-chord,
     #difficulty-chord,
     #inversion-chord {
         width: 88px;
     }
 
+    .stats-panel,
+    .time-panel,
+    .right-controls {
+        min-width: 0 !important;
+    }
+
     .right-controls {
         gap: 6px;
-    }
-    
-    /* 节奏听辨页面移动端优化 */
-    #rhythm-page .right-controls {
-        min-width: 0 !important;
         flex-wrap: wrap;
+        justify-content: flex-start;
+        white-space: normal;
     }
-    
+
+    #rhythm-page .right-controls>div {
+        width: 100%;
+        min-width: 0;
+        flex: 1 1 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    #rhythm-page .right-controls>div>div {
+        min-width: 0;
+        width: 100%;
+        flex: 1 1 100%;
+    }
+
+    #rhythm-page .right-controls>div>div:last-child {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    /* 节奏听辨页面移动端优化 */
     #rhythm-page .top-controls {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    #rhythm-page .top-controls>div {
+        min-width: 0;
+        width: 100%;
+        flex: 1 1 100%;
+    }
+
+    #rhythm-page .top-controls .stats-panel,
+    #rhythm-page .top-controls .time-panel,
+    #rhythm-page .top-controls .right-controls {
+        min-width: 0;
+        width: 100%;
+    }
+
+    #rhythm-page .right-controls input[type="range"] {
+        min-width: 0;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .play-controls {
+        flex-wrap: wrap;
+    }
+
+    .play-controls .btn {
+        white-space: normal;
+        min-width: 0;
+        font-size: 0.75rem;
     }
 }
 
@@ -872,14 +965,22 @@ body {
 
 /* 钢琴容器上方的状态消息栏 */
 .status-message {
-    text-align: center;           /* 文本居中对齐 */
-    padding: 6px;                 /* 内边距为6像素（上下左右都是6px） */
-    margin: 2px 0 0 0;           /* 外边距：上2px，右0，下0，左0（与上方元素保持2px距离） */
-    border-radius: 20px;          /* 圆角半径20像素，形成椭圆形效果 */
-    background: rgba(255, 217, 102, 0.15);  /* 背景色为半透明的金黄色（透明度15%） */
-    color: #ffd966;               /* 文字颜色为金黄色 */
-    border: 1px solid rgba(255, 217, 102, 0.3);  /* 边框：1px实线，半透明金黄色（透明度30%） */
-    font-size: 0.85rem;           /* 字体大小为0.85rem（约13.6px） */
+    text-align: center;
+    /* 文本居中对齐 */
+    padding: 6px;
+    /* 内边距为6像素（上下左右都是6px） */
+    margin: 2px 0 0 0;
+    /* 外边距：上2px，右0，下0，左0（与上方元素保持2px距离） */
+    border-radius: 20px;
+    /* 圆角半径20像素，形成椭圆形效果 */
+    background: rgba(255, 217, 102, 0.15);
+    /* 背景色为半透明的金黄色（透明度15%） */
+    color: #ffd966;
+    /* 文字颜色为金黄色 */
+    border: 1px solid rgba(255, 217, 102, 0.3);
+    /* 边框：1px实线，半透明金黄色（透明度30%） */
+    font-size: 0.85rem;
+    /* 字体大小为0.85rem（约13.6px） */
 }
 
 .test-result {
@@ -1163,61 +1264,94 @@ body {
 
 /* 钢琴容器 */
 .piano-container {
-    background: #0c141c;  /* 设置背景颜色为深蓝色/黑色 */
-    border-radius: 16px;  /* 设置圆角半径为16像素，使容器四角变圆滑 */
-    margin: 2px 0;        /* 上下外边距2px，左右外边距0px（顶部与外部距离2px，其他方向紧贴） */
-    overflow-x: auto;     /* 水平方向内容溢出时自动显示滚动条 */
-    overflow-y: hidden;   /* 垂直方向隐藏溢出内容，不显示垂直滚动条 */
-    -webkit-overflow-scrolling: touch;  /* iOS设备上的平滑滚动效果 */
-    scroll-behavior: smooth;            /* 滚动行为设置为平滑过渡 */
-    position: relative;   /* 定位方式为相对定位，作为子元素绝对定位的参考点 */
-    padding: 0 8px 4px 8px;  /* 内边距：上0px，右8px，下4px，左8px */
+    background: #0c141c;
+    /* 设置背景颜色为深蓝色/黑色 */
+    border-radius: 16px;
+    /* 设置圆角半径为16像素，使容器四角变圆滑 */
+    margin: 2px 0;
+    /* 上下外边距2px，左右外边距0px（顶部与外部距离2px，其他方向紧贴） */
+    overflow-x: auto;
+    /* 水平方向内容溢出时自动显示滚动条 */
+    overflow-y: hidden;
+    /* 垂直方向隐藏溢出内容，不显示垂直滚动条 */
+    -webkit-overflow-scrolling: touch;
+    /* iOS设备上的平滑滚动效果 */
+    scroll-behavior: smooth;
+    /* 滚动行为设置为平滑过渡 */
+    position: relative;
+    /* 定位方式为相对定位，作为子元素绝对定位的参考点 */
+    padding: 0 8px 4px 8px;
+    /* 内边距：上0px，右8px，下4px，左8px */
 }
 
 /* MIDI状态栏样式 */
 .midi-status {
-    display: flex;              /* 使用弹性布局，使子元素水平排列 */
-    align-items: center;        /* 子元素垂直居中对齐 */
-    gap: 8px;                   /* 子元素之间的间距为8像素 */
-    padding: 6px 12px;          /* 内边距：上下6px，左右12px */
-    background: rgba(255, 255, 255, 0.05);  /* 背景色：白色，透明度5%（非常淡的半透明效果） */
-    border-radius: 8px;         /* 圆角半径8像素 */
-    margin-bottom: 8px;         /* 底部外边距8像素（与下方钢琴容器保持距离） */
-    font-size: 14px;            /* 字体大小14像素 */
-    color: #ccc;                /* 文字颜色：浅灰色 */
+    display: flex;
+    /* 使用弹性布局，使子元素水平排列 */
+    align-items: center;
+    /* 子元素垂直居中对齐 */
+    gap: 8px;
+    /* 子元素之间的间距为8像素 */
+    padding: 6px 12px;
+    /* 内边距：上下6px，左右12px */
+    background: rgba(255, 255, 255, 0.05);
+    /* 背景色：白色，透明度5%（非常淡的半透明效果） */
+    border-radius: 8px;
+    /* 圆角半径8像素 */
+    margin-bottom: 8px;
+    /* 底部外边距8像素（与下方钢琴容器保持距离） */
+    font-size: 14px;
+    /* 字体大小14像素 */
+    color: #ccc;
+    /* 文字颜色：浅灰色 */
 }
 
 /* MIDI状态栏中的图标样式 */
 .midi-status i {
-    color: #FFD700;             /* 图标颜色：金黄色 */
-    font-size: 16px;            /* 图标大小16像素（比文字稍大） */
+    color: #FFD700;
+    /* 图标颜色：金黄色 */
+    font-size: 16px;
+    /* 图标大小16像素（比文字稍大） */
 }
 
 /* 钢琴容器滚动条样式（WebKit浏览器） */
 .piano-container::-webkit-scrollbar {
-    height: 4px;                /* 水平滚动条高度4像素（非常细） */
+    height: 4px;
+    /* 水平滚动条高度4像素（非常细） */
 }
 
 .piano-container::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);  /* 滚动条轨道背景：黑色，透明度20% */
-    border-radius: 2px;         /* 轨道圆角2像素 */
+    background: rgba(0, 0, 0, 0.2);
+    /* 滚动条轨道背景：黑色，透明度20% */
+    border-radius: 2px;
+    /* 轨道圆角2像素 */
 }
 
 .piano-container::-webkit-scrollbar-thumb {
-    background: rgba(255, 217, 102, 0.3);  /* 滚动条滑块：金黄色，透明度30% */
-    border-radius: 2px;         /* 滑块圆角2像素 */
+    background: rgba(255, 217, 102, 0.3);
+    /* 滚动条滑块：金黄色，透明度30% */
+    border-radius: 2px;
+    /* 滑块圆角2像素 */
 }
 
 /* 钢琴主体样式 */
 .piano {
-    display: flex;              /* 使用弹性布局，琴键水平排列 */
-    position: relative;         /* 相对定位，作为内部绝对定位元素的参考点 */
-    background: #0c141c;        /* 背景色：深蓝色/黑色 */
-    border-radius: 16px;        /* 圆角半径16像素 */
-    padding: 0;                 /* 无内边距 */
-    min-width: fit-content;     /* 最小宽度根据内容自适应（确保所有琴键都能显示） */
-    height: 260px;              /* 固定高度260像素 */
-    margin: 0 auto;             /* 水平居中（左右auto，上下0） */
+    display: flex;
+    /* 使用弹性布局，琴键水平排列 */
+    position: relative;
+    /* 相对定位，作为内部绝对定位元素的参考点 */
+    background: #0c141c;
+    /* 背景色：深蓝色/黑色 */
+    border-radius: 16px;
+    /* 圆角半径16像素 */
+    padding: 0;
+    /* 无内边距 */
+    min-width: fit-content;
+    /* 最小宽度根据内容自适应（确保所有琴键都能显示） */
+    height: 260px;
+    /* 固定高度260像素 */
+    margin: 0 auto;
+    /* 水平居中（左右auto，上下0） */
 }
 
 .white-key {
@@ -1233,7 +1367,7 @@ body {
     width: 44px;
     height: 245px;
     transition: all 0.05s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
     flex-shrink: 0;
 }
 
@@ -1266,7 +1400,7 @@ body {
     height: 155px;
     top: 28px;
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
     flex-shrink: 0;
 }
 
@@ -1801,11 +1935,13 @@ body {
 
 /* 练习说明 */
 .practice-instructions {
-    margin: 15px 0;
+    margin: 15px auto;
     padding: 15px;
     background: rgba(255, 217, 102, 0.1);
     border-left: 4px solid #ffd966;
     border-radius: 8px;
+    max-width: 100%;
+    width: 100%;
 }
 
 .practice-instructions h4 {
@@ -1828,6 +1964,30 @@ body {
 }
 
 .practice-instructions strong {
+    color: #ffd966;
+}
+
+/* 节奏文字显示区块 */
+.rhythm-text-display {
+    margin: 15px 0;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px dashed rgba(255, 217, 102, 0.3);
+    border-radius: 8px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.6);
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    word-spacing: 8px;
+}
+
+.rhythm-text-display.filled {
+    background: rgba(255, 217, 102, 0.1);
+    border-color: #ffd966;
     color: #ffd966;
 }
 
@@ -1870,6 +2030,42 @@ body {
     background: rgba(255, 255, 255, 0.05);
     border-radius: 8px;
     border: 2px dashed rgba(255, 255, 255, 0.2);
+}
+
+/* 上屏显示区（选中节奏文本 pill） */
+.rhythm-selected-display {
+    min-height: 56px;
+    padding: 8px;
+    margin: 12px 0;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-radius: 8px;
+    border: 2px dashed rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.rhythm-selected-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #ffd966;
+    border: 2px solid rgba(255, 217, 102, 0.25);
+    font-weight: 600;
+    font-size: 14px;
+    touch-action: manipulation;
+}
+
+.rhythm-selected-pill .remove-x {
+    margin-left: 8px;
+    font-size: 12px;
+    opacity: 0.8;
 }
 
 .rhythm-answer-slot {
@@ -1941,126 +2137,129 @@ body {
 
 .rhythm-buttons-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 10px;
 }
 
 .rhythm-btn {
-    padding: 12px 15px;
-    border: 2px solid rgba(255, 217, 102, 0.4);
-    background: rgba(255, 217, 102, 0.1);
-    color: #ffd966;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-    text-align: center;
-}
-
-.rhythm-btn:hover {
-    background: rgba(255, 217, 102, 0.2);
-    border-color: #ffd966;
-    transform: translateY(-2px);
-}
-
-.rhythm-btn.selected {
-    background: #ffd966;
-    border-color: #ffd966;
-    color: #1a1a2e;
-    font-weight: bold;
-}
-
-.rhythm-handwriting-section {
-    margin: 15px 0;
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-}
-
-.handwriting-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-}
-
-.handwriting-hint {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
-}
-
-#rhythm-canvas {
-    width: 100%;
-    height: 120px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.05);
-    touch-action: none;
-    cursor: crosshair;
-}
-
-/* 移动端适配 */
-@media (max-width: 420px) {
-    .rhythm-metronome-section {
-        flex-direction: column;
-        align-items: stretch;
+    .rhythm-selected-display {
+        min-height: 56px;
+        padding: 8px 12px;
+        margin: 12px 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 2px dashed rgba(255, 255, 255, 0.08);
+        background: rgba(0, 0, 0, 0.12);
+        color: #ffd966;
+        font-size: 16px;
+        font-weight: 600;
     }
-    
-    .metronome-control {
-        min-width: 0;
-    }
-    
-    .metronome-actions {
-        justify-content: space-between;
-    }
-    
-    .rhythm-params-section {
-        flex-direction: column;
-    }
-    
-    .param-group {
-        min-width: 0;
-    }
-    
-    .rhythm-buttons-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .rhythm-answer-area {
-        flex-direction: column;
-    }
-    
-    .rhythm-answer-slot {
-        min-width: 0;
-    }
-}
 
-#rhythm-staff-container {
-    max-width: 100%;
-    overflow-x: auto;
-}
+    .rhythm-btn:hover {
+        background: rgba(255, 217, 102, 0.2);
+        border-color: #ffd966;
+        transform: translateY(-2px);
+    }
 
-#rhythm-staff-display svg {
-    max-width: 100%;
-    height: auto;
-}
+    .rhythm-btn.selected {
+        background: #e67e22;
+        border-color: #e67e22;
+        color: #fff;
+        font-weight: bold;
+    }
 
-#rhythm-buttons-container {
-    max-width: 100%;
-    overflow-x: auto;
-}
+    .rhythm-handwriting-section {
+        margin: 15px 0;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+    }
 
-#rhythm-layer {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-}
+    .handwriting-controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+    }
 
-#rhythm-layer .chord-btn {
-    flex: 0 0 auto;
-    min-width: 100px;
-    max-width: 150px;
-}
+    .handwriting-hint {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    #rhythm-canvas {
+        width: 100%;
+        height: 120px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        touch-action: none;
+        cursor: crosshair;
+    }
+
+    /* 移动端适配 */
+    @media (max-width: 420px) {
+        .rhythm-metronome-section {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .metronome-control {
+            min-width: 0;
+        }
+
+        .metronome-actions {
+            justify-content: space-between;
+        }
+
+        .rhythm-params-section {
+            flex-direction: column;
+        }
+
+        .param-group {
+            min-width: 0;
+        }
+
+        .rhythm-buttons-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .rhythm-answer-area {
+            flex-direction: column;
+        }
+
+        .rhythm-answer-slot {
+            min-width: 0;
+        }
+    }
+
+    #rhythm-staff-container {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    #rhythm-staff-display svg {
+        max-width: 100%;
+        height: auto;
+    }
+
+    #rhythm-buttons-container {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    #rhythm-layer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+    }
+
+    #rhythm-layer .chord-btn {
+        flex: 0 0 auto;
+        min-width: 100px;
+        max-width: 150px;
+    }
