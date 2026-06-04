@@ -133,7 +133,7 @@ const rhythmAppState = {
     currentRhythm: null, // 当前节奏题目
     selectedRhythm: null, // 用户选择的节奏
     metronomeOn: false, // 节拍器开关
-    bpm: 90, // 节拍速度
+    bpm: 72, // 节拍速度
     difficulty: 1, // 难度级别
     scaleDifficulty: 1, // 拍型难度
     paramType: 'rhythm' // 当前参数类型：'rhythm'(节奏型) 或 'meter'(节拍)
