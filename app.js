@@ -5668,8 +5668,11 @@ function initRhythmPage() {
 
     // 绑定节奏类型选项卡
     const rhythmTabs = document.querySelectorAll('.rhythm-tab-btn');
-    rhythmTabs.forEach(tab => {
+    console.log('🔍 找到节奏类型选项卡数量:', rhythmTabs.length);
+    rhythmTabs.forEach((tab, index) => {
+        console.log(`  绑定选项卡 ${index}:`, tab.getAttribute('data-type'), tab.textContent);
         tab.addEventListener('click', () => {
+            console.log('👆 选项卡被点击');
             const type = tab.getAttribute('data-type');
             switchRhythmType(type);
         });
@@ -5738,6 +5741,7 @@ function switchToRhythmFunction(func) {
 
 // 切换节奏类型选项卡
 function switchRhythmType(type) {
+    console.log(' switchRhythmType 被调用, type:', type);
     // 更新选项卡状态
     const tabs = document.querySelectorAll('.rhythm-tab-btn');
     tabs.forEach(tab => {
@@ -6072,6 +6076,47 @@ function stopRhythmElapsedTimeTimer() {
 // （保留占位以便未来按需恢复复杂渲染）
 
 // ==================== 节奏播放功能 ====================
+
+// 播放用户已选择的节奏（上屏节奏）
+async function playSelectedRhythm() {
+    console.log('🎵 playSelectedRhythm 被调用');
+    if (rhythmAppState.isPlaying) return;
+
+    // 检查是否有已选择的节奏
+    if (!rhythmAppState.selectedRhythms || rhythmAppState.selectedRhythms.every(r => r === null)) {
+        updateRhythmStatus('请先选择节奏型！');
+        return;
+    }
+
+    try {
+        // 确保 AudioContext 已激活
+        await Tone.start();
+
+        rhythmAppState.isPlaying = true;
+
+        // 构建要播放的节奏序列（只播放非空的节奏）
+        const selectedRhythms = rhythmAppState.selectedRhythms.filter(r => r !== null);
+        
+        if (selectedRhythms.length === 0) {
+            updateRhythmStatus('没有可播放的节奏！');
+            rhythmAppState.isPlaying = false;
+            return;
+        }
+
+        // 播放所有已选择的节奏
+        for (const rhythm of selectedRhythms) {
+            await playRhythmSequence(rhythm);
+        }
+
+        updateRhythmStatus('已播放上屏节奏');
+
+    } catch (error) {
+        console.error('播放上屏节奏失败:', error);
+        updateRhythmStatus('播放失败，请重试');
+    } finally {
+        rhythmAppState.isPlaying = false;
+    }
+}
 
 // 播放随机节奏
 async function playRandomRhythm() {
