@@ -5712,14 +5712,8 @@ function initRhythmPage() {
     // 设置初始状态
     updateRhythmButtonStates();
     
-    // 自动点击练习模式按钮，确保槽位正确显示
-    if (practiceBtn) {
-        console.log(' 自动点击练习模式按钮');
-        // 使用setTimeout确保DOM完全渲染后再点击
-        setTimeout(() => {
-            practiceBtn.click();
-        }, 50);
-    }
+    // 初始化答案区（参考项目方案：在播放题目时创建槽位）
+    // 注意：这里不直接创建槽位，而是等待用户点击“随机播放”或“播放题目”时再创建
 }
 
 
@@ -6092,6 +6086,9 @@ async function playRandomRhythm() {
         // 生成随机节奏
         const rhythm = generateRandomRhythm();
         rhythmAppState.currentRhythm = rhythm;
+
+        // 初始化答案区（参考项目方案：在播放题目时创建槽位）
+        initRhythmAnswerArea();
 
         // （已移除五线谱渲染，保持界面简洁）
 
