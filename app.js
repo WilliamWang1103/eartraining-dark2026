@@ -5772,9 +5772,6 @@ function initRhythmAnswerArea() {
     }
 
     rhythmAppState.selectedRhythms = new Array(count).fill(null);
-    
-    // 初始化文字显示区块（显示空白分隔符）
-    renderRhythmTextDisplay();
 }
 
 // 清空答案区
@@ -5791,12 +5788,8 @@ function clearRhythmAnswer() {
     const quantity = document.getElementById('quantity-rhythm');
     const count = quantity ? parseInt(quantity.value) : 4;
     rhythmAppState.selectedRhythms = new Array(count).fill(null);
-    
-    // 更新文字显示区块
-    renderRhythmTextDisplay();
 }
 
-// 清空/选择节奏的逻辑已合并为统一实现（见 renderRhythmTextDisplay(), selectRhythm(), clearRhythmAnswer()）
 
 // 开始练习模式
 function startRhythmPracticeMode() {
@@ -6010,32 +6003,6 @@ function updateRhythmStatus(msg) {
     if (statusEl) statusEl.textContent = msg;
 }
 
-// 渲染上屏为文本区块（以竖线分隔）
-function renderRhythmTextDisplay() {
-    const textDisplay = document.getElementById('rhythm-text-display');
-    if (!textDisplay) return;
-    
-    const arr = rhythmAppState.selectedRhythms || [];
-    const count = arr.length;
-    
-    if (count === 0) {
-        textDisplay.textContent = '';
-        textDisplay.classList.remove('filled');
-        return;
-    }
-    
-    // 生成格式：节奏名丨节奏名丨节奏名
-    const text = arr.map(v => v ? v : '　').join(' 丨 ');
-    textDisplay.textContent = text;
-    
-    // 如果所有槽位都填满了，添加filled样式
-    const allFilled = arr.every(v => v !== null);
-    if (allFilled) {
-        textDisplay.classList.add('filled');
-    } else {
-        textDisplay.classList.remove('filled');
-    }
-}
 // 选择节奏
 function selectRhythm(rhythm, btn) {
     const slots = document.querySelectorAll('.rhythm-answer-slot');
@@ -6056,7 +6023,6 @@ function selectRhythm(rhythm, btn) {
     document.querySelectorAll('.rhythm-btn.selected').forEach(b => b.classList.remove('selected'));
     if (btn && btn.classList) btn.classList.add('selected');
     rhythmAppState.selectedRhythms[targetIndex] = rhythm;
-    renderRhythmTextDisplay();
     updateRhythmStatus(`已选择：${rhythm}`);
 }
 
