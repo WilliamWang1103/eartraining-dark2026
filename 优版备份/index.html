@@ -846,7 +846,7 @@
             <div class="container">
                 <div class="exercise-page">
                     <div class="exercise-header">
-                        <h2 class="exercise-title"><i class="fas fa-drum"></i> 节奏听辨练习</h2>
+                        <h2 class="exercise-title"><i class="fas fa-drum"></i> 节奏听辨</h2>
                         <button id="back-home-rhythm" class="back-btn" title="返回首页">
                             <i class="fas fa-arrow-left"></i>
                         </button>
@@ -921,32 +921,18 @@
                             <div class="param-group">
                                 <label for="quantity-rhythm">数量</label>
                                 <select id="quantity-rhythm">
-                                    <option value="2">2</option>
                                     <option value="4">4</option>
-                                    <option value="6">6</option>
                                     <option value="8">8</option>
+                                    <option value="12">12</option>
                                 </select>
                             </div>
                         </div>
 
                         <div id="status-rhythm" class="status-message">请选择模式开始练习</div>
 
-                        <!-- 选中节奏上屏显示区（文本 pill） -->
-                        <div id="rhythm-selected-display" class="rhythm-selected-display" aria-live="polite"
-                            role="status">
-                            <!-- 由 JS 填充选中节奏 pill -->
-                        </div>
-
-                        <!-- 五线谱显示区域 -->
-                        <div id="rhythm-staff-container"
-                            style="margin:15px 0;padding:15px;background:#f9f9f9;border-radius:8px;display:none;max-width:100%;overflow-x:auto;">
-                            <h4 style="margin:0 0 10px 0;font-size:14px;color:#666;">🎼 节奏显示</h4>
-                            <div id="rhythm-staff-display" style="min-height:150px;"></div>
-                        </div>
-
-                        <!-- 答案上屏区：会根据数量动态创建可编辑的槽位 -->
+                        <!-- 答案选择按钮区：会根据数量动态创建按钮 -->
                         <div id="rhythm-answer-area" class="rhythm-answer-area">
-                            <!-- 槽位由JS生成 -->
+                            <!-- 按钮由JS生成 -->
                         </div>
 
                         <!-- 节奏型选项卡 -->

@@ -1967,6 +1967,30 @@ body {
     color: #ffd966;
 }
 
+/* 节奏文字显示区块 */
+.rhythm-text-display {
+    margin: 15px 0;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px dashed rgba(255, 217, 102, 0.3);
+    border-radius: 8px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.6);
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    word-spacing: 8px;
+}
+
+.rhythm-text-display.filled {
+    background: rgba(255, 217, 102, 0.1);
+    border-color: #ffd966;
+    color: #ffd966;
+}
+
 .rhythm-params-section {
     display: flex;
     gap: 15px;
@@ -1997,15 +2021,14 @@ body {
 }
 
 .rhythm-answer-area {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     margin: 15px 0;
-    flex-wrap: wrap;
     min-height: 60px;
     padding: 10px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 8px;
-    border: 2px dashed rgba(255, 255, 255, 0.2);
 }
 
 /* 上屏显示区（选中节奏文本 pill） */
@@ -2045,27 +2068,33 @@ body {
 }
 
 .rhythm-answer-slot {
-    flex: 1;
-    min-width: 100px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(255, 217, 102, 0.5);
-    border-radius: 8px;
+    padding: 15px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(153, 102, 255, 0.5);
+    border-radius: 12px;
     text-align: center;
     cursor: pointer;
     transition: all 0.2s;
-    color: #fff;
+    color: rgba(255, 255, 255, 0.7);
     font-size: 14px;
+    font-weight: 500;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.4;
 }
 
 .rhythm-answer-slot:hover {
-    background: rgba(255, 217, 102, 0.2);
-    border-color: #ffd966;
+    background: rgba(153, 102, 255, 0.15);
+    border-color: #9966ff;
+    color: #fff;
 }
 
 .rhythm-answer-slot.filled {
-    background: rgba(255, 217, 102, 0.3);
-    border-color: #ffd966;
+    background: rgba(153, 102, 255, 0.2);
+    border-color: #9966ff;
+    color: #9966ff;
     font-weight: bold;
 }
 
@@ -2118,122 +2147,124 @@ body {
 }
 
 .rhythm-btn {
-    min-height: 44px;
-    padding: 12px 10px;
-    border: 2px solid rgba(255, 217, 102, 0.4);
-    background: rgba(255, 217, 102, 0.1);
-    color: #ffd966;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-    text-align: center;
-}
-
-.rhythm-btn:hover {
-    background: rgba(255, 217, 102, 0.2);
-    border-color: #ffd966;
-    transform: translateY(-2px);
-}
-
-.rhythm-btn.selected {
-    background: #e67e22;
-    border-color: #e67e22;
-    color: #fff;
-    font-weight: bold;
-}
-
-.rhythm-handwriting-section {
-    margin: 15px 0;
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-}
-
-.handwriting-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-}
-
-.handwriting-hint {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
-}
-
-#rhythm-canvas {
-    width: 100%;
-    height: 120px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.05);
-    touch-action: none;
-    cursor: crosshair;
-}
-
-/* 移动端适配 */
-@media (max-width: 420px) {
-    .rhythm-metronome-section {
-        flex-direction: column;
-        align-items: stretch;
+    .rhythm-selected-display {
+        min-height: 56px;
+        padding: 8px 12px;
+        margin: 12px 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 2px dashed rgba(255, 255, 255, 0.08);
+        background: rgba(0, 0, 0, 0.12);
+        color: #ffd966;
+        font-size: 16px;
+        font-weight: 600;
     }
 
-    .metronome-control {
-        min-width: 0;
+    .rhythm-btn:hover {
+        background: rgba(255, 217, 102, 0.2);
+        border-color: #ffd966;
+        transform: translateY(-2px);
     }
 
-    .metronome-actions {
-        justify-content: space-between;
+    .rhythm-btn.selected {
+        background: #e67e22;
+        border-color: #e67e22;
+        color: #fff;
+        font-weight: bold;
     }
 
-    .rhythm-params-section {
-        flex-direction: column;
+    .rhythm-handwriting-section {
+        margin: 15px 0;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
     }
 
-    .param-group {
-        min-width: 0;
+    .handwriting-controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
     }
 
-    .rhythm-buttons-grid {
-        grid-template-columns: repeat(2, 1fr);
+    .handwriting-hint {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
     }
 
-    .rhythm-answer-area {
-        flex-direction: column;
+    #rhythm-canvas {
+        width: 100%;
+        height: 120px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        touch-action: none;
+        cursor: crosshair;
     }
 
-    .rhythm-answer-slot {
-        min-width: 0;
+    /* 移动端适配 */
+    @media (max-width: 420px) {
+        .rhythm-metronome-section {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .metronome-control {
+            min-width: 0;
+        }
+
+        .metronome-actions {
+            justify-content: space-between;
+        }
+
+        .rhythm-params-section {
+            flex-direction: column;
+        }
+
+        .param-group {
+            min-width: 0;
+        }
+
+        .rhythm-buttons-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .rhythm-answer-area {
+            flex-direction: column;
+        }
+
+        .rhythm-answer-slot {
+            min-width: 0;
+        }
     }
-}
 
-#rhythm-staff-container {
-    max-width: 100%;
-    overflow-x: auto;
-}
+    #rhythm-staff-container {
+        max-width: 100%;
+        overflow-x: auto;
+    }
 
-#rhythm-staff-display svg {
-    max-width: 100%;
-    height: auto;
-}
+    #rhythm-staff-display svg {
+        max-width: 100%;
+        height: auto;
+    }
 
-#rhythm-buttons-container {
-    max-width: 100%;
-    overflow-x: auto;
-}
+    #rhythm-buttons-container {
+        max-width: 100%;
+        overflow-x: auto;
+    }
 
-#rhythm-layer {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-}
+    #rhythm-layer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+    }
 
-#rhythm-layer .chord-btn {
-    flex: 0 0 auto;
-    min-width: 100px;
-    max-width: 150px;
-}
+    #rhythm-layer .chord-btn {
+        flex: 0 0 auto;
+        min-width: 100px;
+        max-width: 150px;
+    }

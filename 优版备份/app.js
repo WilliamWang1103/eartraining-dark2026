@@ -960,8 +960,8 @@ const pageManager = {
             console.log('当前active页面:', document.querySelector('.page.active')?.id);
         }
         if (pageId === 'chord-page') { setChordInteractiveVisibility(true); this.initializeChordPage(); initChordPage(); }
-        else if (pageId === 'interval-page') { setIntervalInteractiveVisibility(true); this.initializeIntervalPage(); initIntervalPage(); }
         else if (pageId === 'melody-page') { setMelodyInteractiveVisibility(true); initMelodyPage(); }
+        else if (pageId === 'interval-page') { setIntervalInteractiveVisibility(true); this.initializeIntervalPage(); initIntervalPage(); }
         else if (pageId === 'single-page') { setSingleInteractiveVisibility(true); this.initializeSinglePage(); initSinglePage(); }
         else if (pageId === 'rhythm-page') { setRhythmInteractiveVisibility(true); initRhythmPage(); }
         else if (pageId === 'chord-test-end-page') {
@@ -5608,6 +5608,15 @@ function initMelodyPage() {
 }
 
 function initRhythmPage() {
+    console.log(' initRhythmPage 被调用, initialized:', initRhythmPage.initialized);
+    // 防止重复初始化
+    if (initRhythmPage.initialized) {
+        console.log('⚠️ initRhythmPage 已经初始化过，跳过');
+        return;
+    }
+    initRhythmPage.initialized = true;
+    console.log('✅ initRhythmPage 初始化开始');
+
     const back = document.getElementById('back-home-rhythm');
     if (back) back.addEventListener('click', () => pageManager.switchToPage('home-page'));
 
@@ -5659,8 +5668,11 @@ function initRhythmPage() {
 
     // 绑定节奏类型选项卡
     const rhythmTabs = document.querySelectorAll('.rhythm-tab-btn');
-    rhythmTabs.forEach(tab => {
+    console.log('🔍 找到节奏类型选项卡数量:', rhythmTabs.length);
+    rhythmTabs.forEach((tab, index) => {
+        console.log(`  绑定选项卡 ${index}:`, tab.getAttribute('data-type'), tab.textContent);
         tab.addEventListener('click', () => {
+            console.log('👆 选项卡被点击');
             const type = tab.getAttribute('data-type');
             switchRhythmType(type);
         });
@@ -5702,7 +5714,9 @@ function initRhythmPage() {
 
     // 设置初始状态
     updateRhythmButtonStates();
-    startRhythmPracticeMode();
+    
+    // 初始化答案区（参考项目方案：在播放题目时创建槽位）
+    // 注意：这里不直接创建槽位，而是等待用户点击“随机播放”或“播放题目”时再创建
 }
 
 
@@ -5727,6 +5741,7 @@ function switchToRhythmFunction(func) {
 
 // 切换节奏类型选项卡
 function switchRhythmType(type) {
+    console.log(' switchRhythmType 被调用, type:', type);
     // 更新选项卡状态
     const tabs = document.querySelectorAll('.rhythm-tab-btn');
     tabs.forEach(tab => {
@@ -5755,16 +5770,14 @@ function switchRhythmType(type) {
 
 // 初始化答案区
 function initRhythmAnswerArea() {
+    console.log(' initRhythmAnswerArea 被调用');
     const answerArea = document.getElementById('rhythm-answer-area');
     if (!answerArea) return;
 
     answerArea.innerHTML = '';
-    // 同步清空上屏显示
-    const selectedDisplay = document.getElementById('rhythm-selected-display');
-    if (selectedDisplay) selectedDisplay.innerHTML = '';
 
     const quantity = document.getElementById('quantity-rhythm');
-    const count = quantity ? parseInt(quantity.value) : 2;
+    const count = quantity ? parseInt(quantity.value) : 4;
 
     for (let i = 0; i < count; i++) {
         const slot = document.createElement('div');
@@ -5777,90 +5790,26 @@ function initRhythmAnswerArea() {
     rhythmAppState.selectedRhythms = new Array(count).fill(null);
 }
 
-// 清空答案
+// 清空答案区
 function clearRhythmAnswer() {
     const slots = document.querySelectorAll('.rhythm-answer-slot');
-    slots.forEach(slot => {
-        slot.textContent = `点击选择第 ${parseInt(slot.dataset.index) + 1} 个节奏`;
+    slots.forEach((slot, index) => {
+        slot.textContent = `点击选择第 ${index + 1} 个节奏`;
         slot.classList.remove('filled');
     });
-
-    // 清除按钮选中状态
-    document.querySelectorAll('.rhythm-btn.selected').forEach(btn => btn.classList.remove('selected'));
-
-    // 清空上屏显示
-    const selectedDisplay = document.getElementById('rhythm-selected-display');
-    if (selectedDisplay) selectedDisplay.innerHTML = '';
-
+    
+    // 清除按钮状态
+    document.querySelectorAll('.rhythm-btn.selected').forEach(b => b.classList.remove('selected'));
+    
     const quantity = document.getElementById('quantity-rhythm');
-    const count = quantity ? parseInt(quantity.value) : 2;
+    const count = quantity ? parseInt(quantity.value) : 4;
     rhythmAppState.selectedRhythms = new Array(count).fill(null);
 }
 
-// 选择节奏
-function selectRhythm(rhythm, btn) {
-    // 找到第一个空槽或当前选中的槽
-    const slots = document.querySelectorAll('.rhythm-answer-slot');
-    let targetSlot = null;
-    let targetIndex = -1;
-
-    for (let i = 0; i < slots.length; i++) {
-        if (!slots[i].classList.contains('filled')) {
-            targetSlot = slots[i];
-            targetIndex = i;
-            break;
-        }
-    }
-
-    if (!targetSlot) {
-        updateRhythmStatus('答案区已满，请先清空或修改');
-        return;
-    }
-
-    // 更新槽位显示
-    targetSlot.textContent = rhythm;
-    targetSlot.classList.add('filled');
-
-    // 更新按钮状态
-    document.querySelectorAll('.rhythm-btn.selected').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-
-    // 保存选择
-    rhythmAppState.selectedRhythms[targetIndex] = rhythm;
-
-    // 更新上屏显示（pill）
-    const selectedDisplay = document.getElementById('rhythm-selected-display');
-    if (selectedDisplay) {
-        let pill = selectedDisplay.querySelector(`[data-index="${targetIndex}"]`);
-        if (!pill) {
-            pill = document.createElement('div');
-            pill.className = 'rhythm-selected-pill';
-            pill.dataset.index = targetIndex;
-            // 点击 pill 可清除对应槽位
-            pill.addEventListener('click', function () {
-                const idx = parseInt(this.dataset.index, 10);
-                const slot = document.querySelector(`.rhythm-answer-slot[data-index="${idx}"]`);
-                if (slot) {
-                    slot.textContent = `点击选择第 ${idx + 1} 个节奏`;
-                    slot.classList.remove('filled');
-                }
-                rhythmAppState.selectedRhythms[idx] = null;
-                // 取消按钮选中（匹配文本）
-                document.querySelectorAll('.rhythm-btn.selected').forEach(b => {
-                    if (b.getAttribute('data-rhythm') === this.textContent) b.classList.remove('selected');
-                });
-                this.remove();
-            });
-            selectedDisplay.appendChild(pill);
-        }
-        pill.textContent = rhythm;
-    }
-
-    updateRhythmStatus(`已选择：${rhythm}`);
-}
 
 // 开始练习模式
 function startRhythmPracticeMode() {
+    console.log('🎵 startRhythmPracticeMode 被调用');
     rhythmAppState.currentMode = 'practice';
     rhythmAppState.testInProgress = false;
 
@@ -6071,98 +6020,26 @@ function updateRhythmStatus(msg) {
     if (statusEl) statusEl.textContent = msg;
 }
 
-// 初始化答案区
-function initRhythmAnswerArea() {
-    const answerArea = document.getElementById('rhythm-answer-area');
-    if (!answerArea) return;
-
-    answerArea.innerHTML = '';
-
-    const quantity = document.getElementById('quantity-rhythm');
-    const count = quantity ? parseInt(quantity.value) : 2;
-
-    for (let i = 0; i < count; i++) {
-        const slot = document.createElement('div');
-        slot.className = 'rhythm-answer-slot';
-        slot.textContent = `点击选择第 ${i + 1} 个节奏`;
-        slot.dataset.index = i;
-        answerArea.appendChild(slot);
-    }
-
-    rhythmAppState.selectedRhythms = new Array(count).fill(null);
-}
-
-// 清空答案区
-function clearRhythmAnswer() {
-    const slots = document.querySelectorAll('.rhythm-answer-slot');
-    slots.forEach((slot, index) => {
-        slot.textContent = `点击选择第 ${index + 1} 个节奏`;
-        slot.classList.remove('filled');
-    });
-    // 清除上屏显示与按钮状态
-    const selectedDisplay = document.getElementById('rhythm-selected-display');
-    if (selectedDisplay) selectedDisplay.innerHTML = '';
-    document.querySelectorAll('.rhythm-btn.selected').forEach(b => b.classList.remove('selected'));
-    rhythmAppState.selectedRhythms = rhythmAppState.selectedRhythms.map(() => null);
-}
-
 // 选择节奏
 function selectRhythm(rhythm, btn) {
-    // 找到第一个空槽或当前选中的槽
     const slots = document.querySelectorAll('.rhythm-answer-slot');
-    let targetSlot = null;
     let targetIndex = -1;
-
     for (let i = 0; i < slots.length; i++) {
         if (!slots[i].classList.contains('filled')) {
-            targetSlot = slots[i];
             targetIndex = i;
             break;
         }
     }
-
-    if (!targetSlot) {
+    if (targetIndex === -1) {
         updateRhythmStatus('答案区已满，请先清空或修改');
         return;
     }
-
-    // 更新槽位显示
-    targetSlot.textContent = rhythm;
+    const targetSlot = slots[targetIndex];
+    targetSlot.textContent = `您：${rhythm}`;
     targetSlot.classList.add('filled');
-
-    // 更新按钮状态
     document.querySelectorAll('.rhythm-btn.selected').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-
-    // 保存选择
+    if (btn && btn.classList) btn.classList.add('selected');
     rhythmAppState.selectedRhythms[targetIndex] = rhythm;
-
-    // 更新上屏显示（pill）
-    const selectedDisplay = document.getElementById('rhythm-selected-display');
-    if (selectedDisplay) {
-        let pill = selectedDisplay.querySelector(`[data-index="${targetIndex}"]`);
-        if (!pill) {
-            pill = document.createElement('div');
-            pill.className = 'rhythm-selected-pill';
-            pill.dataset.index = targetIndex;
-            pill.addEventListener('click', function () {
-                const idx = parseInt(this.dataset.index, 10);
-                const slot = document.querySelector(`.rhythm-answer-slot[data-index="${idx}"]`);
-                if (slot) {
-                    slot.textContent = `点击选择第 ${idx + 1} 个节奏`;
-                    slot.classList.remove('filled');
-                }
-                rhythmAppState.selectedRhythms[idx] = null;
-                document.querySelectorAll('.rhythm-btn.selected').forEach(b => {
-                    if (b.getAttribute('data-rhythm') === this.textContent) b.classList.remove('selected');
-                });
-                this.remove();
-            });
-            selectedDisplay.appendChild(pill);
-        }
-        pill.textContent = rhythm;
-    }
-
     updateRhythmStatus(`已选择：${rhythm}`);
 }
 
@@ -6195,109 +6072,51 @@ function stopRhythmElapsedTimeTimer() {
     }
 }
 
-// ==================== 五线谱渲染功能 ====================
+// 五线谱渲染已移除 — 使用文本上屏显示替代。
+// （保留占位以便未来按需恢复复杂渲染）
 
-// 使用 VexFlow 渲染节奏到五线谱
-function renderRhythmToStaff(rhythmData, containerId = 'rhythm-staff-display') {
-    const container = document.getElementById(containerId);
-    if (!container) return;
+// ==================== 节奏播放功能 ====================
 
-    // 清空容器
-    container.innerHTML = '';
+// 播放用户已选择的节奏（上屏节奏）
+async function playSelectedRhythm() {
+    console.log('🎵 playSelectedRhythm 被调用');
+    if (rhythmAppState.isPlaying) return;
 
-    // 创建 canvas 元素
-    const canvas = document.createElement('div');
-    canvas.id = 'rhythm-vexflow-canvas';
-    container.appendChild(canvas);
+    // 检查是否有已选择的节奏
+    if (!rhythmAppState.selectedRhythms || rhythmAppState.selectedRhythms.every(r => r === null)) {
+        updateRhythmStatus('请先选择节奏型！');
+        return;
+    }
 
     try {
-        // 检查 VexFlow 是否加载
-        if (typeof Vex === 'undefined' || !Vex.Flow) {
-            console.error('VexFlow 未加载');
-            container.innerHTML = '<p style="color:red;">五线谱渲染库加载失败</p>';
+        // 确保 AudioContext 已激活
+        await Tone.start();
+
+        rhythmAppState.isPlaying = true;
+
+        // 构建要播放的节奏序列（只播放非空的节奏）
+        const selectedRhythms = rhythmAppState.selectedRhythms.filter(r => r !== null);
+        
+        if (selectedRhythms.length === 0) {
+            updateRhythmStatus('没有可播放的节奏！');
+            rhythmAppState.isPlaying = false;
             return;
         }
 
-        const VF = Vex.Flow;
-
-        // 创建渲染器
-        const renderer = new VF.Renderer(canvas, VF.Renderer.Backends.SVG);
-
-        // 设置画布大小（根据小节数动态调整）
-        const numMeasures = rhythmData.measures || 2;
-        const width = Math.max(600, numMeasures * 250);
-        const height = 200;
-
-        renderer.resize(width, height);
-        const context = renderer.getContext();
-
-        // 创建谱表
-        const stave = new VF.Stave(10, 40, width - 20);
-
-        // 添加拍号
-        const timeSignature = rhythmData.timeSignature || '4/4';
-        stave.addTimeSignature(timeSignature);
-
-        // 显示谱表
-        stave.setContext(context).draw();
-
-        // 创建音符
-        const notes = createVexFlowNotes(rhythmData.notes || []);
-
-        if (notes.length > 0) {
-            // 创建声部
-            const voice = new VF.Voice({ num_beats: notes.length, beat_value: 4 });
-            voice.addTickables(notes);
-
-            // 创建格式化器并绘制
-            const formatter = new VF.Formatter().joinVoices([voice]).format([voice], width - 50);
-            voice.draw(context, stave);
+        // 播放所有已选择的节奏
+        for (const rhythm of selectedRhythms) {
+            await playRhythmSequence(rhythm);
         }
 
-        // 显示五线谱容器
-        const staffContainer = document.getElementById('rhythm-staff-container');
-        if (staffContainer) staffContainer.style.display = 'block';
+        updateRhythmStatus('已播放上屏节奏');
 
     } catch (error) {
-        console.error('五线谱渲染错误:', error);
-        container.innerHTML = '<p style="color:red;">五线谱渲染失败: ' + error.message + '</p>';
+        console.error('播放上屏节奏失败:', error);
+        updateRhythmStatus('播放失败，请重试');
+    } finally {
+        rhythmAppState.isPlaying = false;
     }
 }
-
-// 创建 VexFlow 音符对象
-function createVexFlowNotes(noteDataArray) {
-    if (typeof Vex === 'undefined' || !Vex.Flow) return [];
-
-    const VF = Vex.Flow;
-    const notes = [];
-
-    noteDataArray.forEach(noteData => {
-        try {
-            // noteData 格式: { duration: 'q', keys: ['b/4'], ... }
-            const note = new VF.StaveNote({
-                clef: 'treble',
-                keys: noteData.keys || ['b/4'],
-                duration: noteData.duration + 'r', // q = quarter, r = rest
-                auto_stem: true
-            });
-
-            // 如果有附点，添加附点
-            if (noteData.dots && noteData.dots > 0) {
-                for (let i = 0; i < noteData.dots; i++) {
-                    note.addDotToAll();
-                }
-            }
-
-            notes.push(note);
-        } catch (e) {
-            console.warn('创建音符失败:', e, noteData);
-        }
-    });
-
-    return notes;
-}
-
-// ==================== 节奏播放功能 ====================
 
 // 播放随机节奏
 async function playRandomRhythm() {
@@ -6313,8 +6132,10 @@ async function playRandomRhythm() {
         const rhythm = generateRandomRhythm();
         rhythmAppState.currentRhythm = rhythm;
 
-        // 渲染到五线谱
-        renderRhythmToStaff(rhythm);
+        // 初始化答案区（参考项目方案：在播放题目时创建槽位）
+        initRhythmAnswerArea();
+
+        // （已移除五线谱渲染，保持界面简洁）
 
         // 播放节奏
         await playRhythmSequence(rhythm);
@@ -6432,18 +6253,20 @@ function submitRhythmAnswer() {
         return;
     }
 
-    if (!rhythmAppState.selectedRhythm) {
-        updateRhythmStatus('请先选择一个节奏型！');
+    // 检查是否已选择所有节奏
+    if (!rhythmAppState.selectedRhythms || rhythmAppState.selectedRhythms.some(r => r === null)) {
+        updateRhythmStatus('请先选择所有节奏！');
         return;
     }
 
-    // 比较答案（简化版本，实际应该比较复杂）
-    const isCorrect = JSON.stringify(rhythmAppState.selectedRhythm) === JSON.stringify(rhythmAppState.currentRhythm.pattern);
+    // 比较答案
+    const correctPattern = rhythmAppState.currentRhythm.pattern;
+    const isAllCorrect = rhythmAppState.selectedRhythms.every((selected, index) => selected === correctPattern[index]);
 
     if (rhythmAppState.currentMode === 'test') {
         rhythmAppState.totalQuestions++;
 
-        if (isCorrect) {
+        if (isAllCorrect) {
             rhythmAppState.correct++;
             rhythmAppState.score += 5;
             updateRhythmStatus(`✅ 回答正确！+5分`);
@@ -6451,32 +6274,66 @@ function submitRhythmAnswer() {
             rhythmAppState.wrong++;
             rhythmAppState.errorQuestions.push({
                 correct: rhythmAppState.currentRhythm,
-                selected: rhythmAppState.selectedRhythm
+                selected: rhythmAppState.selectedRhythms
             });
             updateRhythmStatus(`❌ 回答错误`);
         }
 
         updateRhythmStats();
 
+        // 显示每个槽位的对比结果
+        const slots = document.querySelectorAll('.rhythm-answer-slot');
+        slots.forEach((slot, index) => {
+            const userAnswer = rhythmAppState.selectedRhythms[index];
+            const correctAnswer = correctPattern[index];
+            slot.textContent = `您：${userAnswer} → 正确：${correctAnswer}`;
+            
+            // 根据正确性设置样式
+            if (userAnswer === correctAnswer) {
+                slot.style.background = 'rgba(0, 255, 0, 0.2)';
+                slot.style.borderColor = '#00ff00';
+            } else {
+                slot.style.background = 'rgba(255, 0, 0, 0.2)';
+                slot.style.borderColor = '#ff0000';
+            }
+        });
+
         // 检查是否达到20题
         if (rhythmAppState.totalQuestions >= 20) {
             setTimeout(() => {
                 endRhythmTestMode();
-            }, 2000);
+            }, 3000);
         } else {
             // 自动出下一题
             setTimeout(() => {
                 playRandomRhythm();
-                rhythmAppState.selectedRhythm = null;
-            }, 2000);
+                initRhythmAnswerArea();
+            }, 3000);
         }
     } else {
         // 练习模式
-        if (isCorrect) {
+        if (isAllCorrect) {
             updateRhythmStatus('✅ 回答正确！');
         } else {
             updateRhythmStatus('❌ 回答错误，请再试一次');
         }
+        
+        // 显示每个槽位的对比结果
+        const slots = document.querySelectorAll('.rhythm-answer-slot');
+        slots.forEach((slot, index) => {
+            const userAnswer = rhythmAppState.selectedRhythms[index];
+            const correctAnswer = correctPattern[index];
+            slot.textContent = `您：${userAnswer} → 正确：${correctAnswer}`;
+            
+            // 根据正确性设置样式
+            if (userAnswer === correctAnswer) {
+                slot.style.background = 'rgba(0, 255, 0, 0.2)';
+                slot.style.borderColor = '#00ff00';
+            } else {
+                slot.style.background = 'rgba(255, 0, 0, 0.2)';
+                slot.style.borderColor = '#ff0000';
+            }
+        });
     }
 }
 
@@ -6574,12 +6431,7 @@ function generateRhythmButtons() {
 
             updateRhythmStatus(`已选择：${rhythm.name}`);
 
-            // 渲染选择的节奏到五线谱
-            renderRhythmToStaff({
-                measures: 1,
-                timeSignature: '4/4',
-                notes: rhythm.pattern
-            });
+            // 五线谱渲染已移除，使用文本上屏显示（若需要可扩展）
         });
 
         container.appendChild(btn);

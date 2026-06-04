@@ -6195,11 +6195,8 @@ async function playRhythmSequence(rhythm) {
     const bpm = rhythmAppState.bpm || 90;
     const beatDuration = 60 / bpm; // 每拍的时长（秒）
 
-    // 创建打击乐音色
-    const membrane = new Tone.MembraneSynth().toDestination();
-
     // 计算总时长
-    let currentTime = Tone.now();
+    let currentTime = 0;
 
     // 播放每个音符
     for (const note of rhythm.notes) {
@@ -6221,18 +6218,18 @@ async function playRhythmSequence(rhythm) {
 
         const noteDuration = beatDuration * durationMultiplier;
 
-        // 触发打击乐
-        membrane.triggerAttackRelease("C2", noteDuration, currentTime);
+        // 使用钢琴音色播放（与单音、音程、和弦听辨一致）
+        playNoteWithWebAudio('C4', noteDuration, 0.8);
 
         // 更新当前时间
         currentTime += noteDuration;
 
         // 等待音符播放完成
-        await Tone.Transport.scheduleOnce(() => { }, currentTime);
+        await new Promise(resolve => setTimeout(resolve, noteDuration * 1000));
     }
 
-    // 等待所有音符播放完毕
-    await new Promise(resolve => setTimeout(resolve, (currentTime - Tone.now()) * 1000 + 100));
+    // 额外等待一点时间确保声音完全播放
+    await new Promise(resolve => setTimeout(resolve, 100));
 }
 
 // 重复播放节奏
