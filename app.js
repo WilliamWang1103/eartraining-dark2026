@@ -6018,7 +6018,7 @@ function selectRhythm(rhythm, btn) {
         return;
     }
     const targetSlot = slots[targetIndex];
-    targetSlot.textContent = rhythm;
+    targetSlot.textContent = `您：${rhythm}`;
     targetSlot.classList.add('filled');
     document.querySelectorAll('.rhythm-btn.selected').forEach(b => b.classList.remove('selected'));
     if (btn && btn.classList) btn.classList.add('selected');
@@ -6192,18 +6192,20 @@ function submitRhythmAnswer() {
         return;
     }
 
-    if (!rhythmAppState.selectedRhythm) {
-        updateRhythmStatus('请先选择一个节奏型！');
+    // 检查是否已选择所有节奏
+    if (!rhythmAppState.selectedRhythms || rhythmAppState.selectedRhythms.some(r => r === null)) {
+        updateRhythmStatus('请先选择所有节奏！');
         return;
     }
 
-    // 比较答案（简化版本，实际应该比较复杂）
-    const isCorrect = JSON.stringify(rhythmAppState.selectedRhythm) === JSON.stringify(rhythmAppState.currentRhythm.pattern);
+    // 比较答案
+    const correctPattern = rhythmAppState.currentRhythm.pattern;
+    const isAllCorrect = rhythmAppState.selectedRhythms.every((selected, index) => selected === correctPattern[index]);
 
     if (rhythmAppState.currentMode === 'test') {
         rhythmAppState.totalQuestions++;
 
-        if (isCorrect) {
+        if (isAllCorrect) {
             rhythmAppState.correct++;
             rhythmAppState.score += 5;
             updateRhythmStatus(`✅ 回答正确！+5分`);
@@ -6211,32 +6213,66 @@ function submitRhythmAnswer() {
             rhythmAppState.wrong++;
             rhythmAppState.errorQuestions.push({
                 correct: rhythmAppState.currentRhythm,
-                selected: rhythmAppState.selectedRhythm
+                selected: rhythmAppState.selectedRhythms
             });
             updateRhythmStatus(`❌ 回答错误`);
         }
 
         updateRhythmStats();
 
+        // 显示每个槽位的对比结果
+        const slots = document.querySelectorAll('.rhythm-answer-slot');
+        slots.forEach((slot, index) => {
+            const userAnswer = rhythmAppState.selectedRhythms[index];
+            const correctAnswer = correctPattern[index];
+            slot.textContent = `您：${userAnswer} → 正确：${correctAnswer}`;
+            
+            // 根据正确性设置样式
+            if (userAnswer === correctAnswer) {
+                slot.style.background = 'rgba(0, 255, 0, 0.2)';
+                slot.style.borderColor = '#00ff00';
+            } else {
+                slot.style.background = 'rgba(255, 0, 0, 0.2)';
+                slot.style.borderColor = '#ff0000';
+            }
+        });
+
         // 检查是否达到20题
         if (rhythmAppState.totalQuestions >= 20) {
             setTimeout(() => {
                 endRhythmTestMode();
-            }, 2000);
+            }, 3000);
         } else {
             // 自动出下一题
             setTimeout(() => {
                 playRandomRhythm();
-                rhythmAppState.selectedRhythm = null;
-            }, 2000);
+                initRhythmAnswerArea();
+            }, 3000);
         }
     } else {
         // 练习模式
-        if (isCorrect) {
+        if (isAllCorrect) {
             updateRhythmStatus('✅ 回答正确！');
         } else {
             updateRhythmStatus('❌ 回答错误，请再试一次');
         }
+        
+        // 显示每个槽位的对比结果
+        const slots = document.querySelectorAll('.rhythm-answer-slot');
+        slots.forEach((slot, index) => {
+            const userAnswer = rhythmAppState.selectedRhythms[index];
+            const correctAnswer = correctPattern[index];
+            slot.textContent = `您：${userAnswer} → 正确：${correctAnswer}`;
+            
+            // 根据正确性设置样式
+            if (userAnswer === correctAnswer) {
+                slot.style.background = 'rgba(0, 255, 0, 0.2)';
+                slot.style.borderColor = '#00ff00';
+            } else {
+                slot.style.background = 'rgba(255, 0, 0, 0.2)';
+                slot.style.borderColor = '#ff0000';
+            }
+        });
     }
 }
 
