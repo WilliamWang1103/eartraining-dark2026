@@ -961,6 +961,7 @@ const pageManager = {
         }
         if (pageId === 'chord-page') { setChordInteractiveVisibility(true); this.initializeChordPage(); initChordPage(); }
         else if (pageId === 'melody-page') { setMelodyInteractiveVisibility(true); initMelodyPage(); }
+        else if (pageId === 'interval-page') { setIntervalInteractiveVisibility(true); this.initializeIntervalPage(); initIntervalPage(); }
         else if (pageId === 'single-page') { setSingleInteractiveVisibility(true); this.initializeSinglePage(); initSinglePage(); }
         else if (pageId === 'rhythm-page') { setRhythmInteractiveVisibility(true); initRhythmPage(); }
         else if (pageId === 'chord-test-end-page') {
@@ -5607,9 +5608,14 @@ function initMelodyPage() {
 }
 
 function initRhythmPage() {
+    console.log(' initRhythmPage 被调用, initialized:', initRhythmPage.initialized);
     // 防止重复初始化
-    if (initRhythmPage.initialized) return;
+    if (initRhythmPage.initialized) {
+        console.log('⚠️ initRhythmPage 已经初始化过，跳过');
+        return;
+    }
     initRhythmPage.initialized = true;
+    console.log('✅ initRhythmPage 初始化开始');
 
     const back = document.getElementById('back-home-rhythm');
     if (back) back.addEventListener('click', () => pageManager.switchToPage('home-page'));
@@ -5705,7 +5711,15 @@ function initRhythmPage() {
 
     // 设置初始状态
     updateRhythmButtonStates();
-    startRhythmPracticeMode();
+    
+    // 自动点击练习模式按钮，确保槽位正确显示
+    if (practiceBtn) {
+        console.log(' 自动点击练习模式按钮');
+        // 使用setTimeout确保DOM完全渲染后再点击
+        setTimeout(() => {
+            practiceBtn.click();
+        }, 50);
+    }
 }
 
 
@@ -5758,6 +5772,7 @@ function switchRhythmType(type) {
 
 // 初始化答案区
 function initRhythmAnswerArea() {
+    console.log(' initRhythmAnswerArea 被调用');
     const answerArea = document.getElementById('rhythm-answer-area');
     if (!answerArea) return;
 
@@ -5796,6 +5811,7 @@ function clearRhythmAnswer() {
 
 // 开始练习模式
 function startRhythmPracticeMode() {
+    console.log('🎵 startRhythmPracticeMode 被调用');
     rhythmAppState.currentMode = 'practice';
     rhythmAppState.testInProgress = false;
 
