@@ -132,8 +132,10 @@ const rhythmAppState = {
     // 节奏相关状态
     currentRhythm: null, // 当前节奏题目
     selectedRhythm: null, // 用户选择的节奏
+    selectedRhythms: [], // 用户选择的所有节奏（数组）
+    activeSlotIndex: -1, // 当前激活的槽位索引（-1表示未激活）
     metronomeOn: false, // 节拍器开关
-    bpm: 90, // 节拍速度
+    bpm: 72, // 节拍速度
     difficulty: 1, // 难度级别
     scaleDifficulty: 1, // 拍型难度
     paramType: 'rhythm' // 当前参数类型：'rhythm'(节奏型) 或 'meter'(节拍)
@@ -5784,10 +5786,32 @@ function initRhythmAnswerArea() {
         slot.className = 'rhythm-answer-slot';
         slot.textContent = `点击选择第 ${i + 1} 个节奏`;
         slot.dataset.index = i;
+        
+        // 为每个槽位添加点击事件
+        slot.addEventListener('click', () => {
+            activateSlot(i);
+        });
+        
         answerArea.appendChild(slot);
     }
 
     rhythmAppState.selectedRhythms = new Array(count).fill(null);
+    rhythmAppState.activeSlotIndex = -1; // 重置激活状态
+}
+
+// 激活槽位
+function activateSlot(index) {
+    const slots = document.querySelectorAll('.rhythm-answer-slot');
+    
+    // 移除所有槽位的激活样式
+    slots.forEach(slot => slot.classList.remove('slot-active'));
+    
+    // 激活当前槽位
+    if (index >= 0 && index < slots.length) {
+        rhythmAppState.activeSlotIndex = index;
+        slots[index].classList.add('slot-active');
+        updateRhythmStatus(`已激活第 ${index + 1} 个槽位，请点击下方节奏型按钮`);
+    }
 }
 
 // 清空答案区
@@ -5796,6 +5820,7 @@ function clearRhythmAnswer() {
     slots.forEach((slot, index) => {
         slot.textContent = `点击选择第 ${index + 1} 个节奏`;
         slot.classList.remove('filled');
+        slot.classList.remove('slot-active'); // 移除激活状态
     });
     
     // 清除按钮状态
@@ -5804,6 +5829,7 @@ function clearRhythmAnswer() {
     const quantity = document.getElementById('quantity-rhythm');
     const count = quantity ? parseInt(quantity.value) : 4;
     rhythmAppState.selectedRhythms = new Array(count).fill(null);
+    rhythmAppState.activeSlotIndex = -1; // 重置激活状态
 }
 
 
@@ -6021,26 +6047,62 @@ function updateRhythmStatus(msg) {
 }
 
 // 选择节奏
-function selectRhythm(rhythm, btn) {
-    const slots = document.querySelectorAll('.rhythm-answer-slot');
-    let targetIndex = -1;
-    for (let i = 0; i < slots.length; i++) {
-        if (!slots[i].classList.contains('filled')) {
-            targetIndex = i;
-            break;
+// 选择节奏型（点击节奏按钮时调用）
+async function selectRhythm(rhythm, btn) {
+    // 练习模式：播放节奏声音
+    if (rhythmAppState.currentMode === 'practice') {
+        try {
+            await Tone.start();
+            
+            // 获取节奏型的音符序列
+            const rhythmNotes = getRhythmNotesByName(rhythm);
+            if (rhythmNotes) {
+                // 构建节奏对象
+                const rhythmObj = {
+                    notes: rhythmNotes,
+                    pattern: rhythmNotes
+                };
+                
+                // 播放节奏
+                await playRhythmSequence(rhythmObj);
+            }
+        } catch (error) {
+            console.error('播放节奏失败:', error);
         }
     }
-    if (targetIndex === -1) {
-        updateRhythmStatus('答案区已满，请先清空或修改');
-        return;
+    
+    // 短暂高亮按钮（无论练习还是测试模式）
+    if (btn) {
+        btn.classList.add('active-highlight');
+        setTimeout(() => {
+            btn.classList.remove('active-highlight');
+        }, 300); // 300ms后移除高亮
     }
-    const targetSlot = slots[targetIndex];
-    targetSlot.textContent = `您：${rhythm}`;
-    targetSlot.classList.add('filled');
-    document.querySelectorAll('.rhythm-btn.selected').forEach(b => b.classList.remove('selected'));
-    if (btn && btn.classList) btn.classList.add('selected');
-    rhythmAppState.selectedRhythms[targetIndex] = rhythm;
-    updateRhythmStatus(`已选择：${rhythm}`);
+    
+    // 只有在有激活槽位时才记录答案
+    if (rhythmAppState.activeSlotIndex >= 0) {
+        const slots = document.querySelectorAll('.rhythm-answer-slot');
+        const targetIndex = rhythmAppState.activeSlotIndex;
+        
+        if (targetIndex >= slots.length) {
+            updateRhythmStatus('槽位索引无效，请重新点击槽位');
+            return;
+        }
+        
+        // 更新答案槽位
+        const targetSlot = slots[targetIndex];
+        targetSlot.textContent = `您：${rhythm}`;
+        targetSlot.classList.add('filled');
+        rhythmAppState.selectedRhythms[targetIndex] = rhythm;
+        updateRhythmStatus(`已选择：${rhythm}`);
+        
+        // 重置激活状态
+        rhythmAppState.activeSlotIndex = -1;
+        // 移除所有槽位的激活样式
+        slots.forEach(slot => slot.classList.remove('slot-active'));
+    } else {
+        updateRhythmStatus('请先点击一个答案槽位以激活上屏记录');
+    }
 }
 
 // 更新节奏听辨统计
@@ -6103,12 +6165,20 @@ async function playSelectedRhythm() {
             return;
         }
 
-        // 播放所有已选择的节奏
-        for (const rhythm of selectedRhythms) {
-            await playRhythmSequence(rhythm);
+        // 播放所有已选择的节奏（节奏名称数组）
+        for (const rhythmName of selectedRhythms) {
+            // 从映射表获取音符序列
+            const rhythmNotes = getRhythmNotesByName(rhythmName);
+            if (rhythmNotes) {
+                const rhythmObj = {
+                    notes: rhythmNotes,
+                    pattern: [rhythmName]
+                };
+                await playRhythmSequence(rhythmObj);
+            }
         }
 
-        updateRhythmStatus('已播放上屏节奏');
+        updateRhythmStatus(`已播放上屏节奏：${selectedRhythms.join(' + ')}`);
 
     } catch (error) {
         console.error('播放上屏节奏失败:', error);
@@ -6150,44 +6220,207 @@ async function playRandomRhythm() {
     }
 }
 
-// 生成随机节奏
+// 生成随机节奏（根据拍型和数量）
 function generateRandomRhythm() {
-    const difficulty = parseInt(rhythmAppState.difficulty) || 1;
-    const numMeasures = parseInt(document.getElementById('difficulty-rhythm')?.value) || 2;
-    const timeSignature = document.getElementById('scale-difficulty-rhythm')?.value || '4/4';
-
-    // 根据难度选择节奏型
-    let rhythmPatterns;
-    if (difficulty === 1) {
-        // 简单：四分音符、八分音符
-        rhythmPatterns = [
-            [{ duration: 'q', keys: ['b/4'] }, { duration: 'q', keys: ['b/4'] }, { duration: 'q', keys: ['b/4'] }, { duration: 'q', keys: ['b/4'] }],
-            [{ duration: '8', keys: ['b/4'] }, { duration: '8', keys: ['b/4'] }, { duration: 'q', keys: ['b/4'] }, { duration: 'q', keys: ['b/4'] }],
-            [{ duration: 'q', keys: ['b/4'] }, { duration: 'q', keys: ['b/4'] }, { duration: '8', keys: ['b/4'] }, { duration: '8', keys: ['b/4'] }]
+    // 获取用户选择的拍型和数量
+    const beatType = document.getElementById('beat-type-rhythm')?.value || '1';
+    const quantity = parseInt(document.getElementById('quantity-rhythm')?.value) || 4;
+    
+    // 根据拍型选择对应的节奏型
+    let rhythmNames;
+    if (beatType === '1') {
+        // 一拍节奏型（9种）
+        rhythmNames = [
+            '四分', '2个八分', '4个十六分', '前十六', '后十六', 
+            '小切分', '小附点', '小后附点', '三连音'
         ];
-    } else if (difficulty === 2) {
-        // 中等：包含十六分音符
-        rhythmPatterns = [
-            [{ duration: '8', keys: ['b/4'] }, { duration: '8', keys: ['b/4'] }, { duration: '8', keys: ['b/4'] }, { duration: '8', keys: ['b/4'] }],
-            [{ duration: '16', keys: ['b/4'] }, { duration: '16', keys: ['b/4'] }, { duration: '8', keys: ['b/4'] }, { duration: 'q', keys: ['b/4'] }]
+    } else if (beatType === '2') {
+        // 二拍节奏型（9种）
+        rhythmNames = [
+            '二分', '八分大切分', '十六分大切分', '前十六大切分', '后十六大切分',
+            '八分大附点', '八分大后附点', '十六分大附点', '十六分大后附点'
         ];
     } else {
-        // 复杂：包含附点、切分
-        rhythmPatterns = [
-            [{ duration: 'q', keys: ['b/4'], dots: 1 }, { duration: '8', keys: ['b/4'] }, { duration: 'q', keys: ['b/4'] }],
-            [{ duration: '8', keys: ['b/4'] }, { duration: 'q', keys: ['b/4'], dots: 1 }, { duration: '8', keys: ['b/4'] }]
+        // 默认使用一拍节奏型
+        rhythmNames = [
+            '四分', '2个八分', '4个十六分', '前十六', '后十六', 
+            '小切分', '小附点', '小后附点', '三连音'
         ];
     }
-
-    // 随机选择一个节奏型
-    const selectedPattern = rhythmPatterns[Math.floor(Math.random() * rhythmPatterns.length)];
+    
+    // 根据数量随机选择节奏型（可以重复）
+    const selectedRhythms = [];
+    for (let i = 0; i < quantity; i++) {
+        const randomIndex = Math.floor(Math.random() * rhythmNames.length);
+        selectedRhythms.push(rhythmNames[randomIndex]);
+    }
+    
+    // 从映射表获取所有节奏型的音符序列
+    const allNotes = [];
+    selectedRhythms.forEach(rhythmName => {
+        const notes = RHYTHM_DURATION_MAP[rhythmName];
+        if (notes) {
+            allNotes.push(...notes);
+        }
+    });
 
     return {
-        measures: numMeasures,
-        timeSignature: timeSignature,
-        notes: selectedPattern,
-        pattern: selectedPattern
+        beatType: beatType,
+        quantity: quantity,
+        measures: 1,
+        timeSignature: '4/4',
+        name: selectedRhythms.join(' + '), // 显示所有节奏型名称
+        notes: allNotes, // 所有音符序列
+        pattern: selectedRhythms // 节奏名称数组，用于答案比较
     };
+}
+
+// ==================== 节奏型时值规则映射表 ====================
+// 以四分音符为1拍基准
+const RHYTHM_DURATION_MAP = {
+    // ===== 一、1拍节奏型（每个节奏型总时值 = 1拍）=====
+    
+    // 1. 四分 = 1拍（单个四分音符）
+    '四分': [
+        { duration: 'q', beats: 1, description: '四分音符' }
+    ],
+    
+    // 2. 2个八分 = 0.5拍 + 0.5拍 = 1拍（两个八分音符）
+    '2个八分': [
+        { duration: '8', beats: 0.5, description: '八分音符' },
+        { duration: '8', beats: 0.5, description: '八分音符' }
+    ],
+    
+    // 3. 4个十六分 = 0.25拍 × 4 = 1拍（四个十六分音符）
+    '4个十六分': [
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' }
+    ],
+    
+    // 4. 前十六 = 0.25拍 + 0.25拍 + 0.5拍 = 1拍（两个十六分音符 + 一个八分音符）
+    '前十六': [
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '8', beats: 0.5, description: '八分音符' }
+    ],
+    
+    // 5. 后十六 = 0.5拍 + 0.25拍 + 0.25拍 = 1拍（一个八分音符 + 两个十六分音符）
+    '后十六': [
+        { duration: '8', beats: 0.5, description: '八分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' }
+    ],
+    
+    // 6. 小切分 = 0.25拍 + 0.5拍 + 0.25拍 = 1拍（十六分 + 八分 + 十六分）
+    '小切分': [
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '8', beats: 0.5, description: '八分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' }
+    ],
+    
+    // 7. 小附点 = 0.75拍 + 0.25拍 = 1拍（附点八分（0.5拍+ 0.25拍=0.75拍）+ 十六分（0.25拍））
+    '小附点': [
+        { duration: '8', beats: 0.75, dots: 1, description: '附点八分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' }
+    ],
+    
+    // 8. 小后附点 = 0.25拍 + 0.75拍 = 1拍（十六分（0.25拍）+ 附点八分（0.5拍+ 0.25拍=0.75拍））
+    '小后附点': [
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '8', beats: 0.75, dots: 1, description: '附点八分音符' }
+    ],
+    
+    // 9. 三连音 = 1/3拍 × 3 = 1拍（三个均等的音符，每个占1/3拍）
+    '三连音': [
+        { duration: 'triplet', beats: 1/3, description: '三连音音符' },
+        { duration: 'triplet', beats: 1/3, description: '三连音音符' },
+        { duration: 'triplet', beats: 1/3, description: '三连音音符' }
+    ],
+    
+    // ===== 二、2拍节奏型（每个节奏型总时值 = 2拍）=====
+    
+    // 1. 二分 = 2拍（单个二分音符）
+    '二分': [
+        { duration: 'h', beats: 2, description: '二分音符' }
+    ],
+    
+    // 2. 八分大切分 = 0.5拍 + 1拍 + 0.5拍 = 2拍（八分 + 四分 + 八分）
+    '八分大切分': [
+        { duration: '8', beats: 0.5, description: '八分音符' },
+        { duration: 'q', beats: 1, description: '四分音符' },
+        { duration: '8', beats: 0.5, description: '八分音符' }
+    ],
+    
+    // 3. 十六分大切分 = 0.25拍 + 0.25拍 + 1拍 + 0.25拍 + 0.25拍 = 2拍（两个十六分 + 四分 + 两个十六分）
+    '十六分大切分': [
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: 'q', beats: 1, description: '四分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' }
+    ],
+    
+    // 4. 前十六大切分 = 0.25拍 + 0.25拍 + 1拍 + 0.5拍 = 2拍（两个十六分 + 四分 + 八分）
+    '前十六大切分': [
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: 'q', beats: 1, description: '四分音符' },
+        { duration: '8', beats: 0.5, description: '八分音符' }
+    ],
+    
+    // 5. 后十六大切分 = 0.5拍 + 1拍 + 0.25拍 + 0.25拍 = 2拍（八分 + 四分 + 两个十六分）
+    '后十六大切分': [
+        { duration: '8', beats: 0.5, description: '八分音符' },
+        { duration: 'q', beats: 1, description: '四分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' }
+    ],
+    
+    // 6. 八分大附点 = 1.5拍 + 0.5拍 = 2拍（附点四分（1拍 + 0.5拍=1.5拍）+ 八分（0.5拍））
+    '八分大附点': [
+        { duration: 'q', beats: 1.5, dots: 1, description: '附点四分音符' },
+        { duration: '8', beats: 0.5, description: '八分音符' }
+    ],
+    
+    // 7. 八分大后附点 = 0.5拍 + 1.5拍 = 2拍（八分（0.5拍）+ 附点四分（1拍 + 0.5拍=1.5拍））
+    '八分大后附点': [
+        { duration: '8', beats: 0.5, description: '八分音符' },
+        { duration: 'q', beats: 1.5, dots: 1, description: '附点四分音符' }
+    ],
+    
+    // 8. 十六分大附点 = 1.5拍 + 0.25拍 + 0.25拍 = 2拍（附点四分（1拍 + 0.5拍=1.5拍）+ 两个十六分（0.25拍 + 0.25拍））
+    '十六分大附点': [
+        { duration: 'q', beats: 1.5, dots: 1, description: '附点四分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' }
+    ],
+    
+    // 9. 十六分大后附点 = 0.25拍 + 0.25拍 + 1.5拍 = 2拍（两个十六分（0.25拍 + 0.25拍）+ 附点四分（1拍 + 0.5拍=1.5拍））
+    '十六分大后附点': [
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: '16', beats: 0.25, description: '十六分音符' },
+        { duration: 'q', beats: 1.5, dots: 1, description: '附点四分音符' }
+    ]
+};
+
+// 根据节奏型名称获取音符序列
+function getRhythmNotesByName(rhythmName) {
+    const pattern = RHYTHM_DURATION_MAP[rhythmName];
+    if (!pattern) {
+        console.warn(`未找到节奏型: ${rhythmName}`);
+        return null;
+    }
+    
+    // 转换为播放格式
+    return pattern.map(note => ({
+        duration: note.duration,
+        beats: note.beats,
+        dots: note.dots || 0,
+        keys: ['b/4'], // 默认使用C4音高
+        description: note.description
+    }));
 }
 
 // 播放节奏序列
@@ -6195,44 +6428,49 @@ async function playRhythmSequence(rhythm) {
     const bpm = rhythmAppState.bpm || 90;
     const beatDuration = 60 / bpm; // 每拍的时长（秒）
 
-    // 创建打击乐音色
-    const membrane = new Tone.MembraneSynth().toDestination();
-
     // 计算总时长
-    let currentTime = Tone.now();
+    let currentTime = 0;
 
     // 播放每个音符
     for (const note of rhythm.notes) {
-        // 解析音符时长
-        let durationMultiplier = 1;
-        switch (note.duration) {
-            case 'w': durationMultiplier = 4; break;
-            case 'h': durationMultiplier = 2; break;
-            case 'q': durationMultiplier = 1; break;
-            case '8': durationMultiplier = 0.5; break;
-            case '16': durationMultiplier = 0.25; break;
-            default: durationMultiplier = 1;
+        let noteDuration;
+        
+        // 优先使用 beats 属性（如果存在）
+        if (note.beats !== undefined) {
+            noteDuration = beatDuration * note.beats;
+        } else {
+            // 否则使用 duration 解析
+            let durationMultiplier = 1;
+            switch (note.duration) {
+                case 'w': durationMultiplier = 4; break;
+                case 'h': durationMultiplier = 2; break;
+                case 'q': durationMultiplier = 1; break;
+                case '8': durationMultiplier = 0.5; break;
+                case '16': durationMultiplier = 0.25; break;
+                case 'triplet': durationMultiplier = 1/3; break; // 三连音：每个音符占1/3拍
+                default: durationMultiplier = 1;
+            }
+
+            // 如果有附点，增加50%
+            if (note.dots) {
+                durationMultiplier *= 1.5;
+            }
+
+            noteDuration = beatDuration * durationMultiplier;
         }
 
-        // 如果有附点，增加50%
-        if (note.dots) {
-            durationMultiplier *= 1.5;
-        }
-
-        const noteDuration = beatDuration * durationMultiplier;
-
-        // 触发打击乐
-        membrane.triggerAttackRelease("C2", noteDuration, currentTime);
+        // 使用钢琴音色播放（与单音、音程、和弦听辨一致）
+        playNoteWithWebAudio('C4', noteDuration, 0.8);
 
         // 更新当前时间
         currentTime += noteDuration;
 
         // 等待音符播放完成
-        await Tone.Transport.scheduleOnce(() => { }, currentTime);
+        await new Promise(resolve => setTimeout(resolve, noteDuration * 1000));
     }
 
-    // 等待所有音符播放完毕
-    await new Promise(resolve => setTimeout(resolve, (currentTime - Tone.now()) * 1000 + 100));
+    // 额外等待一点时间确保声音完全播放
+    await new Promise(resolve => setTimeout(resolve, 100));
 }
 
 // 重复播放节奏
@@ -6344,8 +6582,10 @@ function showRhythmAnswer() {
         return;
     }
 
-    // 高亮显示正确答案
-    updateRhythmStatus('正确答案已在五线谱上显示');
+    // 在状态栏显示正确答案
+    const correctPattern = rhythmAppState.currentRhythm.pattern;
+    const answerText = correctPattern.join('；');
+    updateRhythmStatus(`正确答案：${answerText}`);
 }
 
 // 切换节拍器
@@ -6355,6 +6595,13 @@ function toggleMetronome() {
     const metronomeBtn = document.getElementById('toggle-metronome-rhythm');
     if (metronomeBtn) {
         metronomeBtn.textContent = rhythmAppState.metronomeOn ? '节拍器 关' : '节拍器 开';
+        
+        // 切换按钮样式（桔色active状态）
+        if (rhythmAppState.metronomeOn) {
+            metronomeBtn.classList.add('active');
+        } else {
+            metronomeBtn.classList.remove('active');
+        }
     }
 
     if (rhythmAppState.metronomeOn) {
@@ -6365,32 +6612,55 @@ function toggleMetronome() {
 }
 
 // 启动节拍器
-let metronomeLoop = null;
+let metronomeInterval = null;
 function startMetronome() {
     const bpm = rhythmAppState.bpm || 90;
+    const interval = 60000 / bpm; // 转换为毫秒
 
-    // 创建节拍器音色
-    const click = new Tone.MembraneSynth({
-        envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
-    }).toDestination();
+    console.log(`🥁 节拍器启动，BPM: ${bpm}, 间隔: ${interval}ms`);
 
-    // 创建循环
-    metronomeLoop = new Tone.Loop((time) => {
-        click.triggerAttackRelease("C4", "32n", time);
-    }, "4n").start(0);
+    // 立即播放一次
+    playWoodBlockSound();
 
-    Tone.Transport.bpm.value = bpm;
-    Tone.Transport.start();
+    // 设置定时器
+    metronomeInterval = setInterval(() => {
+        playWoodBlockSound();
+    }, interval);
+}
+
+// 木鱼声音（使用Web Audio API）
+function playWoodBlockSound() {
+    const ctx = window.audioContext;
+    if (!ctx) return;
+    
+    const now = ctx.currentTime;
+    
+    // 创建振荡器（高频短促的声音）
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    // 木鱼音色：高频正弦波
+    osc.type = 'sine';
+    osc.frequency.value = 1200; // 高频，类似木鱼
+    
+    // 快速衰减包络
+    gain.gain.setValueAtTime(0.6, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05); // 50ms快速衰减
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.start(now);
+    osc.stop(now + 0.05);
 }
 
 // 停止节拍器
 function stopMetronome() {
-    if (metronomeLoop) {
-        metronomeLoop.stop();
-        metronomeLoop.dispose();
-        metronomeLoop = null;
+    if (metronomeInterval) {
+        clearInterval(metronomeInterval);
+        metronomeInterval = null;
     }
-    Tone.Transport.stop();
+    console.log('⏹️ 节拍器已停止');
 }
 
 // 生成节奏选项按钮

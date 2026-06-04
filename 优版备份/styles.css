@@ -2070,7 +2070,7 @@ body {
 .rhythm-answer-slot {
     padding: 15px 10px;
     background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(153, 102, 255, 0.5);
+    border: 2px solid rgba(247, 153, 59, 0.558);
     border-radius: 12px;
     text-align: center;
     cursor: pointer;
@@ -2086,16 +2086,26 @@ body {
 }
 
 .rhythm-answer-slot:hover {
-    background: rgba(153, 102, 255, 0.15);
-    border-color: #9966ff;
+    background: rgba(255, 176, 102, 0.197);
+    border-color: #fa9049;
     color: #fff;
 }
 
 .rhythm-answer-slot.filled {
     background: rgba(153, 102, 255, 0.2);
-    border-color: #9966ff;
-    color: #9966ff;
+    border-color: #ff9c66;
+    color: #ff9666;
     font-weight: bold;
+}
+
+/* 答案槽位激活状态 */
+.rhythm-answer-slot.slot-active {
+    background: rgba(255, 176, 102, 0.3) !important;
+    border-color: #ff9800 !important;
+    border-width: 3px !important;
+    box-shadow: 0 0 15px rgba(255, 152, 0, 0.6);
+    transform: scale(1.02);
+    transition: all 0.2s ease;
 }
 
 .rhythm-tabs-section {
@@ -2122,8 +2132,8 @@ body {
 }
 
 .rhythm-tab-btn.active {
-    background: #667eea;
-    border-color: #667eea;
+    background: hsl(26, 89%, 57%);
+    border-color: oklch(74.496% 0.1207 48.328);
     color: #fff;
 }
 
@@ -2147,124 +2157,197 @@ body {
 }
 
 .rhythm-btn {
-    .rhythm-selected-display {
-        min-height: 56px;
-        padding: 8px 12px;
-        margin: 12px 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 8px;
-        border: 2px dashed rgba(255, 255, 255, 0.08);
-        background: rgba(0, 0, 0, 0.12);
-        color: #ffd966;
-        font-size: 16px;
-        font-weight: 600;
+    padding: 10px;
+    border: 2px solid rgba(255, 217, 102, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+    text-align: center;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rhythm-selected-display {
+    min-height: 56px;
+    padding: 8px 12px;
+    margin: 12px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 2px dashed rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.12);
+    color: #ffd966;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.rhythm-btn:hover {
+    background: rgba(255, 217, 102, 0.2);
+    border-color: #ffd966;
+    transform: translateY(-2px);
+}
+
+/* 节奏按钮点击时的高亮效果 */
+.rhythm-btn.active-highlight {
+    background: rgba(230, 126, 34, 0.6) !important;
+    border-color: #ff9800 !important;
+    box-shadow: 0 0 15px rgba(230, 126, 34, 0.8);
+    transform: scale(1.05);
+    transition: all 0.1s ease;
+}
+
+.rhythm-handwriting-section {
+    margin: 15px 0;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.handwriting-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.handwriting-hint {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+#rhythm-canvas {
+    width: 100%;
+    height: 120px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    touch-action: none;
+    cursor: crosshair;
+}
+
+/* 移动端适配 */
+@media (max-width: 420px) {
+    .rhythm-metronome-section {
+        flex-direction: column;
+        align-items: stretch;
     }
 
-    .rhythm-btn:hover {
-        background: rgba(255, 217, 102, 0.2);
-        border-color: #ffd966;
-        transform: translateY(-2px);
+    .metronome-control {
+        min-width: 0;
     }
 
-    .rhythm-btn.selected {
-        background: #e67e22;
-        border-color: #e67e22;
-        color: #fff;
-        font-weight: bold;
+    .metronome-actions {
+        justify-content: space-between;
     }
 
-    .rhythm-handwriting-section {
-        margin: 15px 0;
-        padding: 12px;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
+    .rhythm-params-section {
+        flex-direction: column;
     }
 
-    .handwriting-controls {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        margin-bottom: 10px;
-        flex-wrap: wrap;
+    .param-group {
+        min-width: 0;
     }
 
-    .handwriting-hint {
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.5);
+    .rhythm-buttons-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
 
-    #rhythm-canvas {
-        width: 100%;
-        height: 120px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 6px;
-        background: rgba(255, 255, 255, 0.05);
-        touch-action: none;
-        cursor: crosshair;
+    .rhythm-answer-area {
+        flex-direction: column;
     }
 
-    /* 移动端适配 */
-    @media (max-width: 420px) {
-        .rhythm-metronome-section {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .metronome-control {
-            min-width: 0;
-        }
-
-        .metronome-actions {
-            justify-content: space-between;
-        }
-
-        .rhythm-params-section {
-            flex-direction: column;
-        }
-
-        .param-group {
-            min-width: 0;
-        }
-
-        .rhythm-buttons-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .rhythm-answer-area {
-            flex-direction: column;
-        }
-
-        .rhythm-answer-slot {
-            min-width: 0;
-        }
+    .rhythm-answer-slot {
+        min-width: 0;
     }
+}
 
-    #rhythm-staff-container {
-        max-width: 100%;
-        overflow-x: auto;
-    }
+#rhythm-staff-container {
+    max-width: 100%;
+    overflow-x: auto;
+}
 
-    #rhythm-staff-display svg {
-        max-width: 100%;
-        height: auto;
-    }
+#rhythm-staff-display svg {
+    max-width: 100%;
+    height: auto;
+}
 
-    #rhythm-buttons-container {
-        max-width: 100%;
-        overflow-x: auto;
-    }
+#rhythm-buttons-container {
+    max-width: 100%;
+    overflow-x: auto;
+}
 
-    #rhythm-layer {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        justify-content: center;
-    }
+#rhythm-layer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
 
-    #rhythm-layer .chord-btn {
-        flex: 0 0 auto;
-        min-width: 100px;
-        max-width: 150px;
-    }
+#rhythm-layer .chord-btn {
+    flex: 0 0 auto;
+    min-width: 100px;
+    max-width: 150px;
+}
+
+/* ==================== 节奏听辨 - 桔色主题 ==================== */
+
+/* 节拍器滑块样式 */
+#rhythm-bpm[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+#rhythm-bpm[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #e67e22;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(230, 126, 34, 0.6);
+    transition: all 0.2s;
+}
+
+#rhythm-bpm[type="range"]::-webkit-slider-thumb:hover {
+    background: #d35400;
+    box-shadow: 0 0 12px rgba(230, 126, 34, 0.8);
+    transform: scale(1.1);
+}
+
+#rhythm-bpm[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #e67e22;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 0 8px rgba(230, 126, 34, 0.6);
+    transition: all 0.2s;
+}
+
+#rhythm-bpm[type="range"]::-moz-range-thumb:hover {
+    background: #d35400;
+    box-shadow: 0 0 12px rgba(230, 126, 34, 0.8);
+    transform: scale(1.1);
+}
+
+/* 节拍器按钮active状态 - 桔色 */
+#toggle-metronome-rhythm.active {
+    background: #e67e22 !important;
+    color: white !important;
+    box-shadow: 0 0 15px rgba(230, 126, 34, 0.6);
+}
