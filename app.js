@@ -960,7 +960,6 @@ const pageManager = {
             console.log('当前active页面:', document.querySelector('.page.active')?.id);
         }
         if (pageId === 'chord-page') { setChordInteractiveVisibility(true); this.initializeChordPage(); initChordPage(); }
-        else if (pageId === 'interval-page') { setIntervalInteractiveVisibility(true); this.initializeIntervalPage(); initIntervalPage(); }
         else if (pageId === 'melody-page') { setMelodyInteractiveVisibility(true); initMelodyPage(); }
         else if (pageId === 'single-page') { setSingleInteractiveVisibility(true); this.initializeSinglePage(); initSinglePage(); }
         else if (pageId === 'rhythm-page') { setRhythmInteractiveVisibility(true); initRhythmPage(); }
@@ -2548,6 +2547,7 @@ function init() {
     // 若需要恢复上次保存的信息，请使用“加载/恢复”按钮手动触发
     initHomePage();
     initChordPage();
+    initRhythmPage();
     initWindowControls();
     initEndPage();
     window.addEventListener('resize', () => { invalidatePianoMetrics(); positionBlackKeys(); });
