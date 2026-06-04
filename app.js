@@ -6352,6 +6352,13 @@ function toggleMetronome() {
     const metronomeBtn = document.getElementById('toggle-metronome-rhythm');
     if (metronomeBtn) {
         metronomeBtn.textContent = rhythmAppState.metronomeOn ? '节拍器 关' : '节拍器 开';
+        
+        // 切换按钮样式（桔色active状态）
+        if (rhythmAppState.metronomeOn) {
+            metronomeBtn.classList.add('active');
+        } else {
+            metronomeBtn.classList.remove('active');
+        }
     }
 
     if (rhythmAppState.metronomeOn) {
@@ -6362,32 +6369,55 @@ function toggleMetronome() {
 }
 
 // 启动节拍器
-let metronomeLoop = null;
+let metronomeInterval = null;
 function startMetronome() {
     const bpm = rhythmAppState.bpm || 90;
+    const interval = 60000 / bpm; // 转换为毫秒
 
-    // 创建节拍器音色
-    const click = new Tone.MembraneSynth({
-        envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
-    }).toDestination();
+    console.log(`🥁 节拍器启动，BPM: ${bpm}, 间隔: ${interval}ms`);
 
-    // 创建循环
-    metronomeLoop = new Tone.Loop((time) => {
-        click.triggerAttackRelease("C4", "32n", time);
-    }, "4n").start(0);
+    // 立即播放一次
+    playWoodBlockSound();
 
-    Tone.Transport.bpm.value = bpm;
-    Tone.Transport.start();
+    // 设置定时器
+    metronomeInterval = setInterval(() => {
+        playWoodBlockSound();
+    }, interval);
+}
+
+// 木鱼声音（使用Web Audio API）
+function playWoodBlockSound() {
+    const ctx = window.audioContext;
+    if (!ctx) return;
+    
+    const now = ctx.currentTime;
+    
+    // 创建振荡器（高频短促的声音）
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    // 木鱼音色：高频正弦波
+    osc.type = 'sine';
+    osc.frequency.value = 1200; // 高频，类似木鱼
+    
+    // 快速衰减包络
+    gain.gain.setValueAtTime(0.6, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05); // 50ms快速衰减
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.start(now);
+    osc.stop(now + 0.05);
 }
 
 // 停止节拍器
 function stopMetronome() {
-    if (metronomeLoop) {
-        metronomeLoop.stop();
-        metronomeLoop.dispose();
-        metronomeLoop = null;
+    if (metronomeInterval) {
+        clearInterval(metronomeInterval);
+        metronomeInterval = null;
     }
-    Tone.Transport.stop();
+    console.log('⏹️ 节拍器已停止');
 }
 
 // 生成节奏选项按钮
