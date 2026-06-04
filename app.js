@@ -2547,7 +2547,6 @@ function init() {
     // 若需要恢复上次保存的信息，请使用“加载/恢复”按钮手动触发
     initHomePage();
     initChordPage();
-    initRhythmPage();
     initWindowControls();
     initEndPage();
     window.addEventListener('resize', () => { invalidatePianoMetrics(); positionBlackKeys(); });
@@ -5608,6 +5607,10 @@ function initMelodyPage() {
 }
 
 function initRhythmPage() {
+    // 防止重复初始化
+    if (initRhythmPage.initialized) return;
+    initRhythmPage.initialized = true;
+
     const back = document.getElementById('back-home-rhythm');
     if (back) back.addEventListener('click', () => pageManager.switchToPage('home-page'));
 
