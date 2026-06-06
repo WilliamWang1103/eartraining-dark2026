@@ -138,7 +138,11 @@ const rhythmAppState = {
     bpm: 72, // 节拍速度
     difficulty: 1, // 难度级别
     scaleDifficulty: 1, // 拍型难度
-    paramType: 'rhythm' // 当前参数类型：'rhythm'(节奏型) 或 'meter'(节拍)
+    paramType: 'rhythm', // 当前参数类型：'rhythm'(节奏型) 或 'meter'(节拍)
+    // 节拍听辨专用状态
+    meterBeatsPerMeasure: 2, // 每小节拍数（从节拍参数获取）
+    measureRhythms: [], // 每个小节已选择的节奏型数组（二维数组）
+    measureBeatsFilled: [] // 每个小节已填充的拍数
 };
 
 // 音符表 - 钢琴键盘范围 G3 至 F5
@@ -5689,20 +5693,27 @@ function initRhythmPage() {
         });
     });
 
-    // 绑定手写功能
-    const handwriteBtn = document.getElementById('handwrite-mode-btn');
-    const eraseBtn = document.getElementById('hand-erase-btn');
-    const canvas = document.getElementById('rhythm-canvas');
-
-    if (handwriteBtn) handwriteBtn.addEventListener('click', toggleHandwriteMode);
-    if (eraseBtn) eraseBtn.addEventListener('click', clearCanvas);
-    if (canvas) initCanvas(canvas);
+    // 绑定拍型选择器变化事件
+    const beatTypeSelectInit = document.getElementById('beat-type-rhythm');
+    if (beatTypeSelectInit) {
+        beatTypeSelectInit.addEventListener('change', () => {
+            initRhythmAnswerArea(); // 拍型变化时重新初始化答案槽位
+            // 如果在风云榜单模式，重新渲染榜单
+            if (rhythmAppState.currentMode === 'leaderboard') {
+                loadRhythmLeaderboard();
+            }
+        });
+    }
 
     // 绑定数量选择器变化事件
     const quantitySelect = document.getElementById('quantity-rhythm');
     if (quantitySelect) {
         quantitySelect.addEventListener('change', () => {
-            initRhythmAnswerArea();
+            initRhythmAnswerArea(); // 数量变化时重新初始化答案槽位
+            // 如果在风云榜单模式，重新渲染榜单
+            if (rhythmAppState.currentMode === 'leaderboard') {
+                loadRhythmLeaderboard();
+            }
         });
     }
 
@@ -5712,6 +5723,12 @@ function initRhythmPage() {
         backFromLeaderboardBtn.addEventListener('click', () => {
             startRhythmPracticeMode();
         });
+    }
+
+    // 绑定清空榜单按钮
+    const clearLeaderboardBtn = document.getElementById('clear-leaderboard-btn-rhythm');
+    if (clearLeaderboardBtn) {
+        clearLeaderboardBtn.addEventListener('click', clearRhythmLeaderboard);
     }
 
     // 设置初始状态
@@ -5730,15 +5747,95 @@ function switchToRhythmFunction(func) {
     const rhythmBtn = document.getElementById('rhythm-identify-btn');
     const meterBtn = document.getElementById('rhythm-meter-btn');
 
+    // 获取参数选择区域的DOM元素
+    const paramsSection = document.querySelector('.rhythm-params-section');
+    const beatTypeLabel = paramsSection ? paramsSection.querySelector('label[for="beat-type-rhythm"]') : null;
+    const beatTypeSelect = document.getElementById('beat-type-rhythm');
+    const quantityLabel = paramsSection ? paramsSection.querySelector('label[for="quantity-rhythm"]') : null;
+    const quantitySelect = document.getElementById('quantity-rhythm');
+
+    // 获取练习说明列表
+    const instructionsList = document.getElementById('rhythm-instructions-list');
+
     if (func === 'rhythm') {
+        // 节奏型听辨模式
         if (rhythmBtn) rhythmBtn.classList.add('active');
         if (meterBtn) meterBtn.classList.remove('active');
+
+        // 恢复节奏型听辨的参数设置
+        if (beatTypeLabel) beatTypeLabel.textContent = '拍型';
+        if (beatTypeSelect) {
+            beatTypeSelect.innerHTML = `
+                <option value="1">一拍（四分）</option>
+                <option value="2">二拍（二分）</option>
+            `;
+        }
+        if (quantityLabel) quantityLabel.textContent = '数量';
+        if (quantitySelect) {
+            quantitySelect.innerHTML = `
+                <option value="4">4</option>
+                <option value="8">8</option>
+                <option value="12">12</option>
+            `;
+        }
+
+        // 更新练习说明
+        if (instructionsList) {
+            instructionsList.innerHTML = `
+                <li><strong>随机播放：</strong>根据所选拍型和数量随机出题，播放节奏音响</li>
+                <li><strong>选择答案：</strong>点击下方的节奏型按钮，答案会自动填入上方的答案槽位</li>
+                <li><strong>提交验证：</strong>填写完所有答案后，点击"提交答案"验证正确性</li>
+                <li><strong>重播题目：</strong>如需再次听题，点击"重复播放"按钮</li>
+            `;
+        }
+
+        updateRhythmStatus('已切换到节奏型听辨模式');
+
+        // 重新初始化答案区
+        initRhythmAnswerArea();
     } else {
+        // 节拍听辨模式
         if (rhythmBtn) rhythmBtn.classList.remove('active');
         if (meterBtn) meterBtn.classList.add('active');
+
+        // 切换为节拍听辨的参数设置
+        if (beatTypeLabel) beatTypeLabel.textContent = '节拍';
+        if (beatTypeSelect) {
+            beatTypeSelect.innerHTML = `
+                <option value="2">2/4拍</option>
+                <option value="3">3/4拍</option>
+            `;
+        }
+        if (quantityLabel) quantityLabel.textContent = '小节数';
+        if (quantitySelect) {
+            quantitySelect.innerHTML = `
+                <option value="2">2</option>
+                <option value="4">4</option>
+            `;
+        }
+
+        // 更新练习说明
+        if (instructionsList) {
+            instructionsList.innerHTML = `
+                <li><strong>随机播放：</strong>根据所选节拍和小节数随机出题，播放节拍音响</li>
+                <li><strong>选择答案：</strong>每个小节可以包含1个2拍节奏型，或2-3个1拍节奏型</li>
+                <li><strong>小节填满：</strong>当小节的总拍数达到节拍要求时，自动跳到下一小节</li>
+                <li><strong>提交验证：</strong>填写完所有小节后，点击"提交答案"验证正确性</li>
+                <li><strong>修改答案：</strong>点击已填写的小节可重置，重新选择节奏型</li>
+                <li><strong>重播题目：</strong>如需再次听题，点击"重复播放"按钮</li>
+            `;
+        }
+
+        updateRhythmStatus('已切换到节拍听辨模式');
+
+        // 重新初始化答案区
+        initRhythmAnswerArea();
     }
 
-    updateRhythmStatus(`已切换到${func === 'rhythm' ? '节奏型听辨' : '节拍听辨'}模式`);
+    // 如果在风云榜单模式，重新渲染榜单
+    if (rhythmAppState.currentMode === 'leaderboard') {
+        loadRhythmLeaderboard();
+    }
 }
 
 // 切换节奏类型选项卡
@@ -5764,15 +5861,29 @@ function switchRhythmType(type) {
         }
     });
 
-    // 清空答案区
-    clearRhythmAnswer();
+    // 注意：不清空答案区，保持槽位激活状态
+    // 用户可以自由切换选项卡而不丢失已选择的答案
+    // clearRhythmAnswer(); // 已移除
 
     updateRhythmStatus(`已切换到${type}拍节奏型`);
 }
 
+// 获取节奏型的总时值（拍数）
+function getRhythmBeats(rhythmName) {
+    const pattern = RHYTHM_DURATION_MAP[rhythmName];
+    if (!pattern) return 0;
+    return pattern.reduce((sum, note) => sum + note.beats, 0);
+}
+
+// 获取当前节拍参数（每小节拍数）
+function getMeterBeatsPerMeasure() {
+    const beatTypeSelect = document.getElementById('beat-type-rhythm');
+    return beatTypeSelect ? parseInt(beatTypeSelect.value) : 2;
+}
+
 // 初始化答案区
 function initRhythmAnswerArea() {
-    console.log(' initRhythmAnswerArea 被调用');
+    console.log('🎵 initRhythmAnswerArea 被调用');
     const answerArea = document.getElementById('rhythm-answer-area');
     if (!answerArea) return;
 
@@ -5781,10 +5892,21 @@ function initRhythmAnswerArea() {
     const quantity = document.getElementById('quantity-rhythm');
     const count = quantity ? parseInt(quantity.value) : 4;
 
+    // 根据当前功能模式确定标签文字
+    const isMeterMode = rhythmAppState.currentFunction === 'meter';
+    const labelPrefix = isMeterMode ? '小节' : '节奏';
+
+    // 如果是节拍听辨模式，初始化小节数据结构
+    if (isMeterMode) {
+        rhythmAppState.meterBeatsPerMeasure = getMeterBeatsPerMeasure();
+        rhythmAppState.measureRhythms = new Array(count).fill(null).map(() => []);
+        rhythmAppState.measureBeatsFilled = new Array(count).fill(0);
+    }
+
     for (let i = 0; i < count; i++) {
         const slot = document.createElement('div');
         slot.className = 'rhythm-answer-slot';
-        slot.textContent = `点击选择第 ${i + 1} 个节奏`;
+        slot.textContent = `点击选择第 ${i + 1} 个${labelPrefix}`;
         slot.dataset.index = i;
 
         // 为每个槽位添加点击事件
@@ -5802,23 +5924,72 @@ function initRhythmAnswerArea() {
 // 激活槽位
 function activateSlot(index) {
     const slots = document.querySelectorAll('.rhythm-answer-slot');
+    const isMeterMode = rhythmAppState.currentFunction === 'meter';
+    const labelPrefix = isMeterMode ? '小节' : '节奏';
 
     // 移除所有槽位的激活样式
     slots.forEach(slot => slot.classList.remove('slot-active'));
 
     // 激活当前槽位
     if (index >= 0 && index < slots.length) {
-        rhythmAppState.activeSlotIndex = index;
-        slots[index].classList.add('slot-active');
-        updateRhythmStatus(`已激活第 ${index + 1} 个槽位，请点击下方节奏型按钮`);
+        // 判断该槽位是否已填写
+        const isFilled = isMeterMode
+            ? rhythmAppState.measureRhythms[index] && rhythmAppState.measureRhythms[index].length > 0
+            : rhythmAppState.selectedRhythms[index] !== null;
+
+        if (isFilled) {
+            // 槽位已填写，重置为未答题状态
+            resetSlot(index);
+
+            // 重置后激活该槽位
+            rhythmAppState.activeSlotIndex = index;
+            slots[index].classList.add('slot-active');
+            updateRhythmStatus(`✅ 第 ${index + 1} 个${labelPrefix}已重置，请重新选择`);
+        } else {
+            // 槽位未填写，直接激活
+            rhythmAppState.activeSlotIndex = index;
+            slots[index].classList.add('slot-active');
+            updateRhythmStatus(`已激活第 ${index + 1} 个${labelPrefix}，请点击下方节奏型按钮`);
+        }
+    }
+}
+
+// 重置单个槽位
+function resetSlot(index) {
+    const slots = document.querySelectorAll('.rhythm-answer-slot');
+    const isMeterMode = rhythmAppState.currentFunction === 'meter';
+    const labelPrefix = isMeterMode ? '小节' : '节奏';
+
+    if (index < 0 || index >= slots.length) return;
+
+    const slot = slots[index];
+
+    // 重置槽位显示
+    slot.textContent = `点击选择第 ${index + 1} 个${labelPrefix}`;
+    slot.classList.remove('filled');
+
+    // 清除样式（如果之前提交过答案会有背景色）
+    slot.style.background = '';
+    slot.style.borderColor = '';
+
+    // 重置数据
+    if (isMeterMode) {
+        rhythmAppState.measureRhythms[index] = [];
+        rhythmAppState.measureBeatsFilled[index] = 0;
+        rhythmAppState.selectedRhythms[index] = null;
+    } else {
+        rhythmAppState.selectedRhythms[index] = null;
     }
 }
 
 // 清空答案区
 function clearRhythmAnswer() {
     const slots = document.querySelectorAll('.rhythm-answer-slot');
+    const isMeterMode = rhythmAppState.currentFunction === 'meter';
+    const labelPrefix = isMeterMode ? '小节' : '节奏';
+
     slots.forEach((slot, index) => {
-        slot.textContent = `点击选择第 ${index + 1} 个节奏`;
+        slot.textContent = `点击选择第 ${index + 1} 个${labelPrefix}`;
         slot.classList.remove('filled');
         slot.classList.remove('slot-active'); // 移除激活状态
     });
@@ -5830,6 +6001,12 @@ function clearRhythmAnswer() {
     const count = quantity ? parseInt(quantity.value) : 4;
     rhythmAppState.selectedRhythms = new Array(count).fill(null);
     rhythmAppState.activeSlotIndex = -1; // 重置激活状态
+
+    // 清空节拍听辨数据
+    if (isMeterMode) {
+        rhythmAppState.measureRhythms = new Array(count).fill(null).map(() => []);
+        rhythmAppState.measureBeatsFilled = new Array(count).fill(0);
+    }
 }
 
 
@@ -5843,10 +6020,13 @@ function startRhythmPracticeMode() {
     const statsPanel = document.getElementById('stats-panel-rhythm');
     const timePanel = document.getElementById('time-panel-rhythm');
     const leaderboardContent = document.getElementById('leaderboard-content-rhythm');
+    const testEndContent = document.getElementById('rhythm-test-end-content');
 
     if (statsPanel) statsPanel.style.display = 'none';
     if (timePanel) timePanel.style.display = 'none';
     if (leaderboardContent) leaderboardContent.style.display = 'none';
+    // 隐藏测试结束内容（从测试结束页返回练习模式时）
+    if (testEndContent) testEndContent.style.display = 'none';
 
     // 显示练习控制元素
     const practiceContent = document.getElementById('practice-test-content-rhythm');
@@ -5856,11 +6036,27 @@ function startRhythmPracticeMode() {
     const practiceInstructions = document.getElementById('practice-instructions-rhythm');
     if (practiceInstructions) practiceInstructions.style.display = 'block';
 
+    // 显示节奏型选项卡区域
+    const rhythmTabsSection = document.querySelector('.rhythm-tabs-section');
+    if (rhythmTabsSection) rhythmTabsSection.style.display = 'block';
+
+    // 显示答案槽位区域（由initRhythmAnswerArea创建后会自动显示）
+    const answerArea = document.getElementById('rhythm-answer-area');
+    if (answerArea) answerArea.style.display = 'grid';
+
+    // 显示控制按钮区域
+    const playControls = document.getElementById('play-controls-rhythm');
+    if (playControls) playControls.style.display = 'flex';
+
+    // 显示状态消息
+    const statusMessage = document.getElementById('status-rhythm');
+    if (statusMessage) statusMessage.style.display = 'block';
+
     // 隐藏结束测试按钮
     const endTestBtn = document.getElementById('end-test-btn-rhythm');
     if (endTestBtn) endTestBtn.style.display = 'none';
 
-    // 初始化答案区
+    // 初始化答案区（创建答题槽位）
     initRhythmAnswerArea();
 
     // 更新模式按钮状态
@@ -5872,11 +6068,18 @@ function startRhythmPracticeMode() {
     if (testBtn) testBtn.classList.remove('active');
     if (leaderboardBtn) leaderboardBtn.classList.remove('active');
 
-    // 练习模式下启用随机播放按钮
+    // 练习模式下启用所有按钮
     const randomPlayBtn = document.getElementById('random-play-btn-rhythm');
-    if (randomPlayBtn) randomPlayBtn.disabled = false;
+    const playBtn = document.getElementById('play-btn-rhythm');
+    const playMelodicBtn = document.getElementById('play-melodic-btn-rhythm');
+    const showAnswerBtn = document.getElementById('show-answer-btn-rhythm');
 
-    updateRhythmStatus('练习模式已开始，请点击"随机播放"开始练习');
+    if (randomPlayBtn) randomPlayBtn.disabled = false;
+    if (playBtn) playBtn.disabled = false;
+    if (playMelodicBtn) playMelodicBtn.disabled = false;
+    if (showAnswerBtn) showAnswerBtn.disabled = false;
+
+    updateRhythmStatus('练习模式已开始，请点击“随机播放”开始练习');
 }
 
 // 显示节奏听辨风云榜单
@@ -5885,10 +6088,15 @@ function showRhythmLeaderboard() {
 
     const leaderboardContent = document.getElementById('leaderboard-content-rhythm');
     const practiceContent = document.getElementById('practice-test-content-rhythm');
+    const practiceInstructions = document.getElementById('practice-instructions-rhythm');
     const endTestBtn = document.getElementById('end-test-btn-rhythm');
 
-    // 隐藏练习内容和结束测试按钮
+    const rhythmTestEndContent = document.getElementById('rhythm-test-end-content');
+
+    // 隐藏练习内容、练习说明、测试结束内容和结束测试按钮
     if (practiceContent) practiceContent.style.display = 'none';
+    if (practiceInstructions) practiceInstructions.style.display = 'none';
+    if (rhythmTestEndContent) rhythmTestEndContent.style.display = 'none';
     if (endTestBtn) endTestBtn.style.display = 'none';
 
     // 显示风云榜单
@@ -5916,6 +6124,9 @@ function loadRhythmLeaderboard() {
 
     if (!configInfo || !leaderboardList) return;
 
+    // 判断当前模式
+    const isMeterMode = rhythmAppState.currentFunction === 'meter';
+
     // 获取当前配置
     const beatType = document.getElementById('beat-type-rhythm');
     const quantity = document.getElementById('quantity-rhythm');
@@ -5923,12 +6134,25 @@ function loadRhythmLeaderboard() {
     const beatTypeText = beatType ? beatType.options[beatType.selectedIndex].text : '—';
     const quantityText = quantity ? quantity.value : '—';
 
-    configInfo.innerHTML = `
-        <div>拍型：${beatTypeText} | 数量：${quantityText}</div>
-    `;
+    // 根据模式显示不同的配置信息
+    if (isMeterMode) {
+        // 节拍听辨模式
+        configInfo.innerHTML = `
+            <div style="text-align: center; color: rgba(255, 255, 255, 0.7); font-size: 14px;">
+                <div><strong>节拍：</strong>${beatTypeText} | <strong>小节数：</strong>${quantityText}</div>
+            </div>
+        `;
+    } else {
+        // 节奏型听辨模式
+        configInfo.innerHTML = `
+            <div style="text-align: center; color: rgba(255, 255, 255, 0.7); font-size: 14px;">
+                <div><strong>拍型：</strong>${beatTypeText} | <strong>数量：</strong>${quantityText}</div>
+            </div>
+        `;
+    }
 
     // 从localStorage获取数据
-    const key = `rhythm_leaderboard_${beatTypeText}_${quantityText}`;
+    const key = `rhythm_leaderboard_${isMeterMode ? 'meter' : 'rhythm'}_${beatTypeText}_${quantityText}`;
     const data = JSON.parse(localStorage.getItem(key) || '[]');
 
     if (data.length === 0) {
@@ -5939,20 +6163,106 @@ function loadRhythmLeaderboard() {
     // 按得分降序、用时升序排序
     data.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
-        return new Date(a.time) - new Date(b.time);
+        return a.time - b.time;
     });
 
     // 只显示前10名
     const top10 = data.slice(0, 10);
 
-    leaderboardList.innerHTML = top10.map((item, index) => `
-        <div class="leaderboard-row ${index < 3 ? 'top-three' : ''}">
-            <div class="lb-col lb-rank">${index + 1}</div>
-            <div class="lb-col lb-name">${item.name || '匿名'}</div>
-            <div class="lb-col lb-score">${item.score}</div>
-            <div class="lb-col lb-time">${item.time || '—'}</div>
-        </div>
-    `).join('');
+    leaderboardList.innerHTML = top10.map((item, index) => {
+        const rank = index + 1;
+        const rankClass = rank <= 3 ? `lb-rank-${rank}` : '';
+        const timeStr = formatElapsedTime(item.time);
+
+        return `
+            <div class="leaderboard-row ${rankClass}">
+                <div class="lb-rank-value">${rank}</div>
+                <div class="lb-name-value">${item.name || '匿名'}</div>
+                <div class="lb-score-value">${item.score}</div>
+                <div class="lb-time-value">${timeStr}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 更新节奏听辨风云榜单
+function updateRhythmLeaderboard() {
+    const userInfo = rhythmAppState.userInfo;
+
+    // 如果没有学生信息，不记录
+    if (!userInfo || !userInfo.name) {
+        console.log('无学生信息，跳过榜单更新');
+        return;
+    }
+
+    // 判断当前模式
+    const isMeterMode = rhythmAppState.currentFunction === 'meter';
+
+    // 获取当前设置
+    const beatTypeSelect = document.getElementById('beat-type-rhythm');
+    const quantitySelect = document.getElementById('quantity-rhythm');
+    const beatTypeText = beatTypeSelect ? beatTypeSelect.options[beatTypeSelect.selectedIndex].text : '未选择';
+    const quantityText = quantitySelect ? quantitySelect.value : '未选择';
+
+    // 使用组合键存储不同配置的榜单
+    const storageKey = `rhythm_leaderboard_${isMeterMode ? 'meter' : 'rhythm'}_${beatTypeText}_${quantityText}`;
+
+    // 从 localStorage 加载榜单
+    const savedLeaderboard = localStorage.getItem(storageKey);
+    const leaderboard = savedLeaderboard ? JSON.parse(savedLeaderboard) : [];
+
+    // 添加新记录
+    const newRecord = {
+        name: userInfo.name,
+        school: userInfo.school || '未填写',
+        majorClass: userInfo.majorClass || '未填写',
+        score: rhythmAppState.score,
+        time: rhythmAppState.elapsedTime,
+        function: isMeterMode ? 'meter' : 'rhythm',
+        beatType: beatTypeText,
+        quantity: quantityText,
+        date: rhythmAppState.testEndTime ? rhythmAppState.testEndTime.toLocaleString('zh-CN') : new Date().toLocaleString('zh-CN')
+    };
+
+    leaderboard.push(newRecord);
+
+    // 排序：先按分数降序，再按用时升序
+    leaderboard.sort((a, b) => {
+        if (b.score !== a.score) {
+            return b.score - a.score; // 分数高的排前面
+        }
+        return a.time - b.time; // 用时短的排前面
+    });
+
+    // 只保留前 10 名
+    const top10 = leaderboard.slice(0, 10);
+
+    // 保存到 localStorage
+    localStorage.setItem(storageKey, JSON.stringify(top10));
+
+    console.log('风云榜单已更新', top10);
+}
+
+// 清空节奏听辨榜单
+function clearRhythmLeaderboard() {
+    if (confirm('确定要清空风云榜单吗？此操作不可恢复！')) {
+        // 判断当前模式
+        const isMeterMode = rhythmAppState.currentFunction === 'meter';
+
+        // 获取当前设置
+        const beatTypeSelect = document.getElementById('beat-type-rhythm');
+        const quantitySelect = document.getElementById('quantity-rhythm');
+        const beatTypeText = beatTypeSelect ? beatTypeSelect.options[beatTypeSelect.selectedIndex].text : '未选择';
+        const quantityText = quantitySelect ? quantitySelect.value : '未选择';
+
+        // 使用组合键删除对应配置的榜单
+        const storageKey = `rhythm_leaderboard_${isMeterMode ? 'meter' : 'rhythm'}_${beatTypeText}_${quantityText}`;
+        localStorage.removeItem(storageKey);
+
+        // 重新加载榜单
+        loadRhythmLeaderboard();
+        alert('榜单已清空');
+    }
 }
 
 // 开始测试模式
@@ -5971,25 +6281,31 @@ function startRhythmTestMode() {
     rhythmAppState.errorQuestions = [];
     rhythmAppState.testStartTime = new Date();
 
-    // 显示计分板和计时器
-    const statsPanel = document.getElementById('stats-panel-rhythm');
-    const timePanel = document.getElementById('time-panel-rhythm');
-    if (statsPanel) statsPanel.style.display = 'flex';
-    if (timePanel) timePanel.style.display = 'block';
-
     // 隐藏练习说明
     const practiceInstructions = document.getElementById('practice-instructions-rhythm');
     if (practiceInstructions) practiceInstructions.style.display = 'none';
+
+    // 显示计分板和时间面板
+    const statsPanel = document.getElementById('stats-panel-rhythm');
+    if (statsPanel) statsPanel.style.display = 'flex';
+
+    const timePanel = document.getElementById('time-panel-rhythm');
+    if (timePanel) timePanel.style.display = 'block';
+
+    // 隐藏测试结束内容
+    const testEndContent = document.getElementById('rhythm-test-end-content');
+    if (testEndContent) testEndContent.style.display = 'none';
 
     // 显示结束测试按钮
     const endTestBtn = document.getElementById('end-test-btn-rhythm');
     if (endTestBtn) endTestBtn.style.display = 'block';
 
-    // 初始化答案区
+    // 初始化答案区（创建答题槽位）
     initRhythmAnswerArea();
 
     // 启动计时器
     startRhythmElapsedTimeTimer();
+    startTimeUpdate();
 
     updateRhythmStats();
     updateRhythmButtonStates();
@@ -6009,13 +6325,33 @@ function endRhythmTestMode() {
     const endBtn = document.getElementById('end-test-btn-rhythm');
     if (endBtn) endBtn.style.display = 'none';
 
+    // 隐藏计分板和计时器
+    const statsPanel = document.getElementById('stats-panel-rhythm');
+    if (statsPanel) statsPanel.style.display = 'none';
+
+    const timePanel = document.getElementById('time-panel-rhythm');
+    if (timePanel) timePanel.style.display = 'none';
+
     // 停止计时器
     stopRhythmElapsedTimeTimer();
+    stopTimeUpdate();
 
     updateRhythmStatus('测试已结束');
 
-    // TODO: 显示测试结果页面
-    alert('测试结束！总分：' + rhythmAppState.score);
+    // 更新风云榜单
+    updateRhythmLeaderboard();
+
+    // 隐藏钢琴、按钮和练习说明，显示测试结果
+    const playControls = document.getElementById('play-controls-rhythm');
+    const testEndContent = document.getElementById('rhythm-test-end-content');
+    const rhythmTabs = document.querySelector('.rhythm-tabs-section');
+
+    if (playControls) playControls.style.display = 'none';
+    if (rhythmTabs) rhythmTabs.style.display = 'none';
+    if (testEndContent) testEndContent.style.display = 'block';
+
+    // 显示测试结果分析
+    showRhythmTestEndPage();
 }
 
 // 更新节奏听辨按钮状态
@@ -6024,19 +6360,29 @@ function updateRhythmButtonStates() {
     const testBtn = document.getElementById('test-btn-rhythm');
     const endTestBtn = document.getElementById('end-test-btn-rhythm');
     const randomPlayBtn = document.getElementById('random-play-btn-rhythm');
+    const playBtn = document.getElementById('play-btn-rhythm');
+    const playMelodicBtn = document.getElementById('play-melodic-btn-rhythm');
+    const showAnswerBtn = document.getElementById('show-answer-btn-rhythm');
 
     if (rhythmAppState.currentMode === 'test') {
         if (practiceBtn) practiceBtn.classList.remove('active');
         if (testBtn) testBtn.classList.add('active');
         if (endTestBtn) endTestBtn.style.display = 'block';
-        // 测试模式下锁死随机播放按钮
+        // 测试模式下锁死随机播放、播放上屏和显示答案按钮
+        // 注意：重复播放按钮保持可用，允许用户重复听题
         if (randomPlayBtn) randomPlayBtn.disabled = true;
+        if (playBtn) playBtn.disabled = false;  // 重复播放按钮保持可用
+        if (playMelodicBtn) playMelodicBtn.disabled = true;
+        if (showAnswerBtn) showAnswerBtn.disabled = true;
     } else {
         if (practiceBtn) practiceBtn.classList.add('active');
         if (testBtn) testBtn.classList.remove('active');
         if (endTestBtn) endTestBtn.style.display = 'none';
         // 练习模式下启用所有按钮
         if (randomPlayBtn) randomPlayBtn.disabled = false;
+        if (playBtn) playBtn.disabled = false;
+        if (playMelodicBtn) playMelodicBtn.disabled = false;
+        if (showAnswerBtn) showAnswerBtn.disabled = false;
     }
 }
 
@@ -6046,9 +6392,237 @@ function updateRhythmStatus(msg) {
     if (statusEl) statusEl.textContent = msg;
 }
 
+// 显示节奏听辨测试结束页
+function showRhythmTestEndPage() {
+    console.log('=== 显示节奏听辨测试结束页面 ===');
+    console.log('rhythmAppState:', rhythmAppState);
+
+    // 根据当前功能模式更新标题
+    const isMeterMode = rhythmAppState.currentFunction === 'meter';
+    const testEndTitle = document.getElementById('rhythm-test-end-title');
+    if (testEndTitle) {
+        testEndTitle.textContent = isMeterMode ? '🎉 节拍听辨测试完成！' : '🎉 节奏型听辨测试完成！';
+    }
+
+    // 学生信息 - 从chordAppState同步
+    const userInfo = rhythmAppState.userInfo && rhythmAppState.userInfo.saved ? rhythmAppState.userInfo : chordAppState.userInfo;
+
+    const schoolEl = document.getElementById('end-school-rhythm');
+    const majorEl = document.getElementById('end-major-class-rhythm');
+    const nameEl = document.getElementById('end-name-rhythm');
+    const teacherEl = document.getElementById('end-teacher-rhythm');
+
+    if (schoolEl) schoolEl.textContent = (userInfo && userInfo.school) || '未填写';
+    if (majorEl) majorEl.textContent = (userInfo && userInfo.majorClass) || '未填写';
+    if (nameEl) nameEl.textContent = (userInfo && userInfo.name) || '未填写';
+    if (teacherEl) teacherEl.textContent = (userInfo && userInfo.teacher) || '未填写';
+
+    // 总分
+    const scoreEl = document.getElementById('end-total-score-rhythm');
+    if (scoreEl) scoreEl.textContent = rhythmAppState.score;
+
+    // 填充测试结束时间
+    const endTimeEl = document.getElementById('end-time-rhythm');
+    if (endTimeEl && rhythmAppState.testEndTime) {
+        const endTime = rhythmAppState.testEndTime;
+        const year = endTime.getFullYear();
+        const month = String(endTime.getMonth() + 1).padStart(2, '0');
+        const day = String(endTime.getDate()).padStart(2, '0');
+        const hours = String(endTime.getHours()).padStart(2, '0');
+        const minutes = String(endTime.getMinutes()).padStart(2, '0');
+        const seconds = String(endTime.getSeconds()).padStart(2, '0');
+        endTimeEl.textContent = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+
+    // 生成分析内容
+    generateRhythmAnalysisContent();
+
+    // 隐藏按钮、练习说明和状态消息
+    const playControls = document.getElementById('play-controls-rhythm');
+    if (playControls) playControls.style.display = 'none';
+
+    const instructions = document.querySelector('#practice-test-content-rhythm .practice-instructions');
+    if (instructions) instructions.style.display = 'none';
+
+    // 隐藏状态消息
+    const statusMessage = document.getElementById('status-rhythm');
+    if (statusMessage) statusMessage.style.display = 'none';
+
+    // 隐藏记分板和时间面板
+    const statsPanel = document.getElementById('stats-panel-rhythm');
+    if (statsPanel) statsPanel.style.display = 'none';
+
+    const timePanel = document.getElementById('time-panel-rhythm');
+    if (timePanel) timePanel.style.display = 'none';
+
+    // 隐藏节奏型选项卡区域
+    const rhythmTabsSection = document.querySelector('.rhythm-tabs-section');
+    if (rhythmTabsSection) rhythmTabsSection.style.display = 'none';
+
+    // 隐藏答案槽位区域
+    const answerArea = document.getElementById('rhythm-answer-area');
+    if (answerArea) answerArea.style.display = 'none';
+
+    // 显示测试结束内容
+    const testEndContent = document.getElementById('rhythm-test-end-content');
+    if (testEndContent) testEndContent.style.display = 'block';
+
+    console.log('测试结果已设置:', {
+        score: rhythmAppState.score,
+        correct: rhythmAppState.correct,
+        wrong: rhythmAppState.wrong,
+        total: rhythmAppState.totalQuestions
+    });
+
+    console.log('=== 节奏听辨测试结束页面显示完成 ===');
+}
+
+// 生成节奏听辨测试分析内容
+function generateRhythmAnalysisContent() {
+    const analysisContent = document.getElementById('analysis-content-rhythm');
+    if (!analysisContent) return;
+
+    let analysisHTML = '';
+
+    // 根据当前功能模式确定名称
+    const isMeterMode = rhythmAppState.currentFunction === 'meter';
+    const featureName = isMeterMode ? '节拍听辨' : '节奏型听辨';
+
+    // 成绩统计
+    analysisHTML += `<div class="analysis-section">`;
+    analysisHTML += `<h4>成绩统计</h4>`;
+
+    // 第一行：总题数 + 正确题数 + 错误题数
+    analysisHTML += `<div class="stats-row">`;
+    analysisHTML += `<span><strong>总题数：</strong>${rhythmAppState.totalQuestions} 题</span>`;
+    analysisHTML += `<span><strong>正确题数：</strong>${rhythmAppState.correct} 题</span>`;
+    analysisHTML += `<span><strong>错误题数：</strong>${rhythmAppState.wrong} 题</span>`;
+    analysisHTML += `</div>`;
+
+    // 第二行：正确率 + 用时
+    const accuracy = rhythmAppState.totalQuestions > 0
+        ? ((rhythmAppState.correct / rhythmAppState.totalQuestions) * 100).toFixed(1)
+        : 0;
+    const elapsedSeconds = rhythmAppState.elapsedTime || 0;
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = (elapsedSeconds % 60).toFixed(2);
+    const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.padStart(5, '0')}`;
+
+    analysisHTML += `<div class="stats-row">`;
+    analysisHTML += `<span><strong>正确率：</strong>${accuracy}%</span>`;
+    analysisHTML += `<span><strong>用时：</strong>${timeStr}</span>`;
+    analysisHTML += `</div>`;
+
+    analysisHTML += `</div>`;
+
+    // 测试评语（根据得分生成）
+    if (rhythmAppState.score === 100) {
+        analysisHTML += `
+            <div class="analysis-section">
+                <h4>🎉 完美表现！</h4>
+                <p>您在本次${featureName}测试中获得了满分！表现非常出色！</p>
+                <p>建议您可以尝试更复杂的${isMeterMode ? '节拍组合' : '节奏型'}，继续挑战自己。</p>
+            </div>
+        `;
+    } else if (rhythmAppState.score >= 80) {
+        analysisHTML += `
+            <div class="analysis-section">
+                <h4>👍 优秀表现</h4>
+                <p>您在本次${featureName}测试中表现优秀，得分 ${rhythmAppState.score} 分。</p>
+                <p>建议继续练习，争取获得更高分数。</p>
+            </div>
+        `;
+    } else if (rhythmAppState.score >= 60) {
+        analysisHTML += `
+            <div class="analysis-section">
+                <h4>✅ 良好基础</h4>
+                <p>您在本次${featureName}测试中表现良好，得分 ${rhythmAppState.score} 分。</p>
+                <p>建议加强练习，特别是对容易混淆的${isMeterMode ? '节拍组合' : '节奏型'}进行专项训练。</p>
+            </div>
+        `;
+    } else {
+        analysisHTML += `
+            <div class="analysis-section">
+                <h4>💪 需要加强</h4>
+                <p>您在本次${featureName}测试中得分 ${rhythmAppState.score} 分，需要加强练习。</p>
+                <p>${isMeterMode ? '节拍听辨是音乐学习的重要基础，建议从简单的2/4拍开始练习，逐步过渡到3/4拍。' : '节奏听辨是音乐学习的基础，建议从简单的一拍节奏型开始练习。'}</p>
+                <p>坚持每天练习，您的${isMeterMode ? '节拍' : '节奏'}听辨能力会逐步提高。</p>
+            </div>
+        `;
+    }
+
+    // 错误分析
+    if (rhythmAppState.errorQuestions && rhythmAppState.errorQuestions.length > 0) {
+        analysisHTML += `
+            <div class="analysis-section">
+                <h4>📝 错误分析</h4>
+                <p>您在 ${rhythmAppState.errorQuestions.length} 道题目中出现了错误，以下是详细分析：</p>
+            </div>
+        `;
+
+        rhythmAppState.errorQuestions.forEach((error, index) => {
+            // 根据模式获取正确的数据结构
+            let correctPattern, userAnswer;
+
+            if (isMeterMode) {
+                // 节拍听辨模式：error.correct是题目对象，error.selected是二维数组
+                correctPattern = error.correct.pattern || error.correct;
+                userAnswer = error.selected;
+            } else {
+                // 节奏型听辨模式：error.correct是题目对象，error.selected是一维数组
+                correctPattern = error.correct.pattern || error.correct;
+                userAnswer = error.selected;
+            }
+
+            // 根据模式格式化显示
+            let correctText, userText;
+            if (isMeterMode) {
+                // 节拍听辨模式：二维数组
+                correctText = correctPattern.map(m => m.join(' + ')).join(' | ');
+                userText = userAnswer.map(m => m.join(' + ')).join(' | ');
+            } else {
+                // 节奏型听辨模式：一维数组
+                correctText = correctPattern.join(' | ');
+                userText = userAnswer.join(' | ');
+            }
+
+            analysisHTML += `
+                <div class="wrong-answer-item" style="margin: 8px 0; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 5px;">
+                    <div style="color: #FFB74D; margin-bottom: 4px;"><strong>第${index + 1}题：</strong></div>
+                    <div style="color: #ef5350; margin-bottom: 2px;">您的答案: ${userText}</div>
+                    <div style="color: #66bb6a;">正确答案: ${correctText}</div>
+                </div>
+            `;
+        });
+    }
+
+    // 鼓励语
+    let encouragement = '';
+    if (rhythmAppState.score === 100) {
+        encouragement = '🎉 太棒了！您已接近完美，继续保持！';
+    } else if (rhythmAppState.score >= 80) {
+        encouragement = '👍 优秀表现，请继续巩固与提高！';
+    } else if (rhythmAppState.score >= 60) {
+        encouragement = '📈 良好基础，继续练习会更稳固成绩！';
+    } else {
+        encouragement = '💪 别气馁，多练习、分步骤攻克弱项！';
+    }
+    analysisHTML += `<div class="analysis-section"><h4>鼓励语</h4><p>${encouragement}</p></div>`;
+
+    analysisContent.innerHTML = analysisHTML;
+}
+
 // 选择节奏
 // 选择节奏型（点击节奏按钮时调用）
 async function selectRhythm(rhythm, btn) {
+    // 立即高亮按钮（无论练习还是测试模式）
+    if (btn) {
+        btn.classList.add('active-highlight');
+        setTimeout(() => {
+            btn.classList.remove('active-highlight');
+        }, 300); // 300ms后移除高亮
+    }
+
     // 练习模式：播放节奏声音
     if (rhythmAppState.currentMode === 'practice') {
         try {
@@ -6063,20 +6637,12 @@ async function selectRhythm(rhythm, btn) {
                     pattern: rhythmNotes
                 };
 
-                // 播放节奏
-                await playRhythmSequence(rhythmObj);
+                // 播放节奏（异步播放，不阻塞UI）
+                playRhythmSequence(rhythmObj);
             }
         } catch (error) {
             console.error('播放节奏失败:', error);
         }
-    }
-
-    // 短暂高亮按钮（无论练习还是测试模式）
-    if (btn) {
-        btn.classList.add('active-highlight');
-        setTimeout(() => {
-            btn.classList.remove('active-highlight');
-        }, 300); // 300ms后移除高亮
     }
 
     // 只有在有激活槽位时才记录答案
@@ -6089,17 +6655,69 @@ async function selectRhythm(rhythm, btn) {
             return;
         }
 
-        // 更新答案槽位
-        const targetSlot = slots[targetIndex];
-        targetSlot.textContent = `您：${rhythm}`;
-        targetSlot.classList.add('filled');
-        rhythmAppState.selectedRhythms[targetIndex] = rhythm;
-        updateRhythmStatus(`已选择：${rhythm}`);
+        // 判断是否为节拍听辨模式
+        const isMeterMode = rhythmAppState.currentFunction === 'meter';
 
-        // 重置激活状态
-        rhythmAppState.activeSlotIndex = -1;
-        // 移除所有槽位的激活样式
-        slots.forEach(slot => slot.classList.remove('slot-active'));
+        if (isMeterMode) {
+            // 节拍听辨模式：支持一个小节选择多个节奏型
+            const targetSlot = slots[targetIndex];
+            const currentBeats = rhythmAppState.measureBeatsFilled[targetIndex];
+            const rhythmBeats = getRhythmBeats(rhythm);
+            const maxBeats = rhythmAppState.meterBeatsPerMeasure;
+
+            // 检查是否超出小节容量
+            if (currentBeats + rhythmBeats > maxBeats) {
+                updateRhythmStatus(`️ 超出小节容量！当前小节已${currentBeats}拍，选择的节奏型为${rhythmBeats}拍，总共${maxBeats}拍`);
+                return;
+            }
+
+            // 添加节奏型到当前小节
+            rhythmAppState.measureRhythms[targetIndex].push(rhythm);
+            rhythmAppState.measureBeatsFilled[targetIndex] += rhythmBeats;
+
+            // 更新槽位显示
+            const rhythmsInMeasure = rhythmAppState.measureRhythms[targetIndex];
+            const displayText = `您：${rhythmsInMeasure.join(' + ')}`;
+            targetSlot.textContent = displayText;
+            targetSlot.classList.add('filled');
+
+            // 更新状态提示
+            const filledBeats = rhythmAppState.measureBeatsFilled[targetIndex];
+            if (filledBeats === maxBeats) {
+                // 小节填满，自动跳到下一个槽位
+                updateRhythmStatus(`✅ 第 ${targetIndex + 1} 小节已完成（${filledBeats}拍）`);
+
+                // 尝试激活下一个槽位
+                if (targetIndex + 1 < slots.length) {
+                    setTimeout(() => {
+                        activateSlot(targetIndex + 1);
+                    }, 300);
+                } else {
+                    // 所有小节都填满了
+                    rhythmAppState.activeSlotIndex = -1;
+                    slots.forEach(slot => slot.classList.remove('slot-active'));
+                    updateRhythmStatus('🎉 所有小节已完成，请提交答案！');
+                }
+            } else {
+                // 小节未填满，保持激活状态
+                updateRhythmStatus(`已选择：${rhythm}（当前小节${filledBeats}/${maxBeats}拍）`);
+            }
+
+            // 更新selectedRhythms用于提交验证
+            rhythmAppState.selectedRhythms[targetIndex] = rhythmAppState.measureRhythms[targetIndex];
+        } else {
+            // 节奏型听辨模式：一个槽位一个节奏型
+            const targetSlot = slots[targetIndex];
+            targetSlot.textContent = `您：${rhythm}`;
+            targetSlot.classList.add('filled');
+            rhythmAppState.selectedRhythms[targetIndex] = rhythm;
+            updateRhythmStatus(`已选择：${rhythm}`);
+
+            // 重置激活状态
+            rhythmAppState.activeSlotIndex = -1;
+            // 移除所有槽位的激活样式
+            slots.forEach(slot => slot.classList.remove('slot-active'));
+        }
     } else {
         updateRhythmStatus('请先点击一个答案槽位以激活上屏记录');
     }
@@ -6115,7 +6733,7 @@ function updateRhythmStats() {
     if (scoreEl) scoreEl.textContent = rhythmAppState.score;
     if (correctEl) correctEl.textContent = rhythmAppState.correct;
     if (wrongEl) wrongEl.textContent = rhythmAppState.wrong;
-    if (progressEl) progressEl.textContent = `${rhythmAppState.totalQuestions}/20`;
+    if (progressEl) progressEl.textContent = `${rhythmAppState.totalQuestions}题`;
 }
 
 // 启动用时计时器
@@ -6202,7 +6820,7 @@ async function playRandomRhythm() {
         const rhythm = generateRandomRhythm();
         rhythmAppState.currentRhythm = rhythm;
 
-        // 初始化答案区（参考项目方案：在播放题目时创建槽位）
+        // 初始化答案区（清空之前的答案）
         initRhythmAnswerArea();
 
         // （已移除五线谱渲染，保持界面简洁）
@@ -6222,57 +6840,129 @@ async function playRandomRhythm() {
 
 // 生成随机节奏（根据拍型和数量）
 function generateRandomRhythm() {
-    // 获取用户选择的拍型和数量
+    // 获取用户选择的参数
     const beatType = document.getElementById('beat-type-rhythm')?.value || '1';
     const quantity = parseInt(document.getElementById('quantity-rhythm')?.value) || 4;
 
-    // 根据拍型选择对应的节奏型
-    let rhythmNames;
-    if (beatType === '1') {
-        // 一拍节奏型（9种）
-        rhythmNames = [
+    // 判断是否为节拍听辨模式
+    const isMeterMode = rhythmAppState.currentFunction === 'meter';
+
+    let pattern; // 正确答案的节奏型序列
+
+    if (isMeterMode) {
+        // 节拍听辨模式：生成小节的节奏型组合
+        const beatsPerMeasure = parseInt(beatType); // 2或3
+        const measureCount = quantity; // 2或4
+
+        // 1拍节奏型列表
+        const oneBeatRhythms = [
             '四分', '2个八分', '4个十六分', '前十六', '后十六',
             '小切分', '小附点', '小后附点', '三连音'
         ];
-    } else if (beatType === '2') {
-        // 二拍节奏型（9种）
-        rhythmNames = [
+
+        // 2拍节奏型列表
+        const twoBeatRhythms = [
             '二分', '八分大切分', '十六分大切分', '前十六大切分', '后十六大切分',
             '八分大附点', '八分大后附点', '十六分大附点', '十六分大后附点'
         ];
-    } else {
-        // 默认使用一拍节奏型
-        rhythmNames = [
-            '四分', '2个八分', '4个十六分', '前十六', '后十六',
-            '小切分', '小附点', '小后附点', '三连音'
-        ];
-    }
 
-    // 根据数量随机选择节奏型（可以重复）
-    const selectedRhythms = [];
-    for (let i = 0; i < quantity; i++) {
-        const randomIndex = Math.floor(Math.random() * rhythmNames.length);
-        selectedRhythms.push(rhythmNames[randomIndex]);
-    }
+        // 为每个小节生成节奏型组合
+        const measures = [];
+        for (let m = 0; m < measureCount; m++) {
+            const measureRhythms = [];
+            let remainingBeats = beatsPerMeasure;
 
-    // 从映射表获取所有节奏型的音符序列
-    const allNotes = [];
-    selectedRhythms.forEach(rhythmName => {
-        const notes = RHYTHM_DURATION_MAP[rhythmName];
-        if (notes) {
-            allNotes.push(...notes);
+            while (remainingBeats > 0) {
+                // 决定使用1拍还是2拍节奏型
+                // 如果剩余2拍或以上，有50%概率使用2拍节奏型
+                if (remainingBeats >= 2 && Math.random() > 0.5) {
+                    // 使用2拍节奏型
+                    const randomIndex = Math.floor(Math.random() * twoBeatRhythms.length);
+                    measureRhythms.push(twoBeatRhythms[randomIndex]);
+                    remainingBeats -= 2;
+                } else {
+                    // 使用1拍节奏型
+                    const randomIndex = Math.floor(Math.random() * oneBeatRhythms.length);
+                    measureRhythms.push(oneBeatRhythms[randomIndex]);
+                    remainingBeats -= 1;
+                }
+            }
+
+            measures.push(measureRhythms);
         }
-    });
 
-    return {
-        beatType: beatType,
-        quantity: quantity,
-        measures: 1,
-        timeSignature: '4/4',
-        name: selectedRhythms.join(' + '), // 显示所有节奏型名称
-        notes: allNotes, // 所有音符序列
-        pattern: selectedRhythms // 节奏名称数组，用于答案比较
-    };
+        // 合并所有小节的节奏型为音符序列
+        const allNotes = [];
+        measures.forEach(measureRhythms => {
+            measureRhythms.forEach(rhythmName => {
+                const notes = RHYTHM_DURATION_MAP[rhythmName];
+                if (notes) {
+                    allNotes.push(...notes);
+                }
+            });
+        });
+
+        pattern = measures; // 二维数组：[[小节1的节奏型], [小节2的节奏型], ...]
+
+        return {
+            beatType: beatType,
+            quantity: measureCount,
+            measures: measureCount,
+            timeSignature: `${beatsPerMeasure}/4`,
+            name: measures.map(m => m.join(' + ')).join(' | '),
+            notes: allNotes,
+            pattern: pattern
+        };
+    } else {
+        // 节奏型听辨模式：原有逻辑
+        // 根据拍型选择对应的节奏型
+        let rhythmNames;
+        if (beatType === '1') {
+            // 一拍节奏型（9种）
+            rhythmNames = [
+                '四分', '2个八分', '4个十六分', '前十六', '后十六',
+                '小切分', '小附点', '小后附点', '三连音'
+            ];
+        } else if (beatType === '2') {
+            // 二拍节奏型（9种）
+            rhythmNames = [
+                '二分', '八分大切分', '十六分大切分', '前十六大切分', '后十六大切分',
+                '八分大附点', '八分大后附点', '十六分大附点', '十六分大后附点'
+            ];
+        } else {
+            // 默认使用一拍节奏型
+            rhythmNames = [
+                '四分', '2个八分', '4个十六分', '前十六', '后十六',
+                '小切分', '小附点', '小后附点', '三连音'
+            ];
+        }
+
+        // 根据数量随机选择节奏型（可以重复）
+        const selectedRhythms = [];
+        for (let i = 0; i < quantity; i++) {
+            const randomIndex = Math.floor(Math.random() * rhythmNames.length);
+            selectedRhythms.push(rhythmNames[randomIndex]);
+        }
+
+        // 从映射表获取所有节奏型的音符序列
+        const allNotes = [];
+        selectedRhythms.forEach(rhythmName => {
+            const notes = RHYTHM_DURATION_MAP[rhythmName];
+            if (notes) {
+                allNotes.push(...notes);
+            }
+        });
+
+        return {
+            beatType: beatType,
+            quantity: quantity,
+            measures: 1,
+            timeSignature: '4/4',
+            name: selectedRhythms.join(' + '), // 显示所有节奏型名称
+            notes: allNotes, // 所有音符序列
+            pattern: selectedRhythms // 节奏名称数组，用于答案比较
+        };
+    }
 }
 
 // ==================== 节奏型时值规则映射表 ====================
@@ -6491,87 +7181,183 @@ function submitRhythmAnswer() {
         return;
     }
 
-    // 检查是否已选择所有节奏
-    if (!rhythmAppState.selectedRhythms || rhythmAppState.selectedRhythms.some(r => r === null)) {
-        updateRhythmStatus('请先选择所有节奏！');
-        return;
-    }
+    // 清除所有槽位的样式（如果之前提交过答案）
+    const allSlots = document.querySelectorAll('.rhythm-answer-slot');
+    allSlots.forEach(slot => {
+        slot.style.background = '';
+        slot.style.borderColor = '';
+    });
 
-    // 比较答案
-    const correctPattern = rhythmAppState.currentRhythm.pattern;
-    const isAllCorrect = rhythmAppState.selectedRhythms.every((selected, index) => selected === correctPattern[index]);
+    // 判断是否为节拍听辨模式
+    const isMeterMode = rhythmAppState.currentFunction === 'meter';
 
-    if (rhythmAppState.currentMode === 'test') {
-        rhythmAppState.totalQuestions++;
-
-        if (isAllCorrect) {
-            rhythmAppState.correct++;
-            rhythmAppState.score += 5;
-            updateRhythmStatus(`✅ 回答正确！+5分`);
-        } else {
-            rhythmAppState.wrong++;
-            rhythmAppState.errorQuestions.push({
-                correct: rhythmAppState.currentRhythm,
-                selected: rhythmAppState.selectedRhythms
-            });
-            updateRhythmStatus(`❌ 回答错误`);
+    if (isMeterMode) {
+        // 节拍听辨模式：检查每个小节的节奏型数组是否匹配
+        // 检查是否所有小节都已填写
+        const allMeasuresFilled = rhythmAppState.measureRhythms.every(measure => measure.length > 0);
+        if (!allMeasuresFilled) {
+            updateRhythmStatus('请先填写所有小节！');
+            return;
         }
 
-        updateRhythmStats();
+        // 获取正确答案（当前题目的pattern）
+        const correctPattern = rhythmAppState.currentRhythm.pattern;
 
-        // 显示每个槽位的对比结果
+        // 比较每个小节的节奏型
+        let allCorrect = true;
         const slots = document.querySelectorAll('.rhythm-answer-slot');
-        slots.forEach((slot, index) => {
-            const userAnswer = rhythmAppState.selectedRhythms[index];
-            const correctAnswer = correctPattern[index];
-            slot.textContent = `您：${userAnswer} → 正确：${correctAnswer}`;
+
+        rhythmAppState.measureRhythms.forEach((userMeasure, index) => {
+            const correctMeasure = correctPattern[index]; // 正确答案的节奏型数组
+
+            // 比较两个数组是否相同（顺序和内容都要匹配）
+            const isMeasureCorrect = JSON.stringify(userMeasure) === JSON.stringify(correctMeasure);
+
+            if (!isMeasureCorrect) {
+                allCorrect = false;
+            }
+
+            // 显示对比结果
+            const slot = slots[index];
+            const userText = userMeasure.join(' + ');
+            const correctText = correctMeasure.join(' + ');
+            slot.textContent = `您：${userText} → 正确：${correctText}`;
 
             // 根据正确性设置样式
-            if (userAnswer === correctAnswer) {
-                slot.style.background = 'rgba(0, 255, 0, 0.2)';
-                slot.style.borderColor = '#00ff00';
+            if (isMeasureCorrect) {
+                slot.style.background = 'rgba(76, 175, 80, 0.15)';
+                slot.style.borderColor = '#4CAF50';
             } else {
-                slot.style.background = 'rgba(255, 0, 0, 0.2)';
-                slot.style.borderColor = '#ff0000';
+                slot.style.background = 'rgba(244, 67, 54, 0.15)';
+                slot.style.borderColor = '#F44336';
             }
         });
 
-        // 检查是否达到20题
-        if (rhythmAppState.totalQuestions >= 20) {
-            setTimeout(() => {
-                endRhythmTestMode();
-            }, 3000);
+        // 更新状态和统计
+        if (rhythmAppState.currentMode === 'test') {
+            rhythmAppState.totalQuestions++;
+
+            if (allCorrect) {
+                rhythmAppState.correct++;
+                rhythmAppState.score += 5;
+                updateRhythmStatus(`✅ 回答正确！+5分`);
+            } else {
+                rhythmAppState.wrong++;
+                rhythmAppState.errorQuestions.push({
+                    correct: rhythmAppState.currentRhythm,
+                    selected: rhythmAppState.measureRhythms
+                });
+                updateRhythmStatus(`❌ 回答错误`);
+            }
+
+            updateRhythmStats();
+
+            // 检查是否达到20题
+            if (rhythmAppState.totalQuestions >= 20) {
+                setTimeout(() => {
+                    endRhythmTestMode();
+                }, 3000);
+            } else {
+                // 自动出下一题
+                setTimeout(() => {
+                    playRandomRhythm();
+                }, 3000);
+            }
         } else {
-            // 自动出下一题
-            setTimeout(() => {
-                playRandomRhythm();
-                initRhythmAnswerArea();
-            }, 3000);
+            // 练习模式
+            if (allCorrect) {
+                updateRhythmStatus('✅ 回答正确！');
+            } else {
+                updateRhythmStatus('❌ 回答错误，请再试一次');
+            }
         }
     } else {
-        // 练习模式
-        if (isAllCorrect) {
-            updateRhythmStatus('✅ 回答正确！');
-        } else {
-            updateRhythmStatus('❌ 回答错误，请再试一次');
+        // 节奏型听辨模式：原有逻辑
+        // 检查是否已选择所有节奏
+        if (!rhythmAppState.selectedRhythms || rhythmAppState.selectedRhythms.some(r => r === null)) {
+            updateRhythmStatus('请先选择所有节奏！');
+            return;
         }
 
-        // 显示每个槽位的对比结果
-        const slots = document.querySelectorAll('.rhythm-answer-slot');
-        slots.forEach((slot, index) => {
-            const userAnswer = rhythmAppState.selectedRhythms[index];
-            const correctAnswer = correctPattern[index];
-            slot.textContent = `您：${userAnswer} → 正确：${correctAnswer}`;
+        // 比较答案
+        const correctPattern = rhythmAppState.currentRhythm.pattern;
+        const isAllCorrect = rhythmAppState.selectedRhythms.every((selected, index) => selected === correctPattern[index]);
 
-            // 根据正确性设置样式
-            if (userAnswer === correctAnswer) {
-                slot.style.background = 'rgba(0, 255, 0, 0.2)';
-                slot.style.borderColor = '#00ff00';
+        if (rhythmAppState.currentMode === 'test') {
+            rhythmAppState.totalQuestions++;
+
+            if (isAllCorrect) {
+                rhythmAppState.correct++;
+                rhythmAppState.score += 5;
+                updateRhythmStatus(`✅ 回答正确！+5分`);
             } else {
-                slot.style.background = 'rgba(255, 0, 0, 0.2)';
-                slot.style.borderColor = '#ff0000';
+                rhythmAppState.wrong++;
+                rhythmAppState.errorQuestions.push({
+                    correct: rhythmAppState.currentRhythm,
+                    selected: rhythmAppState.selectedRhythms
+                });
+                updateRhythmStatus(`❌ 回答错误`);
             }
-        });
+
+            updateRhythmStats();
+
+            // 显示每个槽位的对比结果
+            const slots = document.querySelectorAll('.rhythm-answer-slot');
+            slots.forEach((slot, index) => {
+                const userAnswer = rhythmAppState.selectedRhythms[index];
+                const correctAnswer = correctPattern[index];
+                slot.textContent = `您：${userAnswer} → 正确：${correctAnswer}`;
+
+                // 根据正确性设置样式（柔和的颜色，与桔色主题协调）
+                if (userAnswer === correctAnswer) {
+                    // 正确：柔和的绿色
+                    slot.style.background = 'rgba(76, 175, 80, 0.15)';
+                    slot.style.borderColor = '#4CAF50';
+                } else {
+                    // 错误：柔和的红色
+                    slot.style.background = 'rgba(244, 67, 54, 0.15)';
+                    slot.style.borderColor = '#F44336';
+                }
+            });
+
+            // 检查是否达到20题
+            if (rhythmAppState.totalQuestions >= 20) {
+                setTimeout(() => {
+                    endRhythmTestMode();
+                }, 3000);
+            } else {
+                // 自动出下一题
+                setTimeout(() => {
+                    playRandomRhythm();
+                }, 3000);
+            }
+        } else {
+            // 练习模式
+            if (isAllCorrect) {
+                updateRhythmStatus('✅ 回答正确！');
+            } else {
+                updateRhythmStatus('❌ 回答错误，请再试一次');
+            }
+
+            // 显示每个槽位的对比结果
+            const slots = document.querySelectorAll('.rhythm-answer-slot');
+            slots.forEach((slot, index) => {
+                const userAnswer = rhythmAppState.selectedRhythms[index];
+                const correctAnswer = correctPattern[index];
+                slot.textContent = `您：${userAnswer} → 正确：${correctAnswer}`;
+
+                // 根据正确性设置样式（柔和的颜色，与桔色主题协调）
+                if (userAnswer === correctAnswer) {
+                    // 正确：柔和的绿色
+                    slot.style.background = 'rgba(76, 175, 80, 0.15)';
+                    slot.style.borderColor = '#4CAF50';
+                } else {
+                    // 错误：柔和的红色
+                    slot.style.background = 'rgba(244, 67, 54, 0.15)';
+                    slot.style.borderColor = '#F44336';
+                }
+            });
+        }
     }
 }
 
@@ -6661,51 +7447,6 @@ function stopMetronome() {
         metronomeInterval = null;
     }
     console.log('⏹️ 节拍器已停止');
-}
-
-// 生成节奏选项按钮
-function generateRhythmButtons() {
-    const container = document.getElementById('rhythm-layer');
-    if (!container) return;
-
-    // 清空容器
-    container.innerHTML = '';
-
-    // 定义节奏型（简化版本）
-    const rhythmTypes = [
-        { id: 'r1', name: '四分音符×4', pattern: [{ duration: 'q' }, { duration: 'q' }, { duration: 'q' }, { duration: 'q' }] },
-        { id: 'r2', name: '八分+四分', pattern: [{ duration: '8' }, { duration: '8' }, { duration: 'q' }, { duration: 'q' }] },
-        { id: 'r3', name: '四分+八分', pattern: [{ duration: 'q' }, { duration: 'q' }, { duration: '8' }, { duration: '8' }] },
-        { id: 'r4', name: '八分音符×4', pattern: [{ duration: '8' }, { duration: '8' }, { duration: '8' }, { duration: '8' }] },
-        { id: 'r5', name: '十六分+八分', pattern: [{ duration: '16' }, { duration: '16' }, { duration: '8' }, { duration: 'q' }] },
-        { id: 'r6', name: '附点四分', pattern: [{ duration: 'q', dots: 1 }, { duration: '8' }, { duration: 'q' }] }
-    ];
-
-    // 创建按钮
-    rhythmTypes.forEach(rhythm => {
-        const btn = document.createElement('button');
-        btn.className = 'chord-btn';
-        btn.textContent = rhythm.name;
-        btn.dataset.rhythmId = rhythm.id;
-        btn.dataset.pattern = JSON.stringify(rhythm.pattern);
-
-        btn.addEventListener('click', () => {
-            // 移除其他按钮的激活状态
-            container.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
-
-            // 激活当前按钮
-            btn.classList.add('active');
-
-            // 保存选择的节奏
-            rhythmAppState.selectedRhythm = rhythm.pattern;
-
-            updateRhythmStatus(`已选择：${rhythm.name}`);
-
-            // 五线谱渲染已移除，使用文本上屏显示（若需要可扩展）
-        });
-
-        container.appendChild(btn);
-    });
 }
 
 // 钢琴键盘点击处理函数 - Note On（按下时）
