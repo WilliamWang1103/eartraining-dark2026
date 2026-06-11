@@ -1207,7 +1207,7 @@ function initChordPiano() {
         }, { passive: true });
         piano.appendChild(key);
     });
-    applyScaleRestrictionsToPiano();
+    // 注意：不在这里调用 applyScaleRestrictionsToPiano()，因为 initScaleDifficultySelector 已经通过 updateChordScaleNotesByLevel 调用了 applyChordScaleRestrictions()
     positionBlackKeys('piano-chord');
 }
 
@@ -1223,11 +1223,24 @@ function initChordDifficultySelector() {
 }
 
 function initScaleDifficultySelector() {
-    const select = document.getElementById('scale-difficulty-chord'); if (!select) return; select.innerHTML = '';
-    for (let i = 1; i <= 8; i++) { const option = document.createElement('option'); option.value = i; option.textContent = scaleDifficultyConfig[i].name; select.appendChild(option); }
+    const select = document.getElementById('scale-difficulty-chord'); 
+    if (!select) return;
+    select.innerHTML = '';
+    for (let i = 1; i <= 8; i++) { 
+        const option = document.createElement('option'); 
+        option.value = i; 
+        option.textContent = scaleDifficultyConfig[i].name; 
+        select.appendChild(option); 
+    }
     select.value = chordAppState.scaleDifficulty || 1;
-    chordAppState.scaleNotes = scaleDifficultyConfig[select.value].notes || [];
-    select.addEventListener('change', function () { const val = parseInt(this.value); chordAppState.scaleDifficulty = val; chordAppState.scaleNotes = scaleDifficultyConfig[val].notes || []; updateChordStatus(scaleDifficultyConfig[val].description || '已切换调式难度'); applyScaleRestrictionsToPiano(); });
+    // 使用 updateChordScaleNotesByLevel 来正确初始化并应用琴键限制
+    updateChordScaleNotesByLevel(chordAppState.scaleDifficulty || 1);
+    select.addEventListener('change', function () { 
+        const val = parseInt(this.value, 10); 
+        if (!isNaN(val)) {
+            updateChordScaleNotesByLevel(val);
+        }
+    });
 }
 
 function initInversionSelector() {
@@ -1246,8 +1259,19 @@ function updateInversionOptions() {
 
 function applyScaleRestrictionsToPiano() {
     const allowed = new Set((chordAppState.scaleNotes || []).map(n => n));
-    const piano = document.getElementById('piano-chord'); if (!piano) return;
-    piano.querySelectorAll('.white-key, .black-key').forEach(key => { const note = key.dataset.note; if (!allowed.has(note)) { key.classList.add('disabled'); key.dataset.disabled = 'true'; } else { key.classList.remove('disabled'); delete key.dataset.disabled; } });
+    const piano = document.getElementById('piano-chord'); 
+    if (!piano) return;
+    const keys = piano.querySelectorAll('.white-key, .black-key');
+    keys.forEach(key => { 
+        const note = key.dataset.note; 
+        if (!allowed.has(note)) { 
+            key.classList.add('disabled'); 
+            key.dataset.disabled = 'true'; 
+        } else { 
+            key.classList.remove('disabled'); 
+            delete key.dataset.disabled; 
+        } 
+    });
 }
 
 function findCandidatesForChord(chord, allowedSet, allowedInversions) {
@@ -2663,8 +2687,20 @@ function updateChordScaleNotesByLevel(level) {
 
 // 应用调式限制到和弦听辨的钢琴琴键
 function applyChordScaleRestrictions() {
-    // 这里可以根据需要应用调式限制
-    // 目前和弦听辨不需要限制音符选择，所以留空
+    const allowed = new Set(chordAppState.scaleNotes || []);
+    const piano = document.getElementById('piano-chord');
+    if (!piano) return;
+
+    piano.querySelectorAll('.white-key, .black-key').forEach(key => {
+        const note = key.dataset.note;
+        if (!allowed.has(note)) {
+            key.classList.add('disabled');
+            key.dataset.disabled = 'true';
+        } else {
+            key.classList.remove('disabled');
+            delete key.dataset.disabled;
+        }
+    });
 }
 
 // 初始化级别选项
