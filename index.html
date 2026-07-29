@@ -107,6 +107,33 @@
                         </div>
                     </div>
 
+                    <!-- 智能学习功能入口 -->
+                    <div class="learning-features-section">
+                        <h3 class="learning-features-title">🤖 智能学习助手</h3>
+                        <div class="smart-features">
+                            <div class="smart-feature-card" data-feature="report" id="learning-report-btn">
+                                <div class="smart-feature-icon">📊</div>
+                                <div class="smart-feature-title">学习报告</div>
+                                <div class="smart-feature-desc">查看学习数据和进步趋势</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="adaptive" id="adaptive-btn">
+                                <div class="smart-feature-icon">🎯</div>
+                                <div class="smart-feature-title">智能推荐</div>
+                                <div class="smart-feature-desc">AI自适应难度调整</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="errorbook" id="error-book-btn">
+                                <div class="smart-feature-icon">📝</div>
+                                <div class="smart-feature-title">错题本</div>
+                                <div class="smart-feature-desc">针对性复习薄弱环节</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="data">
+                                <div class="smart-feature-icon">💾</div>
+                                <div class="smart-feature-title">数据管理</div>
+                                <div class="smart-feature-desc">导出/导入学习数据</div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
             </div> <!-- .home-page -->
@@ -1126,9 +1153,92 @@
             </div>
         </div>
 
+        <!-- 学习报告页面 -->
+        <div id="learning-report-page" class="page">
+            <div class="container">
+                <div class="learning-report-page">
+                    <div class="smart-nav">
+                        <button class="back-btn-smart" onclick="showPage('home-page')">
+                            <i class="fas fa-arrow-left"></i> 返回首页
+                        </button>
+                    </div>
+                    <div id="learning-report-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 错题本页面 -->
+        <div id="error-book-page" class="page">
+            <div class="container">
+                <div class="error-book-page">
+                    <div class="smart-nav">
+                        <button class="back-btn-smart" onclick="showPage('home-page')">
+                            <i class="fas fa-arrow-left"></i> 返回首页
+                        </button>
+                    </div>
+                    <!-- 错题本类型切换 -->
+                    <div class="tabs-row"
+                        style="margin-bottom: 16px; display: flex; gap: 8px; justify-content: center;">
+                        <button class="tab-btn active" onclick="switchErrorBookType('single', this)">单音</button>
+                        <button class="tab-btn" onclick="switchErrorBookType('interval', this)">音程</button>
+                        <button class="tab-btn" onclick="switchErrorBookType('chord', this)">和弦</button>
+                    </div>
+                    <div id="error-book-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 自适应难度页面 -->
+        <div id="adaptive-page" class="page">
+            <div class="container">
+                <div class="adaptive-page">
+                    <div class="smart-nav">
+                        <button class="back-btn-smart" onclick="showPage('home-page')">
+                            <i class="fas fa-arrow-left"></i> 返回首页
+                        </button>
+                    </div>
+                    <div id="adaptive-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据管理对话框 -->
+        <div id="data-modal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 400px;">
+                <h3>💾 数据管理</h3>
+                <p style="color: #aaa; margin-bottom: 20px;">管理您的学习数据</p>
+                <div class="data-management" style="flex-direction: column;">
+                    <button id="export-data-btn" class="data-btn">📤 导出学习数据</button>
+                    <button id="import-data-btn" class="data-btn">📥 导入学习数据</button>
+                    <button id="clear-data-btn" class="data-btn danger">🗑️ 清除所有数据</button>
+                </div>
+                <button class="data-btn" style="width: 100%; margin-top: 16px;"
+                    onclick="document.getElementById('data-modal').style.display='none'">关闭</button>
+            </div>
+        </div>
+
         <!-- 所有 JavaScript 逻辑已移至 app.js -->
         <script src="app.js?v=20260601"></script>
     </div>
-</body>
+
+    <script>
+        // 错题本类型切换
+        function switchErrorBookType(type, btn) {
+            // 更新按钮状态
+            const tabs = btn.parentElement.querySelectorAll('.tab-btn');
+            tabs.forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+
+            // 显示对应类型的错题
+            showErrorBook(type);
+        }
+
+        // 数据管理卡片点击
+        document.querySelectorAll('[data-feature="data"]').forEach(card => {
+            card.addEventListener('click', () => {
+                document.getElementById('data-modal').style.display = 'flex';
+            });
+        });
+    </script>
 
 </html>

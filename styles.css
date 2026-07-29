@@ -2344,3 +2344,529 @@ body {
     color: white !important;
     box-shadow: 0 0 15px rgba(230, 126, 34, 0.6);
 }
+
+/* ==================== 学习报告页面样式 ==================== */
+
+.learning-report-page,
+.error-book-page,
+.adaptive-page {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.report-header,
+.error-book-header,
+.adaptive-header {
+    text-align: center;
+    margin-bottom: 24px;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.2), rgba(155, 89, 182, 0.2));
+    border-radius: 16px;
+    border: 1px solid rgba(74, 144, 226, 0.3);
+}
+
+.report-header h3,
+.error-book-header h4,
+.adaptive-header h4 {
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+    color: #4a90e2;
+}
+
+.adaptive-hint,
+.error-book-hint {
+    color: #aaa;
+    font-size: 0.9rem;
+    margin-top: 8px;
+}
+
+.report-summary {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 16px;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    min-width: 100px;
+}
+
+.summary-label {
+    font-size: 0.8rem;
+    color: #aaa;
+    margin-bottom: 6px;
+}
+
+.summary-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #4a90e2;
+}
+
+.report-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.report-section h4 {
+    font-size: 1.1rem;
+    margin-bottom: 16px;
+    color: #fff;
+}
+
+/* 准确率条形图 */
+.accuracy-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.accuracy-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.bar-label {
+    width: 60px;
+    font-size: 0.9rem;
+    color: #ccc;
+}
+
+.bar-container {
+    flex: 1;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: 12px;
+    transition: width 0.5s ease;
+}
+
+.bar-value {
+    width: 100px;
+    text-align: right;
+    font-size: 0.85rem;
+    color: #aaa;
+}
+
+/* 薄弱环节标签 */
+.weak-area-group {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+}
+
+.weak-area-tag {
+    display: inline-block;
+    margin: 4px;
+    padding: 4px 10px;
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+    border-radius: 12px;
+    font-size: 0.8rem;
+}
+
+/* 进步趋势图 */
+.trend-chart {
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-end;
+    height: 150px;
+    padding: 0 10px;
+}
+
+.trend-bar-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 40px;
+}
+
+.trend-bar {
+    width: 100%;
+    min-height: 10px;
+    border-radius: 6px 6px 0 0;
+    transition: height 0.5s ease;
+}
+
+.trend-label {
+    font-size: 0.7rem;
+    color: #aaa;
+    margin-top: 8px;
+}
+
+.trend-value {
+    font-size: 0.75rem;
+    color: #ccc;
+    margin-top: 2px;
+}
+
+.trend-count {
+    font-size: 0.65rem;
+    color: #888;
+}
+
+/* 学习建议 */
+.suggestions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.suggestion-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.suggestion-success {
+    background: rgba(76, 175, 80, 0.15);
+    border-left: 4px solid #4CAF50;
+}
+
+.suggestion-info {
+    background: rgba(74, 144, 226, 0.15);
+    border-left: 4px solid #4a90e2;
+}
+
+.suggestion-warning {
+    background: rgba(255, 152, 0, 0.15);
+    border-left: 4px solid #FF9800;
+}
+
+.suggestion-focus {
+    background: rgba(231, 76, 60, 0.15);
+    border-left: 4px solid #e74c3c;
+}
+
+.suggestion-adaptive {
+    background: rgba(155, 89, 182, 0.15);
+    border-left: 4px solid #9b59b6;
+}
+
+/* 错题本样式 */
+.error-book-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.error-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.error-index {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(231, 76, 60, 0.2);
+    border-radius: 50%;
+    color: #e74c3c;
+    font-weight: bold;
+    margin-right: 12px;
+}
+
+.error-content {
+    flex: 1;
+}
+
+.error-question {
+    font-size: 1rem;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.error-meta {
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+.review-btn {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #4a90e2, #357abd);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.review-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+}
+
+.empty-state p {
+    font-size: 1.2rem;
+    color: #4CAF50;
+    margin-bottom: 8px;
+}
+
+.empty-hint {
+    color: #aaa;
+    font-size: 0.9rem !important;
+}
+
+/* 自适应难度样式 */
+.adaptive-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.adaptive-item {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(74, 144, 226, 0.3);
+}
+
+.adaptive-icon {
+    font-size: 2rem;
+    margin-right: 16px;
+}
+
+.adaptive-info {
+    flex: 1;
+}
+
+.adaptive-name {
+    font-size: 1.1rem;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
+.adaptive-level,
+.adaptive-accuracy {
+    font-size: 0.9rem;
+    color: #ccc;
+    margin-bottom: 4px;
+}
+
+.adaptive-level strong {
+    color: #4a90e2;
+}
+
+.adaptive-status {
+    font-size: 0.85rem;
+    color: #aaa;
+    margin-top: 4px;
+}
+
+.apply-level-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.apply-level-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+}
+
+/* 数据管理按钮组 */
+.data-management {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.data-btn {
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ccc;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.data-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.data-btn.danger {
+    color: #e74c3c;
+    border-color: rgba(231, 76, 60, 0.3);
+}
+
+.data-btn.danger:hover {
+    background: rgba(231, 76, 60, 0.1);
+}
+
+/* 移动端适配 */
+@media (max-width: 600px) {
+    .report-summary {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .summary-item {
+        min-width: 80px;
+        padding: 10px 14px;
+    }
+    
+    .summary-value {
+        font-size: 1.2rem;
+    }
+    
+    .accuracy-bar-item {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .bar-label {
+        width: 50px;
+        font-size: 0.8rem;
+    }
+    
+    .bar-value {
+        width: auto;
+        font-size: 0.8rem;
+    }
+    
+    .adaptive-item {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .apply-level-btn {
+        width: 100%;
+    }
+    
+    .trend-chart {
+        height: 120px;
+    }
+    
+    .trend-bar-wrapper {
+        width: 32px;
+    }
+}
+
+/* 首页功能入口卡片 */
+.smart-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+    padding: 0 20px;
+}
+
+.smart-feature-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 12px;
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.15), rgba(155, 89, 182, 0.15));
+    border: 1px solid rgba(74, 144, 226, 0.3);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.smart-feature-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(74, 144, 226, 0.6);
+    box-shadow: 0 8px 20px rgba(74, 144, 226, 0.2);
+}
+
+.smart-feature-icon {
+    font-size: 2rem;
+    margin-bottom: 8px;
+}
+
+.smart-feature-title {
+    font-size: 0.9rem;
+    color: #fff;
+    text-align: center;
+}
+
+.smart-feature-desc {
+    font-size: 0.75rem;
+    color: #aaa;
+    text-align: center;
+    margin-top: 4px;
+}
+
+/* 学习功能入口区域 */
+.learning-features-section {
+    margin-top: 24px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+}
+
+.learning-features-title {
+    font-size: 1.2rem;
+    color: #fff;
+    margin-bottom: 12px;
+    padding: 0 20px;
+}
+
+/* 返回按钮 */
+.back-btn-smart {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+}
+
+.back-btn-smart:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* 导航栏 */
+.smart-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
