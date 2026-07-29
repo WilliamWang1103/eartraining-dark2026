@@ -202,6 +202,23 @@ function areEnharmonic(note1, note2) {
     return enharmonicMap[name1] === name2 || enharmonicMap[name2] === name1;
 }
 
+// 扩展允许的音符集合，包括等音形式
+function enrichAllowedNotes(notes) {
+    const allowed = new Set();
+    (notes || []).forEach(n => {
+        allowed.add(n);
+        const match = n.match(/^([A-G][#b]?)(\d)$/);
+        if (match) {
+            const [, noteName, octave] = match;
+            const enharmonic = enharmonicMap[noteName];
+            if (enharmonic) {
+                allowed.add(enharmonic + octave);
+            }
+        }
+    });
+    return allowed;
+}
+
 // 音程类型配置
 const intervalTypes = [
     { semitones: 0, name: '纯一度', abbr: 'P1' },
@@ -1281,7 +1298,7 @@ function updateInversionOptions() {
 }
 
 function applyScaleRestrictionsToPiano() {
-    const allowed = new Set((chordAppState.scaleNotes || []).map(n => n));
+    const allowed = enrichAllowedNotes(chordAppState.scaleNotes);
     const piano = document.getElementById('piano-chord');
     if (!piano) return;
     const keys = piano.querySelectorAll('.white-key, .black-key');
@@ -1336,7 +1353,7 @@ function showAdjustmentOptions(message) {
 function autoAllowAllInversions() { chordAppState.inversion = 'all'; const invSelect = document.getElementById('inversion-chord'); if (invSelect) invSelect.value = 'all'; updateChordStatus('已允许全部转位，正在生成题目...'); setTimeout(() => { playRandomChord(); }, 200); }
 
 function autoLowerDifficulty() {
-    const allowedSet = new Set((chordAppState.scaleNotes || []).map(n => n));
+    const allowedSet = enrichAllowedNotes(chordAppState.scaleNotes);
     const currentInv = chordAppState.inversion; let found = false;
     for (let d = chordAppState.difficulty - 1; d >= 1; d--) {
         const chordList = difficultyConfig[d].chords;
@@ -1410,7 +1427,7 @@ function getNoteIndex(noteName) { return allNotes.findIndex(n => n.note === note
 function getOrderedNoteSelection() { if (!chordAppState.selectedNotes || chordAppState.selectedNotes.length === 0) return null; const sortedNotes = [...chordAppState.selectedNotes].sort((a, b) => getNoteIndex(a.note) - getNoteIndex(b.note)); return sortedNotes; }
 
 function handlePianoClickChord(noteObj) {
-    const allowedSet = new Set(chordAppState.scaleNotes || []);
+    const allowedSet = enrichAllowedNotes(chordAppState.scaleNotes);
     if (chordAppState.currentMode === 'practice' && !allowedSet.has(noteObj.note)) { updateChordStatus('该音不在所选调式内，无法选择'); return; }
     if (chordAppState.currentMode !== 'test') playSingleNote(noteObj.note);
     highlightKey(noteObj.note);
@@ -1548,7 +1565,7 @@ function generateRandomChord() {
     const availableChords = config.chords;
     if (availableChords.length === 0) { updateChordStatus('当前难度没有可用的和弦'); return null; }
     const chord = availableChords[Math.floor(Math.random() * availableChords.length)];
-    const allowed = new Set(chordAppState.scaleNotes || []);
+    const allowed = enrichAllowedNotes(chordAppState.scaleNotes);
     const candidates = [];
     let allowedInversions = [];
     if (!chordAppState.inversion || chordAppState.inversion === 'all') for (let i = 0; i < chord.intervals.length; i++) allowedInversions.push(i); else { const v = parseInt(chordAppState.inversion, 10); if (!isNaN(v)) allowedInversions = [v]; else allowedInversions = [0]; }
@@ -2710,7 +2727,7 @@ function updateChordScaleNotesByLevel(level) {
 
 // 应用调式限制到和弦听辨的钢琴琴键
 function applyChordScaleRestrictions() {
-    const allowed = new Set(chordAppState.scaleNotes || []);
+    const allowed = enrichAllowedNotes(chordAppState.scaleNotes);
     const piano = document.getElementById('piano-chord');
     if (!piano) return;
 
@@ -3113,7 +3130,7 @@ function updateIntervalScaleNotesByLevel(level) {
 
 // 应用调式限制到音程听辨的钢琴琴键
 function applyIntervalScaleRestrictions() {
-    const allowed = new Set(intervalAppState.scaleNotes || []);
+    const allowed = enrichAllowedNotes(intervalAppState.scaleNotes);
     const piano = document.getElementById('piano-interval');
     if (!piano) return;
 
@@ -5443,7 +5460,7 @@ function updateSingleScaleNotesByLevel(level) {
 
 // 应用调式限制到单音练习的钢琴琴键
 function applySingleScaleRestrictions() {
-    const allowed = new Set(singleAppState.scaleNotes || []);
+    const allowed = enrichAllowedNotes(singleAppState.scaleNotes);
     const piano = document.getElementById('piano-single');
     if (!piano) return;
 
@@ -7511,7 +7528,7 @@ function stopMetronome() {
 // 钢琴键盘点击处理函数 - Note On（按下时）
 function handlePianoNoteOnSingle(note) {
     // 检查音符是否在调式范围内
-    const allowed = new Set(singleAppState.scaleNotes || []);
+    const allowed = enrichAllowedNotes(singleAppState.scaleNotes);
     if (!allowed.has(note.note)) {
         updateSingleStatus(`该音不在所选调式调性范围内，无法选择`);
         return;
@@ -7535,7 +7552,7 @@ function handlePianoNoteOnSingle(note) {
 
 function handlePianoNoteOnInterval(note) {
     // 检查音符是否在调式范围内
-    const allowed = new Set(intervalAppState.scaleNotes || []);
+    const allowed = enrichAllowedNotes(intervalAppState.scaleNotes);
     if (!allowed.has(note.note)) {
         updateIntervalStatus(`该音不在所选调式调性范围内，无法选择`);
         return;
@@ -7621,7 +7638,7 @@ function handlePianoNoteOnInterval(note) {
 
 function handlePianoNoteOnChord(noteObj) {
     // 检查音符是否在调式范围内
-    const allowed = new Set(chordAppState.scaleNotes || []);
+    const allowed = enrichAllowedNotes(chordAppState.scaleNotes);
     if (!allowed.has(noteObj.note)) {
         updateChordStatus(`该音不在所选调式调性范围内，无法选择`);
         return;
