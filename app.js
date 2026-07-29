@@ -1022,7 +1022,10 @@ const pageManager = {
             'single-test-end-page': '单音听辨结果 - 音乐听觉综合训练系统',
             'rhythm-page': '节奏听辨 - 音乐听觉综合训练系统',
             'rhythm-test-end-page': '节奏听辨结果 - 音乐听觉综合训练系统',
-            'melody-page': '旋律听辨 - 音乐听觉综合训练系统'
+            'melody-page': '旋律听辨 - 音乐听觉综合训练系统',
+            'learning-report-page': '学习报告 - 音乐听觉综合训练系统',
+            'error-book-page': '错题本 - 音乐听觉综合训练系统',
+            'adaptive-page': '智能推荐 - 音乐听觉综合训练系统'
         };
         return titles[pageId] || '音乐听觉综合训练系统';
     },
@@ -1647,6 +1650,17 @@ function checkPitchAnswer() {
         playSingleNote(note);
     });
 
+    // 记录学习数据（练习模式和测试模式都记录）
+    learningManager.recordResult('chord', {
+        question: chordAppState.currentChord.chord.name,
+        chordType: chordAppState.currentChord.chord.name,
+        correct: isCorrect,
+        userAnswer: sortedUserNotes.join(' + '),
+        correctAnswer: sortedCorrectNotes.join(' + '),
+        mode: 'pitch',
+        difficulty: chordAppState.scaleDifficulty || 1
+    });
+
     // 测试模式下记录成绩并自动出下一题
     if (chordAppState.currentMode === 'test') {
         console.log('[checkPitchAnswer] 测试模式 - 答题前:', {
@@ -1676,17 +1690,6 @@ function checkPitchAnswer() {
             updateChordStatus(`❌ 回答错误。正确答案是：${sortedCorrectNotes.join(' + ')}`);
             console.log('[checkPitchAnswer] 答错！新成绩:', { wrong: chordAppState.wrong });
         }
-
-        // 记录学习数据
-        learningManager.recordResult('chord', {
-            question: chordAppState.currentChord.chord.name,
-            chordType: chordAppState.currentChord.chord.name,
-            correct: isCorrect,
-            userAnswer: sortedUserNotes.join(' + '),
-            correctAnswer: sortedCorrectNotes.join(' + '),
-            mode: 'pitch',
-            difficulty: chordAppState.scaleDifficulty || 1
-        });
 
         updateChordStats();
 
@@ -1759,6 +1762,17 @@ function checkQualityAnswer() {
         }
     }
 
+    // 记录学习数据（练习模式和测试模式都记录）
+    learningManager.recordResult('chord', {
+        question: chordAppState.currentChord.chord.name,
+        chordType: chordAppState.currentChord.chord.name,
+        correct: isCorrect,
+        userAnswer: chordAppState.selectedChordType.name,
+        correctAnswer: chordAppState.currentChord.chord.name,
+        mode: 'quality',
+        difficulty: chordAppState.difficulty || 1
+    });
+
     // 测试模式下记录成绩并自动出下一题
     if (chordAppState.currentMode === 'test') {
         console.log('[checkQualityAnswer] 测试模式 - 答题前:', {
@@ -1785,17 +1799,6 @@ function checkQualityAnswer() {
             updateChordStatus(`❌ 回答错误。正确答案是：${chordAppState.currentChord.chord.name}`);
             console.log('[checkQualityAnswer] 答错！新成绩:', { wrong: chordAppState.wrong });
         }
-
-        // 记录学习数据
-        learningManager.recordResult('chord', {
-            question: chordAppState.currentChord.chord.name,
-            chordType: chordAppState.currentChord.chord.name,
-            correct: isCorrect,
-            userAnswer: chordAppState.selectedChordType.name,
-            correctAnswer: chordAppState.currentChord.chord.name,
-            mode: 'quality',
-            difficulty: chordAppState.difficulty || 1
-        });
 
         updateChordStats();
 
@@ -3763,6 +3766,16 @@ function submitIntervalPitchAnswer() {
         removeHighlightKey(userNotes[1]);
     }, 2000);
 
+    // 记录学习数据（练习模式和测试模式都记录）
+    learningManager.recordResult('interval', {
+        question: `${correctNotes[0]} + ${correctNotes[1]}`,
+        correct: isCorrect,
+        userAnswer: userNotes.join(' + '),
+        correctAnswer: correctNotes.join(' + '),
+        mode: 'pitch',
+        difficulty: intervalAppState.currentLevel || 1
+    });
+
     // 测试模式下记录成绩并自动出下一题
     if (intervalAppState.currentMode === 'test') {
         intervalAppState.totalQuestions++;
@@ -3782,16 +3795,6 @@ function submitIntervalPitchAnswer() {
             const correctInterval = getIntervalName(getIntervalSemitones(correctNotes[0], correctNotes[1]));
             updateIntervalStatus(` 答错了！正确答案：${correctNotes[0]} + ${correctNotes[1]}（${correctInterval}）`);
         }
-
-        // 记录学习数据
-        learningManager.recordResult('interval', {
-            question: `${correctNotes[0]} + ${correctNotes[1]}`,
-            correct: isCorrect,
-            userAnswer: userNotes.join(' + '),
-            correctAnswer: correctNotes.join(' + '),
-            mode: 'pitch',
-            difficulty: intervalAppState.currentLevel || 1
-        });
 
         updateIntervalStats();
 
@@ -5385,6 +5388,16 @@ function handleSingleSubmitAnswer() {
     playNoteWithWebAudio(singleAppState.pianoSelection, 3.0);
     highlightKey(singleAppState.pianoSelection);
 
+    // 记录学习数据（练习模式和测试模式都记录）
+    learningManager.recordResult('single', {
+        question: singleAppState.lastQuestion.join(' + '),
+        correct: isCorrect,
+        userAnswer: singleAppState.pianoSelection,
+        correctAnswer: singleAppState.lastQuestion.join(' + '),
+        mode: 'pitch',
+        difficulty: singleAppState.currentLevel || 1
+    });
+
     // 测试模式下记录成绩
     if (singleAppState.currentMode === 'test') {
         singleAppState.totalQuestions++;
@@ -5404,16 +5417,6 @@ function handleSingleSubmitAnswer() {
             const correctAnswer = singleAppState.lastQuestion.join(' + ');
             updateSingleStatus(` 答错了！正确答案：${correctAnswer}`);
         }
-
-        // 记录学习数据
-        learningManager.recordResult('single', {
-            question: singleAppState.lastQuestion.join(' + '),
-            correct: isCorrect,
-            userAnswer: singleAppState.pianoSelection,
-            correctAnswer: singleAppState.lastQuestion.join(' + '),
-            mode: 'pitch',
-            difficulty: singleAppState.currentLevel || 1
-        });
 
         updateSingleStats();
 
@@ -8796,13 +8799,26 @@ function showErrorBook(type) {
                     <div class="error-question">${item.key}</div>
                     <div class="error-meta">错误次数：${item.errorCount} 次</div>
                 </div>
-                <button class="review-btn" onclick="reviewErrorQuestion('${type}', '${item.key}')">练习</button>
+                <button class="review-btn" onclick="reviewErrorQuestion('${type}', '${item.key.replace(/'/g, "\\'")}')">练习</button>
             </div>
         `;
     });
     html += '</div>';
 
     container.innerHTML = html;
+}
+
+// 切换错题本类型
+function switchErrorBookType(type, btn) {
+    // 更新按钮状态
+    const tabBtns = document.querySelectorAll('#error-book-page .tab-btn');
+    tabBtns.forEach(b => b.classList.remove('active'));
+    if (btn) {
+        btn.classList.add('active');
+    }
+
+    // 重新加载错题本
+    showErrorBook(type);
 }
 
 // 复习错题
@@ -8868,7 +8884,7 @@ function initLearningFeatures() {
     if (reportBtn) {
         reportBtn.addEventListener('click', () => {
             showLearningReport();
-            showPage('learning-report-page');
+            pageManager.switchToPage('learning-report-page');
         });
     }
 
@@ -8877,7 +8893,7 @@ function initLearningFeatures() {
     if (errorBookBtn) {
         errorBookBtn.addEventListener('click', () => {
             showErrorBook('chord');
-            showPage('error-book-page');
+            pageManager.switchToPage('error-book-page');
         });
     }
 
@@ -8886,7 +8902,7 @@ function initLearningFeatures() {
     if (adaptiveBtn) {
         adaptiveBtn.addEventListener('click', () => {
             showAdaptiveRecommendation();
-            showPage('adaptive-page');
+            pageManager.switchToPage('adaptive-page');
         });
     }
 
