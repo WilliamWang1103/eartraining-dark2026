@@ -107,30 +107,33 @@
                         </div>
                     </div>
 
-                    <!-- 智能学习功能入口 -->
+                    <!-- 智能学习助手入口 -->
                     <div class="learning-features-section">
-                        <h3 class="learning-features-title">🤖 智能学习助手</h3>
+                        <h3 class="learning-features-title">🤖 AI学习助手</h3>
                         <div class="smart-features">
                             <div class="smart-feature-card" data-feature="report" id="learning-report-btn">
-                                <div class="smart-feature-icon">📊</div>
-                                <div class="smart-feature-title">学习报告</div>
-                                <div class="smart-feature-desc">查看学习数据和进步趋势</div>
-                            </div>
-                            <div class="smart-feature-card" data-feature="adaptive" id="adaptive-btn">
-                                <div class="smart-feature-icon">🎯</div>
-                                <div class="smart-feature-title">智能推荐</div>
-                                <div class="smart-feature-desc">AI自适应难度调整</div>
+                                <div class="smart-feature-icon"><i class="fas fa-chart-line"></i></div>
+                                <div class="smart-feature-title">学习路径推荐</div>
+                                <div class="smart-feature-desc">AI个性化学习规划</div>
                             </div>
                             <div class="smart-feature-card" data-feature="errorbook" id="error-book-btn">
-                                <div class="smart-feature-icon">📝</div>
-                                <div class="smart-feature-title">错题本</div>
-                                <div class="smart-feature-desc">针对性复习薄弱环节</div>
+                                <div class="smart-feature-icon"><i class="fas fa-bug"></i></div>
+                                <div class="smart-feature-title">错题分析</div>
+                                <div class="smart-feature-desc">智能分析薄弱环节</div>
                             </div>
-                            <div class="smart-feature-card" data-feature="data">
-                                <div class="smart-feature-icon">💾</div>
-                                <div class="smart-feature-title">数据管理</div>
-                                <div class="smart-feature-desc">导出/导入学习数据</div>
+                            <div class="smart-feature-card" data-feature="qa" id="music-qa-btn">
+                                <div class="smart-feature-icon"><i class="fas fa-question-circle"></i></div>
+                                <div class="smart-feature-title">理论答疑</div>
+                                <div class="smart-feature-desc">AI音乐知识问答</div>
                             </div>
+                        </div>
+                        <!-- 学习状态概览 -->
+                        <div class="learning-status">
+                            <span class="status-label">学习等级：</span>
+                            <span class="status-level" id="user-level">初级</span>
+                            <span class="status-divider">|</span>
+                            <span class="status-label">综合正确率：</span>
+                            <span class="status-accuracy" id="user-accuracy">--</span>
                         </div>
                     </div>
 
@@ -1214,6 +1217,77 @@
                 </div>
                 <button class="data-btn" style="width: 100%; margin-top: 16px;"
                     onclick="document.getElementById('data-modal').style.display='none'">关闭</button>
+            </div>
+        </div>
+
+        <!-- 学习路径推荐弹窗 -->
+        <div id="report-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-chart-line"></i> 智能学习路径推荐</h3>
+                    <button class="modal-close" onclick="closeModal('report-modal')"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div id="report-modal-content" class="modal-body"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('report-modal')">关闭</button>
+                    <button class="modal-btn primary" onclick="startRecommendedPractice()">开始推荐练习</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 错题分析弹窗 -->
+        <div id="errorbook-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-bug"></i> 智能错题分析</h3>
+                    <button class="modal-close" onclick="closeModal('errorbook-modal')"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div class="errorbook-tabs">
+                    <button class="tab-btn active" data-type="chord"
+                        onclick="switchErrorbookModalTab('chord', this)">和弦</button>
+                    <button class="tab-btn" data-type="interval"
+                        onclick="switchErrorbookModalTab('interval', this)">音程</button>
+                    <button class="tab-btn" data-type="single"
+                        onclick="switchErrorbookModalTab('single', this)">单音</button>
+                </div>
+                <div id="errorbook-modal-content" class="modal-body"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('errorbook-modal')">关闭</button>
+                    <button class="modal-btn primary" onclick="startErrorbookPractice()">开始专项练习</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI音乐理论答疑弹窗 -->
+        <div id="qa-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-graduation-cap"></i> AI音乐理论答疑</h3>
+                    <button class="modal-close" onclick="closeModal('qa-modal')"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="qa-search-box">
+                    <input type="text" id="qa-input" placeholder="输入您想了解的音乐理论问题...">
+                    <button class="modal-btn primary" onclick="askAIQuestion()"><i class="fas fa-search"></i>
+                        搜索</button>
+                </div>
+                <div id="qa-modal-content" class="modal-body">
+                    <div class="qa-welcome">
+                        <p>欢迎使用AI音乐理论答疑助手！</p>
+                        <p>您可以询问关于和弦、音程、调式、听辨技巧等方面的问题。</p>
+                        <div class="qa-hot-topics">
+                            <span class="qa-hot-label">热门问题：</span>
+                            <span class="qa-hot-tag" onclick="quickAsk('大三和弦')">大三和弦</span>
+                            <span class="qa-hot-tag" onclick="quickAsk('纯五度')">纯五度</span>
+                            <span class="qa-hot-tag" onclick="quickAsk('C大调')">C大调</span>
+                            <span class="qa-hot-tag" onclick="quickAsk('听辨技巧')">听辨技巧</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('qa-modal')">关闭</button>
+                </div>
             </div>
         </div>
 

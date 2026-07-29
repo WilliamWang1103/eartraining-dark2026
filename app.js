@@ -8879,30 +8879,30 @@ function initLearningFeatures() {
     // 初始化学习数据
     learningManager.init();
 
-    // 绑定学习报告按钮
+    // 更新首页学习状态
+    updateLearningStatus();
+
+    // 绑定学习路径推荐按钮
     const reportBtn = document.getElementById('learning-report-btn');
     if (reportBtn) {
         reportBtn.addEventListener('click', () => {
-            showLearningReport();
-            pageManager.switchToPage('learning-report-page');
+            showLearningPathModal();
         });
     }
 
-    // 绑定错题本按钮
+    // 绑定错题分析按钮
     const errorBookBtn = document.getElementById('error-book-btn');
     if (errorBookBtn) {
         errorBookBtn.addEventListener('click', () => {
-            showErrorBook('chord');
-            pageManager.switchToPage('error-book-page');
+            showErrorbookModal('chord');
         });
     }
 
-    // 绑定自适应难度按钮
-    const adaptiveBtn = document.getElementById('adaptive-btn');
-    if (adaptiveBtn) {
-        adaptiveBtn.addEventListener('click', () => {
-            showAdaptiveRecommendation();
-            pageManager.switchToPage('adaptive-page');
+    // 绑定AI答疑按钮
+    const qaBtn = document.getElementById('music-qa-btn');
+    if (qaBtn) {
+        qaBtn.addEventListener('click', () => {
+            document.getElementById('qa-modal').style.display = 'flex';
         });
     }
 
@@ -8934,6 +8934,7 @@ function initLearningFeatures() {
                     reader.onload = (evt) => {
                         if (learningManager.importData(evt.target.result)) {
                             alert('数据导入成功！');
+
                         } else {
                             alert('数据导入失败，请检查文件格式');
                         }
@@ -8951,8 +8952,309 @@ function initLearningFeatures() {
             if (confirm('确定要清除所有学习数据吗？此操作不可恢复！')) {
                 learningManager.clearAllData();
                 alert('数据已清除！');
+                updateLearningStatus();
             }
         });
+    }
+}
+
+// ==================== AI学习助手弹窗功能 ====================
+
+// 关闭弹窗
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// 更新首页学习状态
+function updateLearningStatus() {
+    const data = learningManager.init();
+    const totalRecords = Object.values(data.learningRecords).reduce((sum, arr) => sum + arr.length, 0);
+    const correctRecords = Object.values(data.learningRecords).flat().filter(r => r.correct);
+    const accuracy = totalRecords > 0 ? Math.round((correctRecords.length / totalRecords) * 100) : 0;
+
+    const level = accuracy >= 80 ? '高级' : accuracy >= 60 ? '中级' : '初级';
+
+    const levelEl = document.getElementById('user-level');
+    const accuracyEl = document.getElementById('user-accuracy');
+
+    if (levelEl) levelEl.textContent = level;
+    if (accuracyEl) accuracyEl.textContent = totalRecords > 0 ? accuracy + '%' : '--';
+}
+
+// 显示学习路径推荐弹窗
+function showLearningPathModal() {
+    const data = learningManager.init();
+    const report = learningManager.generateReport();
+    const container = document.getElementById('report-modal-content');
+    if (!container) return;
+
+    const typeNames = { single: '单音', interval: '音程', chord: '和弦' };
+    let html = '';
+
+    // 生成学习路径建议
+    const suggestions = [];
+
+    // 找出薄弱环节
+    for (const [type, weakAreas] of Object.entries(report.weakAreas)) {
+        if (weakAreas.length > 0) {
+            const acc = report.accuracyByType[type];
+            suggestions.push({
+                title: `${typeNames[type]} - ${weakAreas[0].key}`,
+                details: `${weakAreas[0].key}`,
+                accuracy: acc.rate,
+                priority: '重点',
+                priorityClass: 'path-item-badge'
+            });
+        }
+    }
+
+    // 如果没有薄弱点，添加一个综合建议
+    if (suggestions.length === 0) {
+        for (const [type, name] of Object.entries(typeNames)) {
+            const acc = report.accuracyByType[type];
+            if (acc.total > 0 && acc.rate < 85) {
+                suggestions.push({
+                    title: `${name} - 加强基础`,
+                    details: `基础${name}练习`,
+                    accuracy: acc.rate,
+                    priority: acc.rate < 60 ? '重点' : '建议',
+                    priorityClass: acc.rate < 60 ? 'path-item-badge' : 'path-item-badge',
+                    style: acc.rate < 60 ? 'background: rgba(231, 76, 60, 0.9)' : 'background: rgba(255, 179, 71, 0.9)'
+                });
+            }
+        }
+    }
+
+    // 如果还是空，显示鼓励信息
+    if (suggestions.length === 0) {
+        html = '<div style="text-align:center; padding:30px; color:rgba(200,220,230,0.7);"><p>🎉 太棒了！暂无薄弱环节</p><p>继续保持良好的学习状态！</p><p style="margin-top:16px; color:#80cbc4;">建议练习时长：60分钟</p></div>';
+    } else {
+        // 排序：重点在前
+        suggestions.sort((a, b) => {
+            if (a.priority === '重点' && b.priority !== '重点') return -1;
+            if (b.priority === '重点' && a.priority !== '重点') return 1;
+            return b.accuracy - a.accuracy;
+        });
+
+        suggestions.slice(0, 3).forEach((s, i) => {
+            const style = s.style || (s.priority === '重点' ? 'background: rgba(231, 76, 60, 0.9)' : 'background: rgba(255, 179, 71, 0.9)');
+            html += `
+                <div class="path-item">
+                    <div class="path-item-header">
+                        <span class="path-item-title">${s.title}</span>
+                        <span class="path-item-badge" style="${style}">${s.priority}</span>
+                    </div>
+                    <div class="path-item-info">
+                        <span>🎯 ${s.details}</span>
+                        <span>📊 当前正确率：${s.accuracy}%</span>
+                        <span>⏱️ 建议练习：${3 - i}0分钟</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    container.innerHTML = html;
+    document.getElementById('report-modal').style.display = 'flex';
+}
+
+// 开始推荐练习
+function startRecommendedPractice() {
+    closeModal('report-modal');
+    const data = learningManager.init();
+
+    // 找到最薄弱的类型
+    let weakestType = 'chord';
+    let lowestAccuracy = 100;
+
+    for (const type of ['chord', 'interval', 'single']) {
+        const records = data.learningRecords[type] || [];
+        if (records.length > 0) {
+            const correct = records.filter(r => r.correct).length;
+            const accuracy = (correct / records.length) * 100;
+            if (accuracy < lowestAccuracy) {
+                lowestAccuracy = accuracy;
+                weakestType = type;
+            }
+        }
+    }
+
+    // 跳转到对应的练习页面
+    const pageMap = { chord: 'chord-page', interval: 'interval-page', single: 'single-page' };
+    if (pageMap[weakestType]) {
+        pageManager.switchToPage(pageMap[weakestType]);
+    }
+}
+
+// 显示错题分析弹窗
+let currentErrorbookType = 'chord';
+function showErrorbookModal(type) {
+    currentErrorbookType = type;
+    renderErrorbookContent();
+    document.getElementById('errorbook-modal').style.display = 'flex';
+}
+
+// 切换错题本类型
+function switchErrorbookModalTab(type, btn) {
+    currentErrorbookType = type;
+    const tabs = btn.parentElement.querySelectorAll('.tab-btn');
+    tabs.forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    renderErrorbookContent();
+}
+
+// 渲染错题本内容
+function renderErrorbookContent() {
+    const container = document.getElementById('errorbook-modal-content');
+    if (!container) return;
+
+    const errors = learningManager.getErrorBook(currentErrorbookType, 20);
+    if (errors.length === 0) {
+        container.innerHTML = `
+            <div class="errorbook-empty">
+                <p>🎉 暂无错题记录</p>
+                <p>继续练习，系统将自动分析您的错误</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '<div class="errorbook-list">';
+    errors.forEach((item, index) => {
+        html += `
+            <div class="errorbook-item">
+                <div class="errorbook-item-info">
+                    <div class="errorbook-item-question">${item.key}</div>
+                    <div class="errorbook-item-meta">错误次数：${item.errorCount} 次</div>
+                </div>
+                <button class="modal-btn primary" style="padding:6px 14px; font-size:0.8rem;" onclick="practiceSingleError('${item.key.replace(/'/g, "\\'")}')">练习</button>
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// 练习单个错题
+function practiceSingleError(key) {
+    alert(`即将为您生成"${key}"的专项练习。建议在对应练习模式中选择相近难度进行针对性训练。`);
+}
+
+// 开始专项练习
+function startErrorbookPractice() {
+    closeModal('errorbook-modal');
+    const pageMap = { chord: 'chord-page', interval: 'interval-page', single: 'single-page' };
+    if (pageMap[currentErrorbookType]) {
+        pageManager.switchToPage(pageMap[currentErrorbookType]);
+    }
+}
+
+// AI答疑功能
+const musicKnowledgeBase = {
+    '大三和弦': {
+        title: '大三和弦',
+        content: `
+            <p><strong>定义：</strong>大三和弦是根音与三音构成大三度、三音与五音构成小三度的和弦。</p>
+            <p><strong>结构：</strong>根音 + 大三度 + 纯五度（大三度+小三度）</p>
+            <p><strong>示例：</strong>C大三和弦 = C + E + G</p>
+            <p><strong>听觉特点：</strong>明亮、稳定、协和，是最常用的和弦类型之一。</p>
+            <p><strong>应用场景：</strong>大调主和弦、终止和弦，常用于歌曲的开头和结尾。</p>
+        `
+    },
+    '小三和弦': {
+        title: '小三和弦',
+        content: `
+            <p><strong>定义：</strong>小三和弦是根音与三音构成小三度、三音与五音构成大三度的和弦。</p>
+            <p><strong>结构：</strong>根音 + 小三度 + 纯五度（小三度+大三度）</p>
+            <p><strong>示例：</strong>C小三和弦 = C + Eb + G</p>
+            <p><strong>听觉特点：</strong>柔和、含蓄、略带忧伤色彩。</p>
+            <p><strong>应用场景：</strong>小调主和弦，常用于营造情感氛围。</p>
+        `
+    },
+    '纯五度': {
+        title: '纯五度音程',
+        content: `
+            <p><strong>音程距离：</strong>7个半音</p>
+            <p><strong>示例：</strong>C-G、D-A、E-B</p>
+            <p><strong>听觉特点：</strong>非常协和、稳定，是音乐中最基础的音程之一。</p>
+            <p><strong>识别技巧：</strong>听起来像钟声或钟声般空旷的感觉，两个音融合度高。</p>
+            <p><strong>测试方法：</strong>可以先听低音，再听高音，感受其和谐程度。</p>
+        `
+    },
+    'C大调': {
+        title: 'C自然大调',
+        content: `
+            <p><strong>音阶组成：</strong>C D E F G A B C</p>
+            <p><strong>特点：</strong>没有升降号，是最简单的大调式。</p>
+            <p><strong>调式结构：</strong>全全半全全全半</p>
+            <p><strong>主和弦：</strong>C大三和弦 (C-E-G)</p>
+            <p><strong>常用和弦：</strong>C、Am、F、G、Dm、Em</p>
+        `
+    },
+    '听辨技巧': {
+        title: '听辨练习技巧',
+        content: `
+            <p><strong>1. 建立音程基准：</strong></p>
+            <p>• 熟悉常用音程（大三度、纯五度、八度）的音响特征</p>
+            <p>• 可以用熟悉的歌曲来记忆音程，如《小星星》开头是纯五度</p>
+            
+            <p><strong>2. 和弦识别步骤：</strong></p>
+            <p>• 先听根音，确定低音位置</p>
+            <p>• 再听三音，判断大小三和弦（三音高低）</p>
+            <p>• 最后确认五音是否为纯五度</p>
+            
+            <p><strong>3. 练习方法：</strong></p>
+            <p>• 从简单的开始：先听音程，再听和弦</p>
+            <p>• 每天坚持15-20分钟的集中练习</p>
+            <p>• 错的题目要反复听，建立听觉记忆</p>
+        `
+    }
+};
+
+// AI答疑功能
+function askAIQuestion() {
+    const input = document.getElementById('qa-input');
+    const question = input ? input.value.trim() : '';
+    if (!question) return;
+    renderQAResult(question);
+}
+
+// 快速提问
+function quickAsk(topic) {
+    renderQAResult(topic);
+}
+
+// 渲染问答结果
+function renderQAResult(question) {
+    const content = document.getElementById('qa-modal-content');
+    if (!content) return;
+
+    // 从知识库查找
+    const knowledge = musicKnowledgeBase[question];
+
+    if (knowledge) {
+        content.innerHTML = `
+            <div class="qa-answer">
+                <h4><i class="fas fa-book"></i> ${knowledge.title}</h4>
+                ${knowledge.content}
+            </div>
+        `;
+    } else {
+        // 通用回答
+        content.innerHTML = `
+            <div class="qa-answer">
+                <h4><i class="fas fa-search"></i> 关于"${question}"</h4>
+                <p>您询问的"${question}"是一个很好的音乐学习主题。</p>
+                <p><strong>建议学习路径：</strong></p>
+                <p>1. 从基础乐理开始，理解相关概念</p>
+                <p>2. 通过听辨练习来加深理解</p>
+                <p>3. 在实际作品中体会其应用</p>
+                <p style="margin-top:12px; color:#80cbc4;"><strong>提示：</strong>您也可以尝试点击下方的热门问题获取更多帮助！</p>
+            </div>
+        `;
     }
 }
 
