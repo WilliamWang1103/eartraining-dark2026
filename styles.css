@@ -2361,9 +2361,9 @@ body {
     text-align: center;
     margin-bottom: 24px;
     padding: 20px;
-    background: linear-gradient(135deg, rgba(74, 144, 226, 0.2), rgba(155, 89, 182, 0.2));
+    background: linear-gradient(135deg, rgba(77, 182, 172, 0.15), rgba(38, 166, 154, 0.1));
     border-radius: 16px;
-    border: 1px solid rgba(74, 144, 226, 0.3);
+    border: 1px solid rgba(77, 182, 172, 0.3);
 }
 
 .report-header h3,
@@ -2371,7 +2371,7 @@ body {
 .adaptive-header h4 {
     font-size: 1.5rem;
     margin-bottom: 12px;
-    color: #4a90e2;
+    color: #4db6ac;
 }
 
 .adaptive-hint,
@@ -2406,7 +2406,7 @@ body {
 .summary-value {
     font-size: 1.5rem;
     font-weight: bold;
-    color: #4a90e2;
+    color: #4db6ac;
 }
 
 .report-section {
@@ -2475,7 +2475,7 @@ body {
     margin: 4px;
     padding: 4px 10px;
     background: rgba(231, 76, 60, 0.2);
-    color: #e74c3c;
+    color: #ff8a65;
     border-radius: 12px;
     font-size: 0.8rem;
 }
@@ -2535,18 +2535,18 @@ body {
 }
 
 .suggestion-success {
-    background: rgba(76, 175, 80, 0.15);
-    border-left: 4px solid #4CAF50;
+    background: rgba(77, 182, 172, 0.15);
+    border-left: 4px solid #4db6ac;
 }
 
 .suggestion-info {
-    background: rgba(74, 144, 226, 0.15);
-    border-left: 4px solid #4a90e2;
+    background: rgba(128, 203, 196, 0.15);
+    border-left: 4px solid #80cbc4;
 }
 
 .suggestion-warning {
-    background: rgba(255, 152, 0, 0.15);
-    border-left: 4px solid #FF9800;
+    background: rgba(255, 179, 71, 0.15);
+    border-left: 4px solid #ffb347;
 }
 
 .suggestion-focus {
@@ -2555,8 +2555,8 @@ body {
 }
 
 .suggestion-adaptive {
-    background: rgba(155, 89, 182, 0.15);
-    border-left: 4px solid #9b59b6;
+    background: rgba(38, 166, 154, 0.15);
+    border-left: 4px solid #26a69a;
 }
 
 /* 错题本样式 */
@@ -2605,7 +2605,7 @@ body {
 
 .review-btn {
     padding: 8px 16px;
-    background: linear-gradient(135deg, #4a90e2, #357abd);
+    background: linear-gradient(135deg, #4db6ac, #26a69a);
     color: white;
     border: none;
     border-radius: 8px;
@@ -2616,7 +2616,7 @@ body {
 
 .review-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+    box-shadow: 0 4px 12px rgba(77, 182, 172, 0.4);
 }
 
 .empty-state {
@@ -2626,7 +2626,7 @@ body {
 
 .empty-state p {
     font-size: 1.2rem;
-    color: #4CAF50;
+    color: #4db6ac;
     margin-bottom: 8px;
 }
 
@@ -2648,7 +2648,7 @@ body {
     padding: 16px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
-    border: 1px solid rgba(74, 144, 226, 0.3);
+    border: 1px solid rgba(77, 182, 172, 0.3);
 }
 
 .adaptive-icon {
@@ -2674,7 +2674,7 @@ body {
 }
 
 .adaptive-level strong {
-    color: #4a90e2;
+    color: #4db6ac;
 }
 
 .adaptive-status {
@@ -2685,7 +2685,7 @@ body {
 
 .apply-level-btn {
     padding: 10px 20px;
-    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+    background: linear-gradient(135deg, #4db6ac, #26a69a);
     color: white;
     border: none;
     border-radius: 8px;
@@ -2697,7 +2697,7 @@ body {
 
 .apply-level-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+    box-shadow: 0 4px 12px rgba(77, 182, 172, 0.4);
 }
 
 /* 数据管理按钮组 */
@@ -2740,44 +2740,44 @@ body {
         flex-wrap: wrap;
         gap: 12px;
     }
-    
+
     .summary-item {
         min-width: 80px;
         padding: 10px 14px;
     }
-    
+
     .summary-value {
         font-size: 1.2rem;
     }
-    
+
     .accuracy-bar-item {
         flex-wrap: wrap;
         gap: 8px;
     }
-    
+
     .bar-label {
         width: 50px;
         font-size: 0.8rem;
     }
-    
+
     .bar-value {
         width: auto;
         font-size: 0.8rem;
     }
-    
+
     .adaptive-item {
         flex-wrap: wrap;
         gap: 12px;
     }
-    
+
     .apply-level-btn {
         width: 100%;
     }
-    
+
     .trend-chart {
         height: 120px;
     }
-    
+
     .trend-bar-wrapper {
         width: 32px;
     }
@@ -2797,8 +2797,8 @@ body {
     flex-direction: column;
     align-items: center;
     padding: 16px 12px;
-    background: linear-gradient(135deg, rgba(74, 144, 226, 0.15), rgba(155, 89, 182, 0.15));
-    border: 1px solid rgba(74, 144, 226, 0.3);
+    background: linear-gradient(135deg, rgba(77, 182, 172, 0.12), rgba(38, 166, 154, 0.08));
+    border: 1px solid rgba(77, 182, 172, 0.3);
     border-radius: 12px;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -2806,8 +2806,9 @@ body {
 
 .smart-feature-card:hover {
     transform: translateY(-4px);
-    border-color: rgba(74, 144, 226, 0.6);
-    box-shadow: 0 8px 20px rgba(74, 144, 226, 0.2);
+    border-color: rgba(77, 182, 172, 0.6);
+    box-shadow: 0 8px 20px rgba(77, 182, 172, 0.2);
+    background: linear-gradient(135deg, rgba(77, 182, 172, 0.2), rgba(38, 166, 154, 0.12));
 }
 
 .smart-feature-icon {
@@ -2823,7 +2824,7 @@ body {
 
 .smart-feature-desc {
     font-size: 0.75rem;
-    color: #aaa;
+    color: #80cbc4;
     text-align: center;
     margin-top: 4px;
 }
@@ -2832,15 +2833,28 @@ body {
 .learning-features-section {
     margin-top: 24px;
     padding: 16px;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(77, 182, 172, 0.05);
     border-radius: 16px;
+    border: 1px solid rgba(77, 182, 172, 0.15);
 }
 
 .learning-features-title {
     font-size: 1.2rem;
-    color: #fff;
+    color: #80cbc4;
     margin-bottom: 12px;
     padding: 0 20px;
+}
+
+/* 学习功能专用tab按钮（青绿色系） */
+.error-book-page .tab-btn {
+    background: rgba(77, 182, 172, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.error-book-page .tab-btn.active {
+    background: #4db6ac;
+    color: white;
+    box-shadow: 0 0 15px rgba(77, 182, 172, 0.5);
 }
 
 /* 返回按钮 */
@@ -2849,9 +2863,9 @@ body {
     align-items: center;
     gap: 8px;
     padding: 10px 20px;
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(77, 182, 172, 0.15);
+    color: #80cbc4;
+    border: 1px solid rgba(77, 182, 172, 0.3);
     border-radius: 8px;
     cursor: pointer;
     font-size: 0.9rem;
@@ -2860,7 +2874,8 @@ body {
 }
 
 .back-btn-smart:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(77, 182, 172, 0.25);
+    border-color: rgba(77, 182, 172, 0.5);
 }
 
 /* 导航栏 */
