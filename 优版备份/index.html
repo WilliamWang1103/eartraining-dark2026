@@ -107,6 +107,74 @@
                         </div>
                     </div>
 
+                    <!-- 智能学习助手入口 -->
+                    <div class="learning-features-section">
+                        <h3 class="learning-features-title">🤖 AI学习助手</h3>
+                        <div class="smart-features">
+                            <div class="smart-feature-card" data-feature="report" id="learning-report-btn">
+                                <div class="smart-feature-icon"><i class="fas fa-chart-line"></i></div>
+                                <div class="smart-feature-title">学习分析</div>
+                                <div class="smart-feature-desc">AI学情分析报告</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="errorbook" id="error-book-btn">
+                                <div class="smart-feature-icon"><i class="fas fa-bug"></i></div>
+                                <div class="smart-feature-title">错题分析</div>
+                                <div class="smart-feature-desc">智能分析薄弱环节</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="qa" id="music-qa-btn">
+                                <div class="smart-feature-icon"><i class="fas fa-question-circle"></i></div>
+                                <div class="smart-feature-title">理论答疑</div>
+                                <div class="smart-feature-desc">AI音乐知识问答</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="chordlib" id="chord-library-btn">
+                                <div class="smart-feature-icon"><i class="fas fa-book-open"></i></div>
+                                <div class="smart-feature-title">和弦库</div>
+                                <div class="smart-feature-desc">乐理知识速查</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="goals" id="daily-goals-btn">
+                                <div class="smart-feature-icon"><i class="fas fa-bullseye"></i></div>
+                                <div class="smart-feature-title">每日目标</div>
+                                <div class="smart-feature-desc">设定学习目标</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="signin" id="sign-in-btn">
+                                <div class="smart-feature-icon"><i class="fas fa-calendar-check"></i></div>
+                                <div class="smart-feature-title">每日签到</div>
+                                <div class="smart-feature-desc">坚持学习打卡</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="stats" id="time-stats-btn">
+                                <div class="smart-feature-icon"><i class="fas fa-clock"></i></div>
+                                <div class="smart-feature-title">学习时长</div>
+                                <div class="smart-feature-desc">统计学习时间</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="knowledge" id="daily-knowledge-btn">
+                                <div class="smart-feature-icon"><i class="fas fa-lightbulb"></i></div>
+                                <div class="smart-feature-title">音乐小知识</div>
+                                <div class="smart-feature-desc">每日乐理推荐</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="plan" id="study-plan-btn">
+                                <div class="smart-feature-icon"><i class="fas fa-calendar-alt"></i></div>
+                                <div class="smart-feature-title">学习计划</div>
+                                <div class="smart-feature-desc">制定练习计划</div>
+                            </div>
+                            <div class="smart-feature-card" data-feature="data" id="data-manage-btn">
+                                <div class="smart-feature-icon"><i class="fas fa-database"></i></div>
+                                <div class="smart-feature-title">数据管理</div>
+                                <div class="smart-feature-desc">导入导出数据</div>
+                            </div>
+                        </div>
+                        <!-- 学习状态概览 -->
+                        <div class="learning-status">
+                            <span class="status-label">学习等级：</span>
+                            <span class="status-level" id="user-level">初级</span>
+                            <span class="status-divider">|</span>
+                            <span class="status-label">综合正确率：</span>
+                            <span class="status-accuracy" id="user-accuracy">--</span>
+                            <span class="status-divider">|</span>
+                            <span class="status-label">连续学习：</span>
+                            <span class="status-accuracy" id="user-streak">0天</span>
+                        </div>
+                    </div>
+
                 </div>
 
             </div> <!-- .home-page -->
@@ -1126,9 +1194,267 @@
             </div>
         </div>
 
+        <!-- 学习报告页面 -->
+        <div id="learning-report-page" class="page">
+            <div class="container">
+                <div class="learning-report-page">
+                    <div class="smart-nav">
+                        <button class="back-btn-smart" onclick="pageManager.switchToPage('home-page')">
+                            <i class="fas fa-arrow-left"></i> 返回首页
+                        </button>
+                    </div>
+                    <div id="learning-report-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 错题本页面 -->
+        <div id="error-book-page" class="page">
+            <div class="container">
+                <div class="error-book-page">
+                    <div class="smart-nav">
+                        <button class="back-btn-smart" onclick="pageManager.switchToPage('home-page')">
+                            <i class="fas fa-arrow-left"></i> 返回首页
+                        </button>
+                    </div>
+                    <!-- 错题本类型切换 -->
+                    <div class="tabs-row"
+                        style="margin-bottom: 16px; display: flex; gap: 8px; justify-content: center;">
+                        <button class="tab-btn active" onclick="switchErrorBookType('single', this)">单音</button>
+                        <button class="tab-btn" onclick="switchErrorBookType('interval', this)">音程</button>
+                        <button class="tab-btn" onclick="switchErrorBookType('chord', this)">和弦</button>
+                        <button class="tab-btn" onclick="switchErrorBookType('rhythm', this)">节奏</button>
+                        <button class="tab-btn" onclick="switchErrorBookType('melody', this)">旋律</button>
+                    </div>
+                    <div id="error-book-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 自适应难度页面 -->
+        <div id="adaptive-page" class="page">
+            <div class="container">
+                <div class="adaptive-page">
+                    <div class="smart-nav">
+                        <button class="back-btn-smart" onclick="pageManager.switchToPage('home-page')">
+                            <i class="fas fa-arrow-left"></i> 返回首页
+                        </button>
+                    </div>
+                    <div id="adaptive-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据管理对话框 -->
+        <div id="data-modal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 400px;">
+                <h3>💾 数据管理</h3>
+                <p style="color: #aaa; margin-bottom: 20px;">管理您的学习数据</p>
+                <div class="data-management" style="flex-direction: column;">
+                    <button id="export-data-btn" class="data-btn">📤 导出学习数据</button>
+                    <button id="import-data-btn" class="data-btn">📥 导入学习数据</button>
+                    <button id="clear-data-btn" class="data-btn danger">🗑️ 清除所有数据</button>
+                </div>
+                <button class="data-btn" style="width: 100%; margin-top: 16px;"
+                    onclick="document.getElementById('data-modal').style.display='none'">关闭</button>
+            </div>
+        </div>
+
+        <!-- 学习路径推荐弹窗 -->
+        <div id="report-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-chart-line"></i> 智能学习路径推荐</h3>
+                    <button class="modal-close" onclick="closeModal('report-modal')"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div id="report-modal-content" class="modal-body"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('report-modal')">关闭</button>
+                    <button class="modal-btn primary" onclick="startRecommendedPractice()">开始推荐练习</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 错题分析弹窗 -->
+        <div id="errorbook-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-bug"></i> 智能错题分析</h3>
+                    <button class="modal-close" onclick="closeModal('errorbook-modal')"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div class="errorbook-tabs">
+                    <button class="tab-btn active" data-type="chord"
+                        onclick="switchErrorbookModalTab('chord', this)">和弦</button>
+                    <button class="tab-btn" data-type="interval"
+                        onclick="switchErrorbookModalTab('interval', this)">音程</button>
+                    <button class="tab-btn" data-type="single"
+                        onclick="switchErrorbookModalTab('single', this)">单音</button>
+                    <button class="tab-btn" data-type="rhythm"
+                        onclick="switchErrorbookModalTab('rhythm', this)">节奏</button>
+                    <button class="tab-btn" data-type="melody"
+                        onclick="switchErrorbookModalTab('melody', this)">旋律</button>
+                </div>
+                <div id="errorbook-modal-content" class="modal-body"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('errorbook-modal')">关闭</button>
+                    <button class="modal-btn primary" onclick="startErrorbookPractice()">开始专项练习</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI音乐理论答疑弹窗 -->
+        <div id="qa-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-graduation-cap"></i> AI音乐理论答疑</h3>
+                    <button class="modal-close" onclick="closeModal('qa-modal')"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="qa-search-box">
+                    <input type="text" id="qa-input" placeholder="输入您想了解的音乐理论问题...">
+                    <button class="modal-btn primary" onclick="askAIQuestion()"><i class="fas fa-search"></i>
+                        搜索</button>
+                </div>
+                <div id="qa-modal-content" class="modal-body">
+                    <div class="qa-welcome">
+                        <p>欢迎使用AI音乐理论答疑助手！</p>
+                        <p>您可以询问关于和弦、音程、调式、听辨技巧等方面的问题。</p>
+                        <div class="qa-hot-topics">
+                            <span class="qa-hot-label">热门问题：</span>
+                            <span class="qa-hot-tag" onclick="quickAsk('大三和弦')">大三和弦</span>
+                            <span class="qa-hot-tag" onclick="quickAsk('纯五度')">纯五度</span>
+                            <span class="qa-hot-tag" onclick="quickAsk('C大调')">C大调</span>
+                            <span class="qa-hot-tag" onclick="quickAsk('听辨技巧')">听辨技巧</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('qa-modal')">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 和弦库弹窗 -->
+        <div id="chordlib-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-book-open"></i> 乐理知识速查</h3>
+                    <button class="modal-close" onclick="closeModal('chordlib-modal')"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div class="chordlib-tabs">
+                    <button class="tab-btn active" onclick="switchChordlibTab('chord', this)">和弦</button>
+                    <button class="tab-btn" onclick="switchChordlibTab('interval', this)">音程</button>
+                    <button class="tab-btn" onclick="switchChordlibTab('scale', this)">调式</button>
+                </div>
+                <div id="chordlib-content" class="modal-body"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('chordlib-modal')">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 每日目标弹窗 -->
+        <div id="goals-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-bullseye"></i> 每日学习目标</h3>
+                    <button class="modal-close" onclick="closeModal('goals-modal')"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div id="goals-modal-content" class="modal-body"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('goals-modal')">关闭</button>
+                    <button class="modal-btn primary" onclick="saveDailyGoal()">保存目标</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 每日签到弹窗 -->
+        <div id="signin-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-calendar-check"></i> 每日签到</h3>
+                    <button class="modal-close" onclick="closeModal('signin-modal')"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div id="signin-modal-content" class="modal-body"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('signin-modal')">关闭</button>
+                    <button class="modal-btn primary" onclick="doSignIn()" id="signin-btn">立即签到</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 学习时长弹窗 -->
+        <div id="time-stats-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-clock"></i> 学习时长统计</h3>
+                    <button class="modal-close" onclick="closeModal('time-stats-modal')"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div id="time-stats-content" class="modal-body"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('time-stats-modal')">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 音乐小知识弹窗 -->
+        <div id="knowledge-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-lightbulb"></i> 音乐小知识</h3>
+                    <button class="modal-close" onclick="closeModal('knowledge-modal')"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div id="knowledge-content" class="modal-body"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('knowledge-modal')">关闭</button>
+                    <button class="modal-btn primary" onclick="getDailyKnowledge()">换一个</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 学习计划弹窗 -->
+        <div id="plan-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-calendar-alt"></i> 学习计划</h3>
+                    <button class="modal-close" onclick="closeModal('plan-modal')"><i class="fas fa-times"></i></button>
+                </div>
+                <div id="plan-content" class="modal-body"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('plan-modal')">关闭</button>
+                    <button class="modal-btn primary" onclick="generateNewPlan()">生成新计划</button>
+                </div>
+            </div>
+        </div>
+
         <!-- 所有 JavaScript 逻辑已移至 app.js -->
         <script src="app.js?v=20260601"></script>
     </div>
-</body>
+
+    <script>
+        // 错题本类型切换
+        function switchErrorBookType(type, btn) {
+            // 更新按钮状态
+            const tabs = btn.parentElement.querySelectorAll('.tab-btn');
+            tabs.forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+
+            // 显示对应类型的错题
+            showErrorBook(type);
+        }
+
+        // 数据管理卡片点击
+        document.querySelectorAll('[data-feature="data"]').forEach(card => {
+            card.addEventListener('click', () => {
+                document.getElementById('data-modal').style.display = 'flex';
+            });
+        });
+    </script>
 
 </html>

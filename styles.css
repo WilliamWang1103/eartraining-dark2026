@@ -3350,3 +3350,533 @@ body {
         padding: 12px 18px;
     }
 }
+
+/* ==================== 每日签到样式 ==================== */
+.signin-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.signin-streak {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.streak-icon {
+    font-size: 2rem;
+}
+
+.streak-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #ff9800;
+}
+
+.streak-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
+}
+
+.signin-total {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.95rem;
+}
+
+.signin-total strong {
+    color: #4db6ac;
+    font-size: 1.2rem;
+}
+
+.signin-week {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.signin-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    padding: 10px 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    transition: all 0.3s;
+}
+
+.signin-day.signed {
+    background: rgba(77, 182, 172, 0.2);
+    border: 1px solid rgba(77, 182, 172, 0.4);
+}
+
+.signin-day.today {
+    border: 2px solid #4db6ac;
+}
+
+.day-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 8px;
+}
+
+.day-circle {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 6px;
+}
+
+.signin-day.signed .day-circle {
+    background: #4db6ac;
+    color: white;
+}
+
+.signin-day.today .day-circle {
+    background: #ff9800;
+    color: white;
+}
+
+.day-date {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.signin-status {
+    text-align: center;
+    padding: 16px;
+    background: rgba(255, 152, 0, 0.15);
+    border-radius: 12px;
+    color: #ffb74d;
+    margin-bottom: 16px;
+    font-size: 0.95rem;
+}
+
+.signin-status.signed {
+    background: rgba(76, 175, 80, 0.15);
+    color: #81c784;
+}
+
+.signin-tips {
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+}
+
+.signin-tips h4 {
+    color: #4db6ac;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+}
+
+.signin-tips ul {
+    list-style: none;
+    padding: 0;
+}
+
+.signin-tips li {
+    color: rgba(255, 255, 255, 0.7);
+    padding: 6px 0;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.signin-tips li:last-child {
+    border-bottom: none;
+}
+
+/* ==================== 学习时长样式 ==================== */
+.time-stats-overview {
+    display: flex;
+    justify-content: space-around;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.time-stat-card {
+    flex: 1;
+    text-align: center;
+    padding: 20px 12px;
+    background: linear-gradient(135deg, rgba(77, 182, 172, 0.15), rgba(38, 166, 154, 0.1));
+    border-radius: 16px;
+    border: 1px solid rgba(77, 182, 172, 0.3);
+}
+
+.time-stat-icon {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+}
+
+.time-stat-value {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #4db6ac;
+    margin-bottom: 4px;
+}
+
+.time-stat-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.time-stats-section {
+    margin-bottom: 24px;
+}
+
+.time-stats-section h4 {
+    color: #fff;
+    margin-bottom: 16px;
+    font-size: 1rem;
+}
+
+.time-type-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.time-type-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.time-type-name {
+    width: 50px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.time-type-bar-container {
+    flex: 1;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.time-type-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #4db6ac, #26a69a);
+    border-radius: 10px;
+    transition: width 0.5s;
+}
+
+.time-type-value {
+    width: 80px;
+    text-align: right;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.time-week-chart {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    height: 120px;
+    gap: 8px;
+}
+
+.time-week-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    height: 100%;
+    justify-content: flex-end;
+}
+
+.time-week-bar {
+    width: 80%;
+    background: linear-gradient(180deg, #4db6ac, #26a69a);
+    border-radius: 6px 6px 0 0;
+    min-height: 10px;
+    transition: height 0.5s;
+}
+
+.time-week-label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 8px;
+}
+
+.time-week-value {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.time-tips {
+    padding: 16px;
+    background: rgba(255, 179, 71, 0.1);
+    border-radius: 12px;
+    border-left: 4px solid #ffb347;
+}
+
+.time-tips h4 {
+    color: #ffb347;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.time-tips p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+/* ==================== 音乐小知识样式 ==================== */
+.knowledge-card {
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(77, 182, 172, 0.1), rgba(38, 166, 154, 0.05));
+    border-radius: 16px;
+    border: 1px solid rgba(77, 182, 172, 0.3);
+    margin-bottom: 16px;
+}
+
+.knowledge-category {
+    display: inline-block;
+    padding: 4px 12px;
+    background: rgba(77, 182, 172, 0.2);
+    color: #80cbc4;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    margin-bottom: 12px;
+}
+
+.knowledge-title {
+    color: #fff;
+    font-size: 1.2rem;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+.knowledge-content {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+    line-height: 1.8;
+    margin-bottom: 16px;
+}
+
+.knowledge-tip {
+    padding: 12px;
+    background: rgba(255, 179, 71, 0.1);
+    border-radius: 8px;
+    color: #ffb74d;
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+.knowledge-footer {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
+}
+
+/* ==================== 学习计划样式 ==================== */
+.plan-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.plan-header h4 {
+    color: #4db6ac;
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+}
+
+.plan-header p {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+}
+
+.plan-section {
+    margin-bottom: 24px;
+}
+
+.plan-section-title {
+    color: #fff;
+    font-size: 1rem;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.plan-goals {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.plan-goal-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    transition: background 0.2s;
+}
+
+.plan-goal-item:hover {
+    background: rgba(77, 182, 172, 0.1);
+}
+
+.plan-goal-icon {
+    font-size: 1.5rem;
+}
+
+.plan-goal-info {
+    flex: 1;
+}
+
+.plan-goal-name {
+    color: #fff;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.plan-goal-desc {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+}
+
+.plan-schedule {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.plan-schedule-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(77, 182, 172, 0.1);
+    border-radius: 10px;
+    border-left: 4px solid #4db6ac;
+}
+
+.schedule-time {
+    width: 70px;
+    color: #80cbc4;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.schedule-content {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+}
+
+.plan-focus {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.plan-focus-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.focus-type {
+    width: 60px;
+    color: #fff;
+    font-weight: 600;
+}
+
+.focus-content {
+    flex: 1;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+}
+
+.focus-priority {
+    padding: 6px 14px;
+    border-radius: 12px;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.plan-tips {
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+}
+
+.plan-tips p {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.85rem;
+    line-height: 1.8;
+    margin: 8px 0;
+}
+
+/* 移动端适配 - 新增功能 */
+@media (max-width: 600px) {
+    .time-stats-overview {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .time-stat-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        padding: 14px;
+    }
+
+    .time-stat-icon {
+        margin-bottom: 0;
+    }
+
+    .signin-week {
+        gap: 4px;
+    }
+
+    .signin-day {
+        padding: 8px 2px;
+    }
+
+    .day-circle {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9rem;
+    }
+
+    .time-week-chart {
+        height: 100px;
+    }
+
+    .plan-goal-item,
+    .plan-schedule-item,
+    .plan-focus-item {
+        padding: 10px;
+        flex-wrap: wrap;
+    }
+
+    .plan-goal-icon {
+        font-size: 1.2rem;
+    }
+
+    .knowledge-card {
+        padding: 16px;
+    }
+
+    .knowledge-title {
+        font-size: 1.1rem;
+    }
+}

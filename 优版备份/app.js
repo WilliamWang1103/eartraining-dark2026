@@ -1022,7 +1022,10 @@ const pageManager = {
             'single-test-end-page': '单音听辨结果 - 音乐听觉综合训练系统',
             'rhythm-page': '节奏听辨 - 音乐听觉综合训练系统',
             'rhythm-test-end-page': '节奏听辨结果 - 音乐听觉综合训练系统',
-            'melody-page': '旋律听辨 - 音乐听觉综合训练系统'
+            'melody-page': '旋律听辨 - 音乐听觉综合训练系统',
+            'learning-report-page': '学习报告 - 音乐听觉综合训练系统',
+            'error-book-page': '错题本 - 音乐听觉综合训练系统',
+            'adaptive-page': '智能推荐 - 音乐听觉综合训练系统'
         };
         return titles[pageId] || '音乐听觉综合训练系统';
     },
@@ -1647,6 +1650,18 @@ function checkPitchAnswer() {
         playSingleNote(note);
     });
 
+    // 记录学习数据（练习模式和测试模式都记录）
+    learningManager.recordResult('chord', {
+        question: chordAppState.currentChord.chord.name,
+        chordType: chordAppState.currentChord.chord.name,
+        correct: isCorrect,
+        userAnswer: sortedUserNotes.join(' + '),
+        correctAnswer: sortedCorrectNotes.join(' + '),
+        mode: 'pitch',
+        difficulty: chordAppState.scaleDifficulty || 1,
+        learningMode: chordAppState.currentMode || 'practice'
+    });
+
     // 测试模式下记录成绩并自动出下一题
     if (chordAppState.currentMode === 'test') {
         console.log('[checkPitchAnswer] 测试模式 - 答题前:', {
@@ -1747,6 +1762,18 @@ function checkQualityAnswer() {
             qualityBtn.classList.add('active');
         }
     }
+
+    // 记录学习数据（练习模式和测试模式都记录）
+    learningManager.recordResult('chord', {
+        question: chordAppState.currentChord.chord.name,
+        chordType: chordAppState.currentChord.chord.name,
+        correct: isCorrect,
+        userAnswer: chordAppState.selectedChordType.name,
+        correctAnswer: chordAppState.currentChord.chord.name,
+        mode: 'quality',
+        difficulty: chordAppState.difficulty || 1,
+        learningMode: chordAppState.currentMode || 'practice'
+    });
 
     // 测试模式下记录成绩并自动出下一题
     if (chordAppState.currentMode === 'test') {
@@ -2622,6 +2649,9 @@ function init() {
     initEndPage();
     window.addEventListener('resize', () => { invalidatePianoMetrics(); positionBlackKeys(); });
     setupAudioUnlock();
+
+    // 初始化学习功能
+    initLearningFeatures();
 
     // 像 Web Piano 一样：不在页面加载时初始化 MIDI，等待用户首次交互
     console.log('⏳ MIDI 将在用户首次点击或触摸时初始化');
@@ -3738,6 +3768,17 @@ function submitIntervalPitchAnswer() {
         removeHighlightKey(userNotes[1]);
     }, 2000);
 
+    // 记录学习数据（练习模式和测试模式都记录）
+    learningManager.recordResult('interval', {
+        question: `${correctNotes[0]} + ${correctNotes[1]}`,
+        correct: isCorrect,
+        userAnswer: userNotes.join(' + '),
+        correctAnswer: correctNotes.join(' + '),
+        mode: 'pitch',
+        difficulty: intervalAppState.currentLevel || 1,
+        learningMode: intervalAppState.currentMode || 'practice'
+    });
+
     // 测试模式下记录成绩并自动出下一题
     if (intervalAppState.currentMode === 'test') {
         intervalAppState.totalQuestions++;
@@ -3805,6 +3846,17 @@ function submitIntervalQualityAnswer() {
     // 播放答案声音（练习和测试模式都适用）
     intervalAppState.lastQuestion.forEach(note => {
         playNoteWithWebAudio(note, 3.0);
+    });
+
+    // 记录学习数据（练习模式和测试模式都记录）
+    learningManager.recordResult('interval', {
+        question: `${intervalAppState.lastQuestion[0]} + ${intervalAppState.lastQuestion[1]}`,
+        correct: isCorrect,
+        userAnswer: intervalAppState.selectedIntervalQuality,
+        correctAnswer: correctQuality,
+        mode: 'quality',
+        difficulty: intervalAppState.currentLevel || 1,
+        learningMode: intervalAppState.currentMode || 'practice'
     });
 
     // 测试模式下记录成绩并自动出下一题
@@ -5349,6 +5401,17 @@ function handleSingleSubmitAnswer() {
     // 提交答案后出声+高亮（练习和测试模式都适用）
     playNoteWithWebAudio(singleAppState.pianoSelection, 3.0);
     highlightKey(singleAppState.pianoSelection);
+
+    // 记录学习数据（练习模式和测试模式都记录）
+    learningManager.recordResult('single', {
+        question: singleAppState.lastQuestion.join(' + '),
+        correct: isCorrect,
+        userAnswer: singleAppState.pianoSelection,
+        correctAnswer: singleAppState.lastQuestion.join(' + '),
+        mode: 'pitch',
+        difficulty: singleAppState.currentLevel || 1,
+        learningMode: singleAppState.currentMode || 'practice'
+    });
 
     // 测试模式下记录成绩
     if (singleAppState.currentMode === 'test') {
@@ -7309,6 +7372,17 @@ function submitRhythmAnswer() {
             }
         });
 
+        // 记录学习数据（节拍听辨模式）
+        learningManager.recordResult('rhythm', {
+            question: `节拍模式 - ${rhythmAppState.currentRhythm.beatType || '未知'}`,
+            correct: allCorrect,
+            userAnswer: rhythmAppState.measureRhythms.map(m => m.join('+')).join(' | '),
+            correctAnswer: correctPattern.map(m => m.join('+')).join(' | '),
+            mode: 'meter',
+            difficulty: rhythmAppState.difficulty || 1,
+            learningMode: rhythmAppState.currentMode || 'practice'
+        });
+
         // 更新状态和统计
         if (rhythmAppState.currentMode === 'test') {
             rhythmAppState.totalQuestions++;
@@ -7358,6 +7432,17 @@ function submitRhythmAnswer() {
         // 比较答案
         const correctPattern = rhythmAppState.currentRhythm.pattern;
         const isAllCorrect = rhythmAppState.selectedRhythms.every((selected, index) => selected === correctPattern[index]);
+
+        // 记录学习数据（节奏型听辨模式）
+        learningManager.recordResult('rhythm', {
+            question: `节奏模式 - ${rhythmAppState.currentRhythm.type || '未知'}`,
+            correct: isAllCorrect,
+            userAnswer: rhythmAppState.selectedRhythms.join(', '),
+            correctAnswer: correctPattern.join(', '),
+            mode: 'rhythm',
+            difficulty: rhythmAppState.difficulty || 1,
+            learningMode: rhythmAppState.currentMode || 'practice'
+        });
 
         if (rhythmAppState.currentMode === 'test') {
             rhythmAppState.totalQuestions++;
@@ -8251,7 +8336,2138 @@ function captureChordPageScreenshot() {
     }
 }
 
-// 确保DOM加载后初始化
+// ==================== 智能学习数据管理系统 ====================
+
+// 学习数据管理器 - 实现智能体的"环境感知"、"动态规划"、"决策执行"、"交互反馈"能力
+const learningManager = {
+    STORAGE_KEY: 'earTraining_learningData',
+
+    // 初始化学习数据结构
+    init() {
+        let data = this.loadData();
+        if (!data) {
+            data = this.createDefaultData();
+            this.saveData(data);
+        } else {
+            // 迁移旧数据，确保所有类型都有对应的数据结构
+            data = this.migrateData(data);
+        }
+        return data;
+    },
+
+    // 创建默认数据结构
+    createDefaultData() {
+        const types = ['single', 'interval', 'chord', 'rhythm', 'melody'];
+        const weakPoints = {};
+        const errorBook = {};
+        const adaptiveLevel = {};
+
+        types.forEach(type => {
+            weakPoints[type] = {};
+            errorBook[type] = [];
+            adaptiveLevel[type] = { currentLevel: 1, accuracy: 0 };
+        });
+
+        return {
+            userInfo: null,
+            learningRecords: {
+                single: [],      // 单音练习记录
+                interval: [],    // 音程练习记录
+                chord: [],       // 和弦练习记录
+                rhythm: [],      // 节奏练习记录
+                melody: []       // 旋律练习记录
+            },
+            weakPoints: weakPoints,
+            errorBook: errorBook,
+            stats: {
+                totalStudyTime: 0,  // 总学习时间（秒）
+                totalSessions: 0,   // 总学习次数
+                lastStudyDate: null // 最后学习日期
+            },
+            adaptiveLevel: adaptiveLevel
+        };
+    },
+
+    // 迁移旧数据
+    migrateData(data) {
+        const types = ['single', 'interval', 'chord', 'rhythm', 'melody'];
+
+        // 确保learningRecords有所有类型
+        if (!data.learningRecords) {
+            data.learningRecords = {};
+        }
+        types.forEach(type => {
+            if (!data.learningRecords[type]) {
+                data.learningRecords[type] = [];
+            }
+        });
+
+        // 确保weakPoints有所有类型
+        if (!data.weakPoints) {
+            data.weakPoints = {};
+        }
+        types.forEach(type => {
+            if (!data.weakPoints[type]) {
+                data.weakPoints[type] = {};
+            }
+        });
+
+        // 确保errorBook有所有类型
+        if (!data.errorBook) {
+            data.errorBook = {};
+        }
+        types.forEach(type => {
+            if (!data.errorBook[type]) {
+                data.errorBook[type] = [];
+            }
+        });
+
+        // 确保adaptiveLevel有所有类型
+        if (!data.adaptiveLevel) {
+            data.adaptiveLevel = {};
+        }
+        types.forEach(type => {
+            if (!data.adaptiveLevel[type]) {
+                data.adaptiveLevel[type] = { currentLevel: 1, accuracy: 0 };
+            }
+        });
+
+        // 确保stats存在
+        if (!data.stats) {
+            data.stats = {
+                totalStudyTime: 0,
+                totalSessions: 0,
+                lastStudyDate: null
+            };
+        }
+
+        return data;
+    },
+
+    // 加载数据
+    loadData() {
+        try {
+            const data = localStorage.getItem(this.STORAGE_KEY);
+            return data ? JSON.parse(data) : null;
+        } catch (e) {
+            console.error('加载学习数据失败:', e);
+            return null;
+        }
+    },
+
+    // 保存数据
+    saveData(data) {
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+            return true;
+        } catch (e) {
+            console.error('保存学习数据失败:', e);
+            return false;
+        }
+    },
+
+    // 记录一次练习结果
+    recordResult(type, record) {
+        const data = this.init();
+
+        // 确定学习模式：practice（练习）或 test（测试）
+        const learningMode = record.learningMode || 'practice';
+
+        const newRecord = {
+            timestamp: Date.now(),
+            date: new Date().toLocaleDateString('zh-CN'),
+            learningMode: learningMode,  // 区分练习/测试模式
+            source: type,  // 数据来源类型
+            ...record
+        };
+
+        // 如果record中已有learningMode，则使用record中的值
+        if (record.learningMode) {
+            newRecord.learningMode = record.learningMode;
+        }
+
+        data.learningRecords[type].push(newRecord);
+
+        // 保留最近500条记录
+        if (data.learningRecords[type].length > 500) {
+            data.learningRecords[type] = data.learningRecords[type].slice(-500);
+        }
+
+        // 更新薄弱点
+        this.updateWeakPoints(data, type, record);
+
+        // 更新错题本
+        if (!record.correct) {
+            this.addToErrorBook(data, type, record);
+        } else {
+            this.removeFromErrorBook(data, type, record);
+        }
+
+        // 更新统计
+        data.stats.lastStudyDate = newRecord.date;
+        data.stats.totalSessions++;
+
+        // 更新自适应难度（仅基于测试模式数据进行难度调整）
+        this.updateAdaptiveLevel(data, type, record);
+
+        this.saveData(data);
+    },
+
+    // 更新薄弱点分析
+    updateWeakPoints(data, type, record) {
+        const weakPoints = data.weakPoints[type];
+        if (!weakPoints) return;
+
+        const key = record.question || record.chordType || record.note || 'unknown';
+        if (!weakPoints[key]) {
+            weakPoints[key] = { total: 0, wrong: 0, correct: 0, lastWrongDate: null };
+        }
+        weakPoints[key].total++;
+        if (record.correct) {
+            weakPoints[key].correct++;
+        } else {
+            weakPoints[key].wrong++;
+            weakPoints[key].lastWrongDate = Date.now();
+        }
+    },
+
+    // 添加到错题本
+    addToErrorBook(data, type, record) {
+        const errorBook = data.errorBook[type];
+        const key = record.question || record.chordType || record.note;
+
+        // 检查是否已存在
+        const existing = errorBook.find(item => item.key === key);
+        if (existing) {
+            existing.errorCount = (existing.errorCount || 1) + 1;
+            existing.lastErrorDate = Date.now();
+        } else {
+            errorBook.push({
+                key: key,
+                record: record,
+                errorCount: 1,
+                lastErrorDate: Date.now()
+            });
+        }
+
+        // 按错误次数排序，保留前50个
+        errorBook.sort((a, b) => b.errorCount - a.errorCount);
+        if (errorBook.length > 50) {
+            data.errorBook[type] = errorBook.slice(0, 50);
+        }
+    },
+
+    // 从错题本移除（当用户答对后）
+    removeFromErrorBook(data, type, record) {
+        const errorBook = data.errorBook[type];
+        const key = record.question || record.chordType || record.note;
+        const index = errorBook.findIndex(item => item.key === key);
+        if (index !== -1) {
+            errorBook.splice(index, 1);
+        }
+    },
+
+    // 更新自适应难度
+    updateAdaptiveLevel(data, type, record) {
+        const adaptive = data.adaptiveLevel[type];
+        if (!adaptive) return;
+
+        // 计算最近20题的正确率
+        const records = data.learningRecords[type].slice(-20);
+        if (records.length >= 5) {
+            const correctCount = records.filter(r => r.correct).length;
+            adaptive.accuracy = correctCount / records.length;
+
+            // 自适应难度调整规则
+            if (adaptive.accuracy >= 0.85 && adaptive.currentLevel < 8) {
+                // 正确率≥85%，提升难度
+                adaptive.currentLevel = Math.min(8, adaptive.currentLevel + 1);
+            } else if (adaptive.accuracy < 0.5 && adaptive.currentLevel > 1) {
+                // 正确率<50%，降低难度
+                adaptive.currentLevel = Math.max(1, adaptive.currentLevel - 1);
+            }
+        }
+    },
+
+    // 获取推荐难度级别
+    getRecommendedLevel(type) {
+        const data = this.init();
+        const adaptive = data.adaptiveLevel[type];
+        return adaptive ? adaptive.currentLevel : 1;
+    },
+
+    // 获取薄弱环节列表
+    getWeakAreas(type, limit = 5) {
+        const data = this.init();
+        const weakPoints = data.weakPoints[type];
+        if (!weakPoints) return [];
+
+        return Object.entries(weakPoints)
+            .filter(([_, v]) => v.total >= 3 && (v.wrong / v.total) > 0.3)
+            .sort((a, b) => (b[1].wrong / b[1].total) - (a[1].wrong / a[1].total))
+            .slice(0, limit)
+            .map(([key, stats]) => ({
+                key: key,
+                errorRate: Math.round((stats.wrong / stats.total) * 100),
+                total: stats.total,
+                wrong: stats.wrong
+            }));
+    },
+
+    // 获取错题本
+    getErrorBook(type, limit = 10) {
+        const data = this.init();
+        const errorBook = data.errorBook[type];
+        return errorBook ? errorBook.slice(0, limit) : [];
+    },
+
+    // 获取学习统计
+    getLearningStats() {
+        const data = this.init();
+        const stats = {
+            totalRecords: 0,
+            accuracyByType: {},
+            weakAreasByType: {},
+            totalStudyDays: 0,
+            recentProgress: []
+        };
+
+        // 统计各类型数据（全部5种类型）
+        const allTypes = ['single', 'interval', 'chord', 'rhythm', 'melody'];
+        for (const type of allTypes) {
+            const records = data.learningRecords[type];
+            if (records.length > 0) {
+                const correctCount = records.filter(r => r.correct).length;
+                stats.accuracyByType[type] = {
+                    total: records.length,
+                    correct: correctCount,
+                    rate: Math.round((correctCount / records.length) * 100)
+                };
+                stats.totalRecords += records.length;
+                stats.weakAreasByType[type] = this.getWeakAreas(type, 3);
+            } else {
+                stats.accuracyByType[type] = { total: 0, correct: 0, rate: 0 };
+                stats.weakAreasByType[type] = [];
+            }
+        }
+
+        // 计算学习天数（遍历全部类型）
+        const dates = new Set();
+        for (const type of allTypes) {
+            data.learningRecords[type].forEach(r => dates.add(r.date));
+        }
+        stats.totalStudyDays = dates.size;
+
+        // 最近7天进度
+        stats.recentProgress = this.getRecentProgress(data, 7);
+
+        return stats;
+    },
+
+    // 获取最近N天的进步数据
+    getRecentProgress(data, days) {
+        const progress = [];
+        const today = new Date();
+        const allTypes = ['single', 'interval', 'chord', 'rhythm', 'melody'];
+
+        for (let i = days - 1; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toLocaleDateString('zh-CN');
+
+            let dayRecords = [];
+            for (const type of allTypes) {
+                dayRecords = dayRecords.concat(
+                    data.learningRecords[type].filter(r => r.date === dateStr)
+                );
+            }
+
+            const correct = dayRecords.filter(r => r.correct).length;
+            progress.push({
+                date: dateStr,
+                total: dayRecords.length,
+                correct: correct,
+                accuracy: dayRecords.length > 0 ? Math.round((correct / dayRecords.length) * 100) : 0
+            });
+        }
+        return progress;
+    },
+
+    // 生成学习报告
+    generateReport() {
+        const data = this.init();
+        const stats = this.getLearningStats();
+
+        // 获取学习建议
+        const suggestions = this.generateSuggestions(stats);
+
+        return {
+            summary: {
+                totalStudyDays: stats.totalStudyDays,
+                totalQuestions: stats.totalRecords,
+                overallAccuracy: this.calculateOverallAccuracy(data)
+            },
+            accuracyByType: stats.accuracyByType,
+            weakAreas: stats.weakAreasByType,
+            recentProgress: stats.recentProgress,
+            suggestions: suggestions
+        };
+    },
+
+    // 计算总体正确率
+    calculateOverallAccuracy(data) {
+        let total = 0;
+        let correct = 0;
+        const allTypes = ['single', 'interval', 'chord', 'rhythm', 'melody'];
+        for (const type of allTypes) {
+            const records = data.learningRecords[type];
+            total += records.length;
+            correct += records.filter(r => r.correct).length;
+        }
+        return total > 0 ? Math.round((correct / total) * 100) : 0;
+    },
+
+    // 生成学习建议
+    generateSuggestions(stats) {
+        const suggestions = [];
+
+        // 分析各类型表现（全部5种类型）
+        const typeNames = {
+            single: '单音',
+            interval: '音程',
+            chord: '和弦',
+            rhythm: '节奏',
+            melody: '旋律'
+        };
+        for (const [type, name] of Object.entries(typeNames)) {
+            const acc = stats.accuracyByType[type];
+            if (acc.total >= 5) {
+                if (acc.rate >= 85) {
+                    suggestions.push({
+                        type: 'success',
+                        text: `${name}练习表现优秀（正确率${acc.rate}%），建议挑战更高难度`
+                    });
+                } else if (acc.rate >= 60) {
+                    suggestions.push({
+                        type: 'info',
+                        text: `${name}练习基础扎实（正确率${acc.rate}%），继续保持并加强薄弱环节`
+                    });
+                } else {
+                    suggestions.push({
+                        type: 'warning',
+                        text: `${name}练习需要加强（正确率${acc.rate}%），建议从基础级别开始复习`
+                    });
+                }
+            }
+        }
+
+        // 薄弱环节建议
+        for (const [type, weakAreas] of Object.entries(stats.weakAreasByType)) {
+            if (weakAreas && weakAreas.length > 0) {
+                const areaNames = weakAreas.map(w => w.key).join('、');
+                const typeName = typeNames[type] || type;
+                suggestions.push({
+                    type: 'focus',
+                    text: `重点加强${typeName}中的：${areaNames}（错误率较高）`
+                });
+            }
+        }
+
+        // 自适应难度建议
+        const data = this.init();
+        for (const [type, levelInfo] of Object.entries(data.adaptiveLevel)) {
+            const typeName = typeNames[type];
+            if (typeName) {
+                suggestions.push({
+                    type: 'adaptive',
+                    text: `${typeName}推荐难度：${levelInfo.currentLevel}级（当前正确率：${Math.round(levelInfo.accuracy * 100)}%）`
+                });
+            }
+        }
+
+        return suggestions;
+    },
+
+    // 清除所有学习数据
+    clearAllData() {
+        localStorage.removeItem(this.STORAGE_KEY);
+    },
+
+    // 导出学习数据
+    exportData() {
+        const data = this.init();
+        return JSON.stringify(data, null, 2);
+    },
+
+    // 导入学习数据
+    importData(jsonString) {
+        try {
+            const data = JSON.parse(jsonString);
+            this.saveData(data);
+            return true;
+        } catch (e) {
+            console.error('导入数据失败:', e);
+            return false;
+        }
+    }
+};
+
+// ==================== 学习报告页面功能 ====================
+
+// 显示学习报告
+function showLearningReport() {
+    const report = learningManager.generateReport();
+    const container = document.getElementById('learning-report-content');
+    if (!container) return;
+
+    let html = `
+        <div class="report-header">
+            <h3>📊 学习报告</h3>
+            <div class="report-summary">
+                <div class="summary-item">
+                    <span class="summary-label">学习天数</span>
+                    <span class="summary-value">${report.summary.totalStudyDays} 天</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">总题数</span>
+                    <span class="summary-value">${report.summary.totalQuestions} 题</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">总体正确率</span>
+                    <span class="summary-value">${report.summary.overallAccuracy}%</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 各类型准确率
+    html += '<div class="report-section"><h4>📈 各模块表现</h4><div class="accuracy-bars">';
+    const typeNames = { single: '单音', interval: '音程', chord: '和弦', rhythm: '节奏', melody: '旋律' };
+    for (const [type, name] of Object.entries(typeNames)) {
+        const acc = report.accuracyByType[type];
+        const barColor = acc.rate >= 85 ? '#4CAF50' : acc.rate >= 60 ? '#FF9800' : '#f44336';
+        html += `
+            <div class="accuracy-bar-item">
+                <span class="bar-label">${name}</span>
+                <div class="bar-container">
+                    <div class="bar-fill" style="width: ${acc.rate}%; background: ${barColor};"></div>
+                </div>
+                <span class="bar-value">${acc.rate}% (${acc.correct}/${acc.total})</span>
+            </div>
+        `;
+    }
+    html += '</div></div>';
+
+    // 薄弱环节
+    const hasWeakAreas = Object.values(report.weakAreas).some(v => v.length > 0);
+    if (hasWeakAreas) {
+        html += '<div class="report-section"><h4>⚠️ 薄弱环节分析</h4>';
+        for (const [type, weakAreas] of Object.entries(report.weakAreas)) {
+            if (weakAreas.length > 0) {
+                html += `<div class="weak-area-group"><strong>${typeNames[type]}：</strong>`;
+                html += weakAreas.map(w =>
+                    `<span class="weak-area-tag">${w.key} (错误率${w.errorRate}%)</span>`
+                ).join('');
+                html += '</div>';
+            }
+        }
+        html += '</div>';
+    }
+
+    // 进步趋势
+    html += '<div class="report-section"><h4>📅 最近7天学习趋势</h4><div class="trend-chart">';
+    report.recentProgress.forEach(day => {
+        const height = day.accuracy > 0 ? Math.max(10, day.accuracy) : 5;
+        const color = day.total === 0 ? '#ddd' :
+            day.accuracy >= 85 ? '#4CAF50' : day.accuracy >= 60 ? '#FF9800' : '#f44336';
+        html += `
+            <div class="trend-bar-wrapper">
+                <div class="trend-bar" style="height: ${height}%; background: ${color};"></div>
+                <div class="trend-label">${day.date.slice(5)}</div>
+                <div class="trend-value">${day.total > 0 ? day.accuracy + '%' : '-'}</div>
+                <div class="trend-count">${day.total}题</div>
+            </div>
+        `;
+    });
+    html += '</div></div>';
+
+    // 学习建议
+    html += '<div class="report-section"><h4>💡 智能学习建议</h4><div class="suggestions-list">';
+    report.suggestions.forEach(s => {
+        const icon = { success: '✅', info: '📝', warning: '⚠️', focus: '🎯', adaptive: '🤖' }[s.type] || '📌';
+        html += `<div class="suggestion-item suggestion-${s.type}">${icon} ${s.text}</div>`;
+    });
+    html += '</div></div>';
+
+    container.innerHTML = html;
+}
+
+// 显示错题本
+function showErrorBook(type) {
+    const container = document.getElementById('error-book-content');
+    if (!container) return;
+
+    const errors = learningManager.getErrorBook(type, 20);
+    if (errors.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>🎉 太棒了！没有错题记录</p><p class="empty-hint">继续练习保持好成绩！</p></div>';
+        return;
+    }
+
+    let html = '<div class="error-book-header"><h4>📝 错题本</h4><p class="error-book-hint">以下是您答错的题目，建议重点复习</p></div>';
+    html += '<div class="error-book-list">';
+    errors.forEach((item, index) => {
+        html += `
+            <div class="error-item" data-key="${item.key}">
+                <div class="error-index">#${index + 1}</div>
+                <div class="error-content">
+                    <div class="error-question">${item.key}</div>
+                    <div class="error-meta">错误次数：${item.errorCount} 次</div>
+                </div>
+                <button class="review-btn" onclick="reviewErrorQuestion('${type}', '${item.key.replace(/'/g, "\\'")}')">练习</button>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+// 切换错题本类型
+function switchErrorBookType(type, btn) {
+    // 更新按钮状态
+    const tabBtns = document.querySelectorAll('#error-book-page .tab-btn');
+    tabBtns.forEach(b => b.classList.remove('active'));
+    if (btn) {
+        btn.classList.add('active');
+    }
+
+    // 重新加载错题本
+    showErrorBook(type);
+}
+
+// 复习错题
+function reviewErrorQuestion(type, key) {
+    const typeNames = { single: '单音', interval: '音程', chord: '和弦', rhythm: '节奏', melody: '旋律' };
+    alert(`即将为您生成"${key}"的专项练习，请在${typeNames[type] || type}练习模式中选择对应难度进行针对性训练。`);
+}
+
+// 显示自适应难度推荐
+function showAdaptiveRecommendation() {
+    const container = document.getElementById('adaptive-content');
+    if (!container) return;
+
+    const data = learningManager.init();
+    const typeNames = { single: '单音', interval: '音程', chord: '和弦', rhythm: '节奏', melody: '旋律' };
+
+    let html = '<div class="adaptive-header"><h4>🤖 智能难度推荐</h4><p class="adaptive-hint">基于您的学习表现，系统为您推荐以下难度级别</p></div>';
+    html += '<div class="adaptive-list">';
+
+    for (const [type, name] of Object.entries(typeNames)) {
+        const adaptive = data.adaptiveLevel[type];
+        const accuracy = Math.round((adaptive.accuracy || 0) * 100);
+        const statusText = adaptive.accuracy >= 0.85 ? '表现优秀，可以挑战更高难度' :
+            adaptive.accuracy >= 0.5 ? '表现稳定，继续当前难度' : '基础待加强，建议降低难度';
+        const statusIcon = adaptive.accuracy >= 0.85 ? '📈' : adaptive.accuracy >= 0.5 ? '➡️' : '📉';
+
+        html += `
+            <div class="adaptive-item">
+                <div class="adaptive-icon">${statusIcon}</div>
+                <div class="adaptive-info">
+                    <div class="adaptive-name">${name}练习</div>
+                    <div class="adaptive-level">推荐难度：<strong>${adaptive.currentLevel}级</strong></div>
+                    <div class="adaptive-accuracy">最近正确率：${accuracy}%</div>
+                    <div class="adaptive-status">${statusText}</div>
+                </div>
+                <button class="apply-level-btn" onclick="applyAdaptiveLevel('${type}', ${adaptive.currentLevel})">应用此难度</button>
+            </div>
+        `;
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// 应用自适应难度
+function applyAdaptiveLevel(type, level) {
+    const typeNames = { single: '单音', interval: '音程', chord: '和弦' };
+    const levelSelect = document.getElementById(`scale-difficulty-${type}`);
+    if (levelSelect) {
+        levelSelect.value = level;
+        levelSelect.dispatchEvent(new Event('change'));
+        alert(`已将${typeNames[type]}练习难度调整为${level}级`);
+    }
+}
+
+// 学习数据管理入口
+function initLearningFeatures() {
+    // 初始化学习数据
+    learningManager.init();
+
+    // 更新首页学习状态
+    updateLearningStatus();
+
+    // 绑定学习路径推荐按钮
+    const reportBtn = document.getElementById('learning-report-btn');
+    if (reportBtn) {
+        reportBtn.addEventListener('click', () => {
+            showLearningPathModal();
+        });
+    }
+
+    // 绑定错题分析按钮
+    const errorBookBtn = document.getElementById('error-book-btn');
+    if (errorBookBtn) {
+        errorBookBtn.addEventListener('click', () => {
+            showErrorbookModal('chord');
+        });
+    }
+
+    // 绑定AI答疑按钮
+    const qaBtn = document.getElementById('music-qa-btn');
+    if (qaBtn) {
+        qaBtn.addEventListener('click', () => {
+            document.getElementById('qa-modal').style.display = 'flex';
+        });
+    }
+
+    // 绑定和弦库按钮
+    const chordlibBtn = document.getElementById('chord-library-btn');
+    if (chordlibBtn) {
+        chordlibBtn.addEventListener('click', () => {
+            showChordLibrary('chord');
+            document.getElementById('chordlib-modal').style.display = 'flex';
+        });
+    }
+
+    // 绑定每日目标按钮
+    const goalsBtn = document.getElementById('daily-goals-btn');
+    if (goalsBtn) {
+        goalsBtn.addEventListener('click', () => {
+            showDailyGoals();
+            document.getElementById('goals-modal').style.display = 'flex';
+        });
+    }
+
+    // 绑定数据管理按钮
+    const dataManageBtn = document.getElementById('data-manage-btn');
+    if (dataManageBtn) {
+        dataManageBtn.addEventListener('click', () => {
+            document.getElementById('data-modal').style.display = 'flex';
+        });
+    }
+
+    // 绑定导出/导入按钮
+    const exportBtn = document.getElementById('export-data-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            const data = learningManager.exportData();
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ear-training-data-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
+
+    const importBtn = document.getElementById('import-data-btn');
+    if (importBtn) {
+        importBtn.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                        if (learningManager.importData(evt.target.result)) {
+                            alert('数据导入成功！');
+
+                        } else {
+                            alert('数据导入失败，请检查文件格式');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        });
+    }
+
+    const clearDataBtn = document.getElementById('clear-data-btn');
+    if (clearDataBtn) {
+        clearDataBtn.addEventListener('click', () => {
+            if (confirm('确定要清除所有学习数据吗？此操作不可恢复！')) {
+                learningManager.clearAllData();
+                alert('数据已清除！');
+                updateLearningStatus();
+            }
+        });
+    }
+
+    // 绑定每日签到按钮
+    const signInBtn = document.getElementById('sign-in-btn');
+    if (signInBtn) {
+        signInBtn.addEventListener('click', () => {
+            showSignInModal();
+            document.getElementById('signin-modal').style.display = 'flex';
+        });
+    }
+
+    // 绑定学习时长按钮
+    const timeStatsBtn = document.getElementById('time-stats-btn');
+    if (timeStatsBtn) {
+        timeStatsBtn.addEventListener('click', () => {
+            showTimeStats();
+            document.getElementById('time-stats-modal').style.display = 'flex';
+        });
+    }
+
+    // 绑定音乐小知识按钮
+    const knowledgeBtn = document.getElementById('daily-knowledge-btn');
+    if (knowledgeBtn) {
+        knowledgeBtn.addEventListener('click', () => {
+            showDailyKnowledge();
+            document.getElementById('knowledge-modal').style.display = 'flex';
+        });
+    }
+
+    // 绑定学习计划按钮
+    const planBtn = document.getElementById('study-plan-btn');
+    if (planBtn) {
+        planBtn.addEventListener('click', () => {
+            showStudyPlan();
+            document.getElementById('plan-modal').style.display = 'flex';
+        });
+    }
+}
+
+// ==================== AI学习助手弹窗功能 ====================
+
+// 关闭弹窗
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// 更新首页学习状态
+function updateLearningStatus() {
+    const data = learningManager.init();
+    const totalRecords = Object.values(data.learningRecords).reduce((sum, arr) => sum + arr.length, 0);
+    const correctRecords = Object.values(data.learningRecords).flat().filter(r => r.correct);
+    const accuracy = totalRecords > 0 ? Math.round((correctRecords.length / totalRecords) * 100) : 0;
+
+    const level = accuracy >= 80 ? '高级' : accuracy >= 60 ? '中级' : '初级';
+
+    const levelEl = document.getElementById('user-level');
+    const accuracyEl = document.getElementById('user-accuracy');
+
+    if (levelEl) levelEl.textContent = level;
+    if (accuracyEl) accuracyEl.textContent = totalRecords > 0 ? accuracy + '%' : '--';
+}
+
+// 显示学习路径推荐弹窗（含完整学习报告）
+function showLearningPathModal() {
+    const data = learningManager.init();
+    const report = learningManager.generateReport();
+    const container = document.getElementById('report-modal-content');
+    if (!container) return;
+
+    const typeNames = { single: '单音', interval: '音程', chord: '和弦', rhythm: '节奏', melody: '旋律' };
+    let html = '';
+
+    // ========== 1. 学习数据摘要 ==========
+    html += '<div class="report-summary-cards">';
+    html += `
+        <div class="summary-card">
+            <div class="summary-value">${report.summary.totalStudyDays}</div>
+            <div class="summary-label">学习天数</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-value">${report.summary.totalQuestions}</div>
+            <div class="summary-label">总题数</div>
+        </div>
+        <div class="summary-card highlight">
+            <div class="summary-value">${report.summary.overallAccuracy}%</div>
+            <div class="summary-label">正确率</div>
+        </div>
+    `;
+    html += '</div>';
+
+    // ========== 2. 各模块表现 ==========
+    html += '<div class="report-section-block"><h4>📊 各模块表现</h4>';
+    html += '<div class="accuracy-bars-list">';
+    let hasData = false;
+    for (const [type, name] of Object.entries(typeNames)) {
+        const acc = report.accuracyByType[type];
+        if (acc.total > 0) {
+            hasData = true;
+            const barColor = acc.rate >= 85 ? '#4db6ac' : acc.rate >= 60 ? '#ffb347' : '#e74c3c';
+            html += `
+                <div class="accuracy-bar-item">
+                    <span class="bar-label">${name}</span>
+                    <div class="bar-container">
+                        <div class="bar-fill" style="width: ${acc.rate}%; background: ${barColor};"></div>
+                    </div>
+                    <span class="bar-value">${acc.rate}% (${acc.correct}/${acc.total})</span>
+                </div>
+            `;
+        }
+    }
+    if (!hasData) {
+        html += '<p class="empty-hint-text">暂无练习记录，开始练习后可查看表现数据</p>';
+    }
+    html += '</div></div>';
+
+    // ========== 3. 最近7天学习趋势 ==========
+    html += '<div class="report-section-block"><h4>📅 最近7天学习趋势</h4>';
+    html += '<div class="trend-chart-v2">';
+    let hasTrendData = false;
+    report.recentProgress.forEach(day => {
+        if (day.total > 0) hasTrendData = true;
+        const height = day.accuracy > 0 ? Math.max(10, day.accuracy) : 5;
+        const color = day.total === 0 ? 'rgba(255,255,255,0.1)' :
+            day.accuracy >= 85 ? '#4db6ac' : day.accuracy >= 60 ? '#ffb347' : '#e74c3c';
+        html += `
+            <div class="trend-bar-wrapper-v2">
+                <div class="trend-bar-v2" style="height: ${height}%; background: ${color};"></div>
+                <div class="trend-label-v2">${day.date.slice(5)}</div>
+                <div class="trend-value-v2">${day.total > 0 ? day.accuracy + '%' : '-'}</div>
+                <div class="trend-count-v2">${day.total}题</div>
+            </div>
+        `;
+    });
+    if (!hasTrendData) {
+        html += '<p class="empty-hint-text" style="text-align:center; width:100%;">开始练习后可查看7天学习趋势</p>';
+    }
+    html += '</div></div>';
+
+    // ========== 4. 薄弱环节分析 ==========
+    const hasWeakAreas = Object.values(report.weakAreas).some(v => v.length > 0);
+    if (hasWeakAreas) {
+        html += '<div class="report-section-block"><h4>⚠️ 薄弱环节分析</h4>';
+        for (const [type, weakAreas] of Object.entries(report.weakAreas)) {
+            if (weakAreas.length > 0) {
+                html += `<div class="weak-area-group"><span class="weak-area-title">${typeNames[type]}：</span>`;
+                html += weakAreas.slice(0, 3).map(w =>
+                    `<span class="weak-area-tag">${w.key} (${w.errorRate}%)</span>`
+                ).join('');
+                html += '</div>';
+            }
+        }
+        html += '</div>';
+    }
+
+    // ========== 5. 智能学习路径推荐 ==========
+    html += '<div class="report-section-block"><h4>🎯 智能学习路径推荐</h4>';
+
+    const suggestions = [];
+    for (const [type, weakAreas] of Object.entries(report.weakAreas)) {
+        if (weakAreas.length > 0) {
+            const acc = report.accuracyByType[type];
+            suggestions.push({
+                title: `${typeNames[type]} - ${weakAreas[0].key}`,
+                details: `重点强化：${weakAreas[0].key}`,
+                accuracy: acc.rate,
+                priority: '重点',
+                priorityStyle: 'background: rgba(231, 76, 60, 0.9)'
+            });
+        }
+    }
+
+    if (suggestions.length === 0) {
+        for (const [type, name] of Object.entries(typeNames)) {
+            const acc = report.accuracyByType[type];
+            if (acc.total > 0 && acc.rate < 85) {
+                suggestions.push({
+                    title: `${name} - 加强基础`,
+                    details: `巩固基础${name}练习`,
+                    accuracy: acc.rate,
+                    priority: acc.rate < 60 ? '重点' : '建议',
+                    priorityStyle: acc.rate < 60 ? 'background: rgba(231, 76, 60, 0.9)' : 'background: rgba(255, 179, 71, 0.9)'
+                });
+            }
+        }
+    }
+
+    if (suggestions.length === 0) {
+        html += '<div class="no-suggestions"><p>🎉 太棒了！暂无薄弱环节</p><p>继续保持良好的学习状态！</p></div>';
+    } else {
+        suggestions.sort((a, b) => {
+            if (a.priority === '重点' && b.priority !== '重点') return -1;
+            if (b.priority === '重点' && a.priority !== '重点') return 1;
+            return b.accuracy - a.accuracy;
+        });
+
+        suggestions.slice(0, 3).forEach((s, i) => {
+            html += `
+                <div class="path-item">
+                    <div class="path-item-header">
+                        <span class="path-item-title">${s.title}</span>
+                        <span class="path-item-badge" style="${s.priorityStyle}">${s.priority}</span>
+                    </div>
+                    <div class="path-item-info">
+                        <span>🎯 ${s.details}</span>
+                        <span>📊 正确率：${s.accuracy}%</span>
+                        <span>⏱️ 建议：${3 - i}0分钟</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    html += '</div>';
+
+    // ========== 6. 学习成就 ==========
+    html += '<div class="report-section-block"><h4>🏆 学习成就</h4>';
+    html += generateAchievementsHTML(report);
+    html += '</div>';
+
+    container.innerHTML = html;
+    document.getElementById('report-modal').style.display = 'flex';
+}
+
+// 生成成就徽章HTML
+function generateAchievementsHTML(report) {
+    const totalQuestions = report.summary.totalQuestions;
+    const accuracy = report.summary.overallAccuracy;
+    const achievements = [];
+
+    if (totalQuestions >= 10) achievements.push({ icon: '🎯', name: '初露锋芒', desc: '完成10道题目', unlocked: true });
+    if (totalQuestions >= 50) achievements.push({ icon: '📚', name: '勤学苦练', desc: '完成50道题目', unlocked: true });
+    if (totalQuestions >= 100) achievements.push({ icon: '🚀', name: '百题斩', desc: '完成100道题目', unlocked: true });
+    if (accuracy >= 70 && totalQuestions >= 20) achievements.push({ icon: '✨', name: '稳步提升', desc: '正确率达到70%', unlocked: true });
+    if (accuracy >= 85 && totalQuestions >= 30) achievements.push({ icon: '🌟', name: '听觉敏锐', desc: '正确率达到85%', unlocked: true });
+    if (accuracy >= 95 && totalQuestions >= 50) achievements.push({ icon: '💎', name: '听音达人', desc: '正确率达到95%', unlocked: true });
+
+    if (achievements.length === 0) {
+        return '<p class="empty-hint-text">继续练习解锁成就徽章！</p>';
+    }
+
+    let html = '<div class="achievements-grid">';
+    achievements.slice(0, 6).forEach(a => {
+        html += `
+            <div class="achievement-badge ${a.unlocked ? 'unlocked' : 'locked'}">
+                <div class="achievement-icon">${a.icon}</div>
+                <div class="achievement-name">${a.name}</div>
+                <div class="achievement-desc">${a.desc}</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    return html;
+}
+
+// 开始推荐练习
+function startRecommendedPractice() {
+    closeModal('report-modal');
+    const data = learningManager.init();
+
+    // 找到最薄弱的类型
+    let weakestType = 'chord';
+    let lowestAccuracy = 100;
+
+    for (const type of ['chord', 'interval', 'single']) {
+        const records = data.learningRecords[type] || [];
+        if (records.length > 0) {
+            const correct = records.filter(r => r.correct).length;
+            const accuracy = (correct / records.length) * 100;
+            if (accuracy < lowestAccuracy) {
+                lowestAccuracy = accuracy;
+                weakestType = type;
+            }
+        }
+    }
+
+    // 跳转到对应的练习页面
+    const pageMap = { chord: 'chord-page', interval: 'interval-page', single: 'single-page' };
+    if (pageMap[weakestType]) {
+        pageManager.switchToPage(pageMap[weakestType]);
+    }
+}
+
+// 显示错题分析弹窗
+let currentErrorbookType = 'chord';
+function showErrorbookModal(type) {
+    currentErrorbookType = type;
+    renderErrorbookContent();
+    document.getElementById('errorbook-modal').style.display = 'flex';
+}
+
+// 切换错题本类型
+function switchErrorbookModalTab(type, btn) {
+    currentErrorbookType = type;
+    const tabs = btn.parentElement.querySelectorAll('.tab-btn');
+    tabs.forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    renderErrorbookContent();
+}
+
+// 渲染错题本内容
+function renderErrorbookContent() {
+    const container = document.getElementById('errorbook-modal-content');
+    if (!container) return;
+
+    const errors = learningManager.getErrorBook(currentErrorbookType, 20);
+    if (errors.length === 0) {
+        container.innerHTML = `
+            <div class="errorbook-empty">
+                <p>🎉 暂无错题记录</p>
+                <p>继续练习，系统将自动分析您的错误</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '<div class="errorbook-list">';
+    errors.forEach((item, index) => {
+        html += `
+            <div class="errorbook-item">
+                <div class="errorbook-item-info">
+                    <div class="errorbook-item-question">${item.key}</div>
+                    <div class="errorbook-item-meta">错误次数：${item.errorCount} 次</div>
+                </div>
+                <button class="modal-btn primary" style="padding:6px 14px; font-size:0.8rem;" onclick="practiceSingleError('${item.key.replace(/'/g, "\\'")}')">练习</button>
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// 练习单个错题
+function practiceSingleError(key) {
+    alert(`即将为您生成"${key}"的专项练习。建议在对应练习模式中选择相近难度进行针对性训练。`);
+}
+
+// 开始专项练习
+function startErrorbookPractice() {
+    closeModal('errorbook-modal');
+    const pageMap = { chord: 'chord-page', interval: 'interval-page', single: 'single-page' };
+    if (pageMap[currentErrorbookType]) {
+        pageManager.switchToPage(pageMap[currentErrorbookType]);
+    }
+}
+
+// AI答疑功能
+const musicKnowledgeBase = {
+    '大三和弦': {
+        title: '大三和弦',
+        content: `
+            <p><strong>定义：</strong>大三和弦是根音与三音构成大三度、三音与五音构成小三度的和弦。</p>
+            <p><strong>结构：</strong>根音 + 大三度 + 纯五度（大三度+小三度）</p>
+            <p><strong>示例：</strong>C大三和弦 = C + E + G</p>
+            <p><strong>听觉特点：</strong>明亮、稳定、协和，是最常用的和弦类型之一。</p>
+            <p><strong>应用场景：</strong>大调主和弦、终止和弦，常用于歌曲的开头和结尾。</p>
+        `
+    },
+    '小三和弦': {
+        title: '小三和弦',
+        content: `
+            <p><strong>定义：</strong>小三和弦是根音与三音构成小三度、三音与五音构成大三度的和弦。</p>
+            <p><strong>结构：</strong>根音 + 小三度 + 纯五度（小三度+大三度）</p>
+            <p><strong>示例：</strong>C小三和弦 = C + Eb + G</p>
+            <p><strong>听觉特点：</strong>柔和、含蓄、略带忧伤色彩。</p>
+            <p><strong>应用场景：</strong>小调主和弦，常用于营造情感氛围。</p>
+        `
+    },
+    '纯五度': {
+        title: '纯五度音程',
+        content: `
+            <p><strong>音程距离：</strong>7个半音</p>
+            <p><strong>示例：</strong>C-G、D-A、E-B</p>
+            <p><strong>听觉特点：</strong>非常协和、稳定，是音乐中最基础的音程之一。</p>
+            <p><strong>识别技巧：</strong>听起来像钟声或钟声般空旷的感觉，两个音融合度高。</p>
+            <p><strong>测试方法：</strong>可以先听低音，再听高音，感受其和谐程度。</p>
+        `
+    },
+    'C大调': {
+        title: 'C自然大调',
+        content: `
+            <p><strong>音阶组成：</strong>C D E F G A B C</p>
+            <p><strong>特点：</strong>没有升降号，是最简单的大调式。</p>
+            <p><strong>调式结构：</strong>全全半全全全半</p>
+            <p><strong>主和弦：</strong>C大三和弦 (C-E-G)</p>
+            <p><strong>常用和弦：</strong>C、Am、F、G、Dm、Em</p>
+        `
+    },
+    '听辨技巧': {
+        title: '听辨练习技巧',
+        content: `
+            <p><strong>1. 建立音程基准：</strong></p>
+            <p>• 熟悉常用音程（大三度、纯五度、八度）的音响特征</p>
+            <p>• 可以用熟悉的歌曲来记忆音程，如《小星星》开头是纯五度</p>
+            
+            <p><strong>2. 和弦识别步骤：</strong></p>
+            <p>• 先听根音，确定低音位置</p>
+            <p>• 再听三音，判断大小三和弦（三音高低）</p>
+            <p>• 最后确认五音是否为纯五度</p>
+            
+            <p><strong>3. 练习方法：</strong></p>
+            <p>• 从简单的开始：先听音程，再听和弦</p>
+            <p>• 每天坚持15-20分钟的集中练习</p>
+            <p>• 错的题目要反复听，建立听觉记忆</p>
+        `
+    }
+};
+
+// AI答疑功能
+function askAIQuestion() {
+    const input = document.getElementById('qa-input');
+    const question = input ? input.value.trim() : '';
+    if (!question) return;
+    renderQAResult(question);
+}
+
+// 快速提问
+function quickAsk(topic) {
+    renderQAResult(topic);
+}
+
+// 渲染问答结果
+function renderQAResult(question) {
+    const content = document.getElementById('qa-modal-content');
+    if (!content) return;
+
+    // 从知识库查找
+    const knowledge = musicKnowledgeBase[question];
+
+    if (knowledge) {
+        content.innerHTML = `
+            <div class="qa-answer">
+                <h4><i class="fas fa-book"></i> ${knowledge.title}</h4>
+                ${knowledge.content}
+            </div>
+        `;
+    } else {
+        // 通用回答
+        content.innerHTML = `
+            <div class="qa-answer">
+                <h4><i class="fas fa-search"></i> 关于"${question}"</h4>
+                <p>您询问的"${question}"是一个很好的音乐学习主题。</p>
+                <p><strong>建议学习路径：</strong></p>
+                <p>1. 从基础乐理开始，理解相关概念</p>
+                <p>2. 通过听辨练习来加深理解</p>
+                <p>3. 在实际作品中体会其应用</p>
+                <p style="margin-top:12px; color:#80cbc4;"><strong>提示：</strong>您也可以尝试点击下方的热门问题获取更多帮助！</p>
+            </div>
+        `;
+    }
+}
+
+// ==================== 乐理知识速查功能 ====================
+
+// 乐理知识库
+const musicTheoryLibrary = {
+    chord: [
+        {
+            name: '大三和弦',
+            formula: '根音 + 大三度 + 纯五度',
+            example: 'C = C-E-G',
+            characteristic: '明亮、稳定、协和',
+            usage: '大调主和弦、终止和弦'
+        },
+        {
+            name: '小三和弦',
+            formula: '根音 + 小三度 + 纯五度',
+            example: 'Cm = C-Eb-G',
+            characteristic: '柔和、含蓄、忧伤',
+            usage: '小调主和弦、情感铺垫'
+        },
+        {
+            name: '增三和弦',
+            formula: '根音 + 大三度 + 增五度',
+            example: 'Caug = C-E-G#',
+            characteristic: '紧张、不稳定',
+            usage: '过渡和弦、转调桥梁'
+        },
+        {
+            name: '减三和弦',
+            formula: '根音 + 小三度 + 减五度',
+            example: 'Cdim = C-Eb-Gb',
+            characteristic: '极度紧张、需解决',
+            usage: '经过和弦、减七和弦基础'
+        },
+        {
+            name: '大小七和弦',
+            formula: '根音 + 大三度 + 纯五度 + 小七度',
+            example: 'C7 = C-E-G-Bb',
+            characteristic: '不稳定、需解决到主和弦',
+            usage: '属功能组、蓝调和声'
+        },
+        {
+            name: '大大七和弦',
+            formula: '根音 + 大三度 + 纯五度 + 大七度',
+            example: 'CM7 = C-E-G-B',
+            characteristic: '柔和、爵士感',
+            usage: '爵士和声、流行音乐'
+        }
+    ],
+    interval: [
+        {
+            name: '小二度',
+            semitones: '1个半音',
+            example: 'C-C#',
+            characteristic: '最不协和、紧张',
+            tip: '听起来像两个很近的音'
+        },
+        {
+            name: '大二度',
+            semitones: '2个半音',
+            example: 'C-D',
+            characteristic: '不协和',
+            tip: '两个相邻音符'
+        },
+        {
+            name: '小三度',
+            semitones: '3个半音',
+            example: 'C-Eb',
+            characteristic: '柔和、小调色彩',
+            tip: '第一个小三音程是低音3'
+        },
+        {
+            name: '大三度',
+            semitones: '4个半音',
+            example: 'C-E',
+            characteristic: '明亮、大调色彩',
+            tip: '与"啦啦"开头相似'
+        },
+        {
+            name: '纯四度',
+            semitones: '5个半音',
+            example: 'C-F',
+            characteristic: '协和、中空',
+            tip: '像"国歌"开头'
+        },
+        {
+            name: '纯五度',
+            semitones: '7个半音',
+            example: 'C-G',
+            characteristic: '非常协和、稳定',
+            tip: '钟声般的感觉'
+        },
+        {
+            name: '大六度',
+            semitones: '9个半音',
+            example: 'C-A',
+            characteristic: '温暖、协和',
+            tip: '下行像"哎呀"'
+        },
+        {
+            name: '八度',
+            semitones: '12个半音',
+            example: 'C-C',
+            characteristic: '完全协和',
+            tip: '同音高不同八度'
+        }
+    ],
+    scale: [
+        {
+            name: '自然大调',
+            formula: '全全半全全全半',
+            example: 'C D E F G A B',
+            characteristic: '明亮、开阔',
+            usage: '最常用的调式'
+        },
+        {
+            name: '自然小调',
+            formula: '全半全全半全全',
+            example: 'C D Eb F G Ab Bb',
+            characteristic: '暗淡、忧郁',
+            usage: '小调作品基础'
+        },
+        {
+            name: '和声小调',
+            formula: '全半全全半增半',
+            example: 'C D Eb F G Ab B',
+            characteristic: '更有张力',
+            usage: '古典、浪漫派'
+        },
+        {
+            name: '旋律小调',
+            formula: '全半全全全全半',
+            example: 'C D Eb F G A B',
+            characteristic: '上行明亮',
+            usage: '爵士乐'
+        },
+        {
+            name: '五声调式',
+            formula: '宫商角徵羽',
+            example: 'C D E G A',
+            characteristic: '中国传统音乐',
+            usage: '民族音乐、古风'
+        }
+    ]
+};
+
+// 显示乐理知识库
+function showChordLibrary(type) {
+    const container = document.getElementById('chordlib-content');
+    if (!container) return;
+
+    const items = musicTheoryLibrary[type] || [];
+    const typeNames = { chord: '和弦', interval: '音程', scale: '调式' };
+
+    let html = `<div class="chordlib-intro"><p>以下是常见${typeNames[type]}的知识点总结，帮助您快速查阅和对比。</p></div>`;
+    html += '<div class="chordlib-cards">';
+
+    items.forEach(item => {
+        html += `
+            <div class="theory-card">
+                <div class="theory-card-header">
+                    <span class="theory-card-name">${item.name}</span>
+                </div>
+                <div class="theory-card-body">
+                    <div class="theory-item"><span class="theory-label">构成：</span><span class="theory-value">${item.formula || item.semitones}</span></div>
+                    <div class="theory-item"><span class="theory-label">示例：</span><span class="theory-value code">${item.example}</span></div>
+                    <div class="theory-item"><span class="theory-label">特点：</span><span class="theory-value">${item.characteristic}</span></div>
+                    ${item.usage ? `<div class="theory-item"><span class="theory-label">应用：</span><span class="theory-value">${item.usage}</span></div>` : ''}
+                    ${item.tip ? `<div class="theory-item"><span class="theory-label">💡：</span><span class="theory-value">${item.tip}</span></div>` : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// 切换乐理Tab
+function switchChordlibTab(type, btn) {
+    const tabs = btn.parentElement.querySelectorAll('.tab-btn');
+    tabs.forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    showChordLibrary(type);
+}
+
+// ==================== 每日目标功能 ====================
+
+// 显示每日目标
+function showDailyGoals() {
+    const container = document.getElementById('goals-modal-content');
+    if (!container) return;
+
+    const today = new Date().toDateString();
+    const data = learningManager.init();
+    const existingGoal = data.dailyGoals?.[today];
+
+    if (!existingGoal) {
+        // 显示设置目标界面
+        container.innerHTML = `
+            <div class="goals-setup">
+                <h4>🎯 设定今日学习目标</h4>
+                <div class="goal-form-group">
+                    <label>每日练习题数</label>
+                    <div class="goal-options" id="goal-questions">
+                        <button class="goal-option" data-value="10">10题</button>
+                        <button class="goal-option active" data-value="20">20题</button>
+                        <button class="goal-option" data-value="30">30题</button>
+                        <button class="goal-option" data-value="50">50题</button>
+                    </div>
+                </div>
+                <div class="goal-form-group">
+                    <label>目标正确率</label>
+                    <div class="goal-options" id="goal-accuracy">
+                        <button class="goal-option" data-value="60">60%</button>
+                        <button class="goal-option" data-value="70">70%</button>
+                        <button class="goal-option active" data-value="80">80%</button>
+                        <button class="goal-option" data-value="90">90%</button>
+                    </div>
+                </div>
+                <div class="goal-form-group">
+                    <label>练习类型（可多选）</label>
+                    <div class="goal-options" id="goal-types">
+                        <button class="goal-option active" data-type="chord">和弦</button>
+                        <button class="goal-option" data-type="interval">音程</button>
+                        <button class="goal-option" data-type="single">单音</button>
+                    </div>
+                </div>
+                <p class="goal-tip">💡 提示：建议选择适合当前水平的目标，循序渐进</p>
+            </div>
+        `;
+
+        // 绑定选项点击
+        setupGoalOptions();
+    } else {
+        // 显示今日进度
+        const totalRecords = Object.values(data.learningRecords).flat().filter(r =>
+            new Date(r.timestamp).toDateString() === today
+        );
+        const correctCount = totalRecords.filter(r => r.correct).length;
+        const progress = totalRecords.length;
+        const accuracy = progress > 0 ? Math.round((correctCount / progress) * 100) : 0;
+        const questionsGoal = existingGoal.questions || 20;
+        const accuracyGoal = existingGoal.accuracy || 80;
+        const typeNames = { chord: '和弦', interval: '音程', single: '单音' };
+        const typesText = (existingGoal.types || []).map(t => typeNames[t]).join('、');
+
+        const questionsPercent = Math.min(100, Math.round((progress / questionsGoal) * 100));
+        const accuracyMet = accuracy >= accuracyGoal;
+
+        container.innerHTML = `
+            <div class="goals-progress">
+                <h4>📊 今日学习进度</h4>
+                <div class="goal-info-row">
+                    <span>练习类型：${typesText}</span>
+                    <span>📅 ${new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}</span>
+                </div>
+                
+                <div class="progress-section">
+                    <div class="progress-label">
+                        <span>完成题数</span>
+                        <span class="progress-current">${progress}/${questionsGoal}</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width: ${questionsPercent}%;"></div>
+                    </div>
+                </div>
+                
+                <div class="progress-section">
+                    <div class="progress-label">
+                        <span>当前正确率</span>
+                        <span class="${accuracyMet ? 'progress-success' : 'progress-warning'}">${accuracy}% / ${accuracyGoal}%</span>
+                    </div>
+                </div>
+                
+                <div class="goal-status ${progress >= questionsGoal && accuracyMet ? 'achieved' : ''}">
+                    ${progress >= questionsGoal && accuracyMet ?
+                '🎉 恭喜达成今日目标！' :
+                progress >= questionsGoal ?
+                    '✅ 题数已完成，继续提升正确率！' :
+                    '💪 继续加油，距离目标还差 ' + (questionsGoal - progress) + ' 题'
+            }
+                </div>
+                
+                ${progress >= questionsGoal && accuracyMet ? `
+                    <button class="modal-btn primary" style="width:100%; margin-top:16px;" onclick="resetDailyGoal()">重新设定目标</button>
+                ` : ''}
+            </div>
+        `;
+    }
+}
+
+// 设置目标选项交互
+function setupGoalOptions() {
+    const questionsGroup = document.getElementById('goal-questions');
+    const accuracyGroup = document.getElementById('goal-accuracy');
+    const typesGroup = document.getElementById('goal-types');
+
+    if (questionsGroup) {
+        questionsGroup.querySelectorAll('.goal-option').forEach(btn => {
+            btn.onclick = () => {
+                questionsGroup.querySelectorAll('.goal-option').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            };
+        });
+    }
+
+    if (accuracyGroup) {
+        accuracyGroup.querySelectorAll('.goal-option').forEach(btn => {
+            btn.onclick = () => {
+                accuracyGroup.querySelectorAll('.goal-option').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            };
+        });
+    }
+
+    if (typesGroup) {
+        typesGroup.querySelectorAll('.goal-option').forEach(btn => {
+            btn.onclick = () => {
+                btn.classList.toggle('active');
+            };
+        });
+    }
+}
+
+// 保存每日目标
+function saveDailyGoal() {
+    const questionsGroup = document.getElementById('goal-questions');
+    const accuracyGroup = document.getElementById('goal-accuracy');
+    const typesGroup = document.getElementById('goal-types');
+
+    if (!questionsGroup) return;
+
+    const selectedQuestions = questionsGroup.querySelector('.active')?.dataset.value || '20';
+    const selectedAccuracy = accuracyGroup.querySelector('.active')?.dataset.value || '80';
+    const selectedTypes = Array.from(typesGroup.querySelectorAll('.active')).map(b => b.dataset.type);
+
+    if (selectedTypes.length === 0) {
+        alert('请至少选择一种练习类型');
+        return;
+    }
+
+    const data = learningManager.init();
+    const today = new Date().toDateString();
+
+    data.dailyGoals = data.dailyGoals || {};
+    data.dailyGoals[today] = {
+        questions: parseInt(selectedQuestions),
+        accuracy: parseInt(selectedAccuracy),
+        types: selectedTypes,
+        createdAt: Date.now()
+    };
+
+    learningManager.saveData(data);
+    alert('🎯 目标设定成功！开始练习吧！');
+    showDailyGoals(); // 刷新显示进度
+}
+
+// 重置每日目标
+function resetDailyGoal() {
+    if (confirm('确定要重新设定今日目标吗？')) {
+        const data = learningManager.init();
+        const today = new Date().toDateString();
+        if (data.dailyGoals) {
+            delete data.dailyGoals[today];
+            learningManager.saveData(data);
+        }
+        showDailyGoals();
+    }
+}
+
+// ==================== 每日签到功能 ====================
+
+// 签到数据存储键
+const SIGNIN_KEY = 'earTraining_signinData';
+
+// 获取签到数据
+function getSigninData() {
+    try {
+        const data = localStorage.getItem(SIGNIN_KEY);
+        return data ? JSON.parse(data) : { signinDays: [], streak: 0, totalDays: 0, lastSigninDate: null };
+    } catch (e) {
+        return { signinDays: [], streak: 0, totalDays: 0, lastSigninDate: null };
+    }
+}
+
+// 保存签到数据
+function saveSigninData(data) {
+    localStorage.setItem(SIGNIN_KEY, JSON.stringify(data));
+}
+
+// 显示每日签到弹窗
+function showSignInModal() {
+    const container = document.getElementById('signin-modal-content');
+    const btn = document.getElementById('signin-btn');
+    if (!container) return;
+
+    const data = getSigninData();
+    const today = new Date().toDateString();
+    const hasSignedToday = data.signinDays.includes(today);
+
+    // 计算7天签到状态
+    const weekDays = [];
+    const todayObj = new Date();
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date(todayObj);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toDateString();
+        weekDays.push({
+            date: dateStr,
+            label: ['日', '一', '二', '三', '四', '五', '六'][date.getDay()],
+            hasSigned: data.signinDays.includes(dateStr),
+            isToday: dateStr === today
+        });
+    }
+
+    container.innerHTML = `
+        <div class="signin-header">
+            <div class="signin-streak">
+                <span class="streak-icon">🔥</span>
+                <span class="streak-number">${data.streak}</span>
+                <span class="streak-label">天连续签到</span>
+            </div>
+            <div class="signin-total">
+                累计签到 <strong>${data.totalDays}</strong> 天
+            </div>
+        </div>
+
+        <div class="signin-week">
+            ${weekDays.map(day => `
+                <div class="signin-day ${day.hasSigned ? 'signed' : ''} ${day.isToday ? 'today' : ''}">
+                    <div class="day-label">周${day.label}</div>
+                    <div class="day-circle">${day.hasSigned ? '✓' : day.isToday ? '●' : ''}</div>
+                    <div class="day-date">${new Date(day.date).getMonth() + 1}/${new Date(day.date).getDate()}</div>
+                </div>
+            `).join('')}
+        </div>
+
+        <div class="signin-status ${hasSignedToday ? 'signed' : ''}">
+            ${hasSignedToday ? '🎉 今日已签到，明天继续加油！' : '点击"立即签到"开启今日学习'}
+        </div>
+
+        <div class="signin-tips">
+            <h4>💡 签到奖励</h4>
+            <ul>
+                <li>连续7天：解锁"坚持不懈"徽章</li>
+                <li>连续30天：解锁"学习达人"徽章</li>
+                <li>累计100天：解锁"听音大师"徽章</li>
+            </ul>
+        </div>
+    `;
+
+    // 更新按钮状态
+    if (hasSignedToday) {
+        btn.textContent = '已签到 ✓';
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+    } else {
+        btn.textContent = '立即签到';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
+}
+
+// 执行签到
+function doSignIn() {
+    const data = getSigninData();
+    const today = new Date().toDateString();
+
+    if (data.signinDays.includes(today)) {
+        alert('今日已签到！');
+        return;
+    }
+
+    // 添加今日签到
+    data.signinDays.push(today);
+    data.totalDays++;
+
+    // 计算连续签到天数
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toDateString();
+
+    if (data.lastSigninDate === yesterdayStr) {
+        data.streak++;
+    } else if (data.lastSigninDate !== today) {
+        data.streak = 1;
+    }
+
+    data.lastSigninDate = today;
+
+    // 只保留最近90天的签到记录
+    if (data.signinDays.length > 90) {
+        data.signinDays = data.signinDays.slice(-90);
+    }
+
+    saveSigninData(data);
+
+    // 奖励提示
+    let rewardMsg = '签到成功！';
+    if (data.streak === 7) rewardMsg += ' 🎉 恭喜连续7天，获得"坚持不懈"徽章！';
+    if (data.streak === 30) rewardMsg += ' 🏆 连续30天，获得"学习达人"徽章！';
+    if (data.totalDays >= 100) rewardMsg += ' 💎 累计100天，获得"听音大师"徽章！';
+
+    alert(rewardMsg);
+    showSignInModal();
+}
+
+// ==================== 学习时长统计功能 ====================
+
+// 显示学习时长统计
+function showTimeStats() {
+    const container = document.getElementById('time-stats-content');
+    if (!container) return;
+
+    const data = learningManager.init();
+    const stats = calculateTimeStats(data);
+
+    container.innerHTML = `
+        <div class="time-stats-overview">
+            <div class="time-stat-card">
+                <div class="time-stat-icon">⏱️</div>
+                <div class="time-stat-value">${formatTime(stats.totalTime)}</div>
+                <div class="time-stat-label">总学习时长</div>
+            </div>
+            <div class="time-stat-card">
+                <div class="time-stat-icon">📅</div>
+                <div class="time-stat-value">${stats.totalDays}</div>
+                <div class="time-stat-label">学习天数</div>
+            </div>
+            <div class="time-stat-card">
+                <div class="time-stat-icon">📊</div>
+                <div class="time-stat-value">${formatTime(stats.avgDailyTime)}</div>
+                <div class="time-stat-label">日均时长</div>
+            </div>
+        </div>
+
+        <div class="time-stats-section">
+            <h4>📈 各模块学习时长</h4>
+            <div class="time-type-bars">
+                ${Object.entries(stats.typeTime).map(([type, time]) => {
+        const typeNames = { single: '单音', interval: '音程', chord: '和弦', rhythm: '节奏', melody: '旋律' };
+        const maxTime = Math.max(...Object.values(stats.typeTime));
+        const percent = maxTime > 0 ? (time / maxTime) * 100 : 0;
+        return `
+                        <div class="time-type-item">
+                            <span class="time-type-name">${typeNames[type] || type}</span>
+                            <div class="time-type-bar-container">
+                                <div class="time-type-bar" style="width: ${percent}%;"></div>
+                            </div>
+                            <span class="time-type-value">${formatTime(time)}</span>
+                        </div>
+                    `;
+    }).join('')}
+            </div>
+        </div>
+
+        <div class="time-stats-section">
+            <h4>📅 最近7天学习时长</h4>
+            <div class="time-week-chart">
+                ${stats.dailyTime.map(day => `
+                    <div class="time-week-item">
+                        <div class="time-week-bar" style="height: ${day.percent}%;"></div>
+                        <div class="time-week-label">${day.label}</div>
+                        <div class="time-week-value">${day.shortTime}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="time-tips">
+            <h4>💡 学习建议</h4>
+            <p>${generateTimeTip(stats)}</p>
+        </div>
+    `;
+}
+
+// 计算时长统计
+function calculateTimeStats(data) {
+    const result = {
+        totalTime: 0,
+        totalDays: 0,
+        avgDailyTime: 0,
+        typeTime: { single: 0, interval: 0, chord: 0, rhythm: 0, melody: 0 },
+        dailyTime: []
+    };
+
+    // 计算各类型题目数量作为时长估算
+    const typeQuestionCounts = {};
+    for (const type of ['single', 'interval', 'chord', 'rhythm', 'melody']) {
+        const records = data.learningRecords[type] || [];
+        typeQuestionCounts[type] = records.length;
+        // 每题平均约30秒
+        result.typeTime[type] = records.length * 30;
+        result.totalTime += records.length * 30;
+    }
+
+    // 计算天数
+    const studyDates = new Set();
+    for (const records of Object.values(data.learningRecords)) {
+        records.forEach(r => studyDates.add(r.date));
+    }
+    result.totalDays = studyDates.size;
+    result.avgDailyTime = result.totalDays > 0 ? Math.round(result.totalTime / result.totalDays) : 0;
+
+    // 计算最近7天每日时长
+    const today = new Date();
+    let maxDailyTime = 0;
+    const allTypes = ['single', 'interval', 'chord', 'rhythm', 'melody'];
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toLocaleDateString('zh-CN');
+        const dayOfWeek = ['日', '一', '二', '三', '四', '五', '六'][date.getDay()];
+
+        let dayTime = 0;
+        for (const type of allTypes) {
+            const records = data.learningRecords[type] || [];
+            const dayRecords = records.filter(r => r.date === dateStr);
+            dayTime += dayRecords.length * 30;
+        }
+
+        maxDailyTime = Math.max(maxDailyTime, dayTime);
+
+        result.dailyTime.push({
+            date: dateStr,
+            label: i === 0 ? '今天' : '周' + dayOfWeek,
+            time: dayTime,
+            shortTime: dayTime > 0 ? Math.round(dayTime / 60) + '分' : '-',
+            percent: maxDailyTime > 0 ? (dayTime / maxDailyTime) * 100 : 0
+        });
+    }
+
+    return result;
+}
+
+// 格式化时间
+function formatTime(seconds) {
+    if (seconds === 0) return '0分钟';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+        return `${hours}小时${minutes}分`;
+    }
+    return `${minutes}分钟`;
+}
+
+// 生成时长建议
+function generateTimeTip(stats) {
+    if (stats.totalDays === 0) {
+        return '欢迎开始学习！建议每天至少练习15-30分钟，循序渐进提升听觉能力。';
+    }
+    if (stats.avgDailyTime < 15 * 60) {
+        return '日均学习时间较短，建议每天增加到30分钟以上，保持规律学习节奏效果更佳。';
+    }
+    if (stats.avgDailyTime < 60 * 60) {
+        return '学习时间适中，建议保持当前节奏。可以尝试将学习时间分成两次，每次30分钟左右。';
+    }
+    return '学习时间充足！注意适当休息，避免过度疲劳影响学习效果。建议每学习45分钟休息5-10分钟。';
+}
+
+// ==================== 音乐小知识功能 ====================
+
+// 音乐小知识库
+const musicKnowledgeDaily = [
+    {
+        category: '听辨技巧',
+        title: '如何区分大小三和弦？',
+        content: '听辨大小三和弦的关键在于三音：大三和弦的三音偏高（明亮感），小三和弦的三音偏低（柔和感）。可以通过"啦啦"（大三）和"呜呜"（小三）来辅助记忆。',
+        tip: '💡 练习建议：先听根音，再关注三音的高低位置'
+    },
+    {
+        category: '乐理知识',
+        title: '什么是等音？',
+        content: '等音是指音名不同但音高相同的音。例如升C（C#）和降D（Db）在钢琴上是同一个键。在实际演奏和听辨中，等音会根据调性语境有不同的写法。',
+        tip: '💡 记忆方法：在自然大调中，7个基本音是CDEFGAB，等音是它们的升降形式'
+    },
+    {
+        category: '听辨技巧',
+        title: '纯五度的音响特征',
+        content: '纯五度是最协和的音程之一，听起来像钟声或钟声响起的空旷感觉。两个音融合度非常高，有时甚至像一个音。可以用《小星星》开头的"一闪一闪"来记忆。',
+        tip: '💡 训练方法：先听低音，再感受高音的泛音共鸣'
+    },
+    {
+        category: '乐理知识',
+        title: '大调式与小调式的区别',
+        content: '大调式：明亮、开阔，结构为"全全半全全全半"。小调式：暗淡、忧郁，结构为"全半全全半全全"。区分关键在于第3、6、7音（大调比小调高一个半音）。',
+        tip: '💡 听辨技巧：先听主音到三音的距离，大三度=大调，小三度=小调'
+    },
+    {
+        category: '学习方法',
+        title: '如何高效练习视唱练耳？',
+        content: '1. 从简单到复杂：先单音→再音程→最后和弦\n2. 每日坚持：15-30分钟集中练习\n3. 错题反复：错误的题目要反复听\n4. 结合理论：理解乐理有助于听辨\n5. 使用乐器辅助：钢琴验证答案',
+        tip: '💡 最佳时间：建议在注意力集中的时段练习'
+    },
+    {
+        category: '乐理知识',
+        title: '和声功能基础',
+        content: '主功能（T）：稳定，和弦I级；下属功能（S）：不稳定，和弦IV级；属功能（D）：最不稳定，和弦V级。终止公式：D→T（正格终止）、S→T（变格终止）。',
+        tip: '💡 听觉感受：主和弦像"回家"，属和弦像"需要解决"'
+    },
+    {
+        category: '听辨技巧',
+        title: '如何识别音程转位？',
+        content: '原位音程：低音到高音。转位音程：高音到低音。转位规律：大变小，小变大，纯变纯，增变减，减变增。度数：原位+转位=9度。',
+        tip: '💡 快速计算：转位音程=9-原音程度数'
+    },
+    {
+        category: '音乐家故事',
+        title: '贝多芬的听觉训练',
+        content: '贝多芬在晚年失聪后，仍能创作伟大的交响乐作品。他通过在钢琴上放置木棍，用牙齿咬着木棍来"听"振动，继续进行音乐创作。这告诉我们，听觉训练可以通过多种方式进行。',
+        tip: '💡 启示：用心去感受音乐，触觉和想象也是学习的一部分'
+    },
+    {
+        category: '乐理知识',
+        title: '七和弦的种类',
+        content: '常见七和弦：大小七和弦（属七）、大大七和弦（大七）、小小七和弦（小七）、减小七和弦（半减七）、减减七和弦（减七）。每种都有独特的色彩和功能。',
+        tip: '💡 记忆口诀：大小七=大三+小七，大大七=大三+大七'
+    },
+    {
+        category: '学习方法',
+        title: '建立音乐听觉记忆',
+        content: '听觉记忆是视唱练耳的核心能力。方法包括：\n1. 模唱练习：跟着钢琴唱\n2. 背谱：背诵简单旋律\n3. 听写：记录听到的音\n4. 移调：将旋律转到不同调性\n5. 分析：理解和声结构',
+        tip: '💡 每日5分钟模唱，长期效果显著'
+    }
+];
+
+// 显示每日音乐小知识
+function showDailyKnowledge() {
+    const container = document.getElementById('knowledge-content');
+    if (!container) return;
+    getDailyKnowledge(container);
+}
+
+// 获取并显示小知识
+function getDailyKnowledge(container) {
+    if (!container) {
+        container = document.getElementById('knowledge-content');
+    }
+    if (!container) return;
+
+    // 随机选取一条
+    const index = Math.floor(Math.random() * musicKnowledgeDaily.length);
+    const knowledge = musicKnowledgeDaily[index];
+
+    container.innerHTML = `
+        <div class="knowledge-card">
+            <div class="knowledge-category">${knowledge.category}</div>
+            <h4 class="knowledge-title">${knowledge.title}</h4>
+            <p class="knowledge-content">${knowledge.content.replace(/\n/g, '<br>')}</p>
+            <div class="knowledge-tip">${knowledge.tip}</div>
+        </div>
+        <div class="knowledge-footer">
+            <span>🎵 每天学一点，进步看得见</span>
+        </div>
+    `;
+}
+
+// ==================== 学习计划功能 ====================
+
+// 显示学习计划
+function showStudyPlan() {
+    const container = document.getElementById('plan-content');
+    if (!container) return;
+
+    const data = learningManager.init();
+    const plan = generateStudyPlan(data);
+
+    container.innerHTML = `
+        <div class="plan-header">
+            <h4>📋 个性化学习计划</h4>
+            <p>基于您的学习数据，AI为您制定以下学习计划</p>
+        </div>
+
+        <div class="plan-section">
+            <div class="plan-section-title">🎯 本周学习目标</div>
+            <div class="plan-goals">
+                ${plan.weeklyGoals.map(goal => `
+                    <div class="plan-goal-item">
+                        <div class="plan-goal-icon">${goal.icon}</div>
+                        <div class="plan-goal-info">
+                            <div class="plan-goal-name">${goal.name}</div>
+                            <div class="plan-goal-desc">${goal.desc}</div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="plan-section">
+            <div class="plan-section-title">📅 每日练习安排</div>
+            <div class="plan-schedule">
+                ${plan.dailySchedule.map(item => `
+                    <div class="plan-schedule-item">
+                        <span class="schedule-time">${item.time}</span>
+                        <span class="schedule-content">${item.content}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="plan-section">
+            <div class="plan-section-title">📈 重点提升方向</div>
+            <div class="plan-focus">
+                ${plan.focusAreas.map(area => `
+                    <div class="plan-focus-item">
+                        <div class="focus-type">${area.type}</div>
+                        <div class="focus-content">${area.content}</div>
+                        <div class="focus-priority" style="background: ${area.priorityColor};">${area.priority}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="plan-section">
+            <div class="plan-section-title">💡 学习小贴士</div>
+            <div class="plan-tips">
+                ${plan.tips.map(tip => `<p>${tip}</p>`).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// 生成学习计划
+function generateStudyPlan(data) {
+    const typeNames = { single: '单音', interval: '音程', chord: '和弦' };
+
+    // 分析学习数据
+    const stats = {};
+    for (const type of ['single', 'interval', 'chord']) {
+        const records = data.learningRecords[type] || [];
+        const correct = records.filter(r => r.correct).length;
+        stats[type] = {
+            total: records.length,
+            accuracy: records.length > 0 ? Math.round((correct / records.length) * 100) : 0
+        };
+    }
+
+    // 找出最薄弱的类型
+    const weakestType = Object.entries(stats).reduce((a, b) => {
+        if (b[1].total === 0) return a;
+        if (a[1].total === 0) return b;
+        return a[1].accuracy < b[1].accuracy ? a : b;
+    })[0];
+
+    // 生成周目标
+    const weeklyGoals = [
+        { icon: '📝', name: '每日练习', desc: '每天完成30分钟听音练习' },
+        { icon: '🎯', name: '错题复习', desc: '每周复习所有错题至少2次' },
+        { icon: '⬆️', name: '难度提升', desc: '正确率达到85%时挑战更高难度' }
+    ];
+
+    if (stats[weakestType].total > 0 && stats[weakestType].accuracy < 80) {
+        weeklyGoals.push({
+            icon: '🔥',
+            name: `重点加强${typeNames[weakestType]}`,
+            desc: `${typeNames[weakestType]}正确率${stats[weakestType].accuracy}%，需重点提升`
+        });
+    }
+
+    // 每日练习安排
+    const dailySchedule = [
+        { time: '10分钟', content: '热身练习 - 听音程（纯五度、八度）' },
+        { time: '15分钟', content: `${typeNames[weakestType]}专项练习` },
+        { time: '10分钟', content: '复习错题本中的错误题目' },
+        { time: '5分钟', content: '总结今日学习收获' }
+    ];
+
+    // 重点提升方向
+    const focusAreas = [];
+    for (const type of ['single', 'interval', 'chord']) {
+        if (stats[type].total > 0) {
+            const level = stats[type].accuracy >= 85 ? '已掌握' :
+                stats[type].accuracy >= 60 ? '需加强' : '重点提升';
+            const color = stats[type].accuracy >= 85 ? '#4db6ac' :
+                stats[type].accuracy >= 60 ? '#ffb347' : '#e74c3c';
+            focusAreas.push({
+                type: typeNames[type],
+                content: `正确率${stats[type].accuracy}%，${level}`,
+                priority: level,
+                priorityColor: color
+            });
+        }
+    }
+
+    if (focusAreas.length === 0) {
+        focusAreas.push({
+            type: '全部类型',
+            content: '开始学习后将生成个性化分析',
+            priority: '待统计',
+            priorityColor: '#888'
+        });
+    }
+
+    // 学习小贴士
+    const tips = [
+        '🎵 最佳学习时段：上午10-11点，下午3-4点',
+        '💪 每次学习不超过45分钟，避免听觉疲劳',
+        '📝 听辨前先在心中默唱标准音高，建立音准参考',
+        '🎹 练习后用钢琴验证答案，强化听觉记忆'
+    ];
+
+    return { weeklyGoals, dailySchedule, focusAreas, tips };
+}
+
+// 生成新计划（重新生成随机建议）
+function generateNewPlan() {
+    showStudyPlan();
+}
+
+// ==================== 确保DOM加载后初始化 ====================
 if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { init(); }); } else { init(); }
 
 // 后续：其余模块（音程/单音/节奏/旋律）定义与实现保留在此文件（已提取）
