@@ -399,6 +399,10 @@ let midiInputs = [];
 const activeNotes = new Set(); // 跟踪当前按下的 MIDI 音符
 let midiInitialized = false; // 防止重复初始化
 
+// 全局触摸锁 - 防止移动端触摸事件触发后合成的mousedown事件导致双响
+let lastPianoTouchTime = 0;
+const PIANO_TOUCH_LOCK_MS = 300; // 触摸锁持续时间（毫秒）
+
 function ensureAudioReady() {
     if (!window.audioContext) {
         window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -427,16 +431,23 @@ function setupAudioUnlock() {
         z-index: 10000;
         display: none;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-        pointer-events: none; /* 让点击事件穿透 */
+        pointer-events: auto; /* 确保点击事件能被捕获 */
     `;
     audioHint.innerHTML = '🔊 点击屏幕任意位置激活音频';
     document.body.appendChild(audioHint);
 
     let audioUnlocked = false;
+    let showHintTimer = null;
 
     const unlock = async (e) => {
         if (audioUnlocked) return;
         audioUnlocked = true;
+
+        // 关键修复：立即取消待显示的提示框定时器
+        if (showHintTimer) {
+            clearTimeout(showHintTimer);
+            showHintTimer = null;
+        }
 
         console.log('🔓 尝试激活音频...');
 
@@ -457,13 +468,14 @@ function setupAudioUnlock() {
                 console.log('🎵 测试音已播放');
             }
 
-            // 隐藏提示
-            if (audioHint) {
+            // 隐藏提示 - 使用安全方式
+            if (audioHint && audioHint.parentNode) {
                 audioHint.style.opacity = '0';
                 audioHint.style.transition = 'opacity 0.3s';
                 setTimeout(() => {
-                    audioHint.style.display = 'none';
-                    audioHint.remove();
+                    if (audioHint.parentNode) {
+                        audioHint.parentNode.removeChild(audioHint);
+                    }
                 }, 300);
             }
 
@@ -474,7 +486,7 @@ function setupAudioUnlock() {
             audioUnlocked = false; // 允许重试
 
             // 显示错误提示
-            if (audioHint) {
+            if (audioHint && audioHint.parentNode) {
                 audioHint.innerHTML = '❌ 激活失败，请再点击一次';
                 audioHint.style.background = 'rgba(255, 0, 0, 0.9)';
             }
@@ -491,8 +503,11 @@ function setupAudioUnlock() {
 
     // 移动设备立即显示提示，桌面设备只在需要时显示
     if (isMobile || (window.audioContext && window.audioContext.state === 'suspended')) {
-        setTimeout(() => {
-            audioHint.style.display = 'block';
+        showHintTimer = setTimeout(() => {
+            // 关键修复：检查是否已激活，避免提示框在激活后才显示
+            if (!audioUnlocked && audioHint.parentNode) {
+                audioHint.style.display = 'block';
+            }
         }, 500);
     }
 
@@ -1097,8 +1112,10 @@ function initChordPiano() {
         else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
         else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
         key.appendChild(octaveLabel);
-        // 桌面端事件
+        // 桌面端事件（添加触摸锁检查，防止移动端双响）
         key.addEventListener('mousedown', (e) => {
+            // 如果是触摸事件触发的合成mousedown，跳过执行
+            if (Date.now() - lastPianoTouchTime < PIANO_TOUCH_LOCK_MS) return;
             e.preventDefault();
             handlePianoNoteOnChord(note);
         });
@@ -1112,6 +1129,8 @@ function initChordPiano() {
         let hasPlayed = false;
 
         key.addEventListener('touchstart', (e) => {
+            // 记录触摸时间，用于防止合成mousedown双响
+            lastPianoTouchTime = Date.now();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isScrolling = false;
@@ -1157,8 +1176,10 @@ function initChordPiano() {
         key.innerHTML = `<span class="note-name">${note.display}</span>`;
         key.dataset.note = note.note;
         key.style.left = calculateBlackKeyLeft(note.position);
-        // 桌面端事件
+        // 桌面端事件（添加触摸锁检查，防止移动端双响）
         key.addEventListener('mousedown', (e) => {
+            // 如果是触摸事件触发的合成mousedown，跳过执行
+            if (Date.now() - lastPianoTouchTime < PIANO_TOUCH_LOCK_MS) return;
             e.preventDefault();
             handlePianoNoteOnChord(note);
         });
@@ -1172,6 +1193,8 @@ function initChordPiano() {
         let hasPlayed = false;
 
         key.addEventListener('touchstart', (e) => {
+            // 记录触摸时间，用于防止合成mousedown双响
+            lastPianoTouchTime = Date.now();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isScrolling = false;
@@ -1223,20 +1246,20 @@ function initChordDifficultySelector() {
 }
 
 function initScaleDifficultySelector() {
-    const select = document.getElementById('scale-difficulty-chord'); 
+    const select = document.getElementById('scale-difficulty-chord');
     if (!select) return;
     select.innerHTML = '';
-    for (let i = 1; i <= 8; i++) { 
-        const option = document.createElement('option'); 
-        option.value = i; 
-        option.textContent = scaleDifficultyConfig[i].name; 
-        select.appendChild(option); 
+    for (let i = 1; i <= 8; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = scaleDifficultyConfig[i].name;
+        select.appendChild(option);
     }
     select.value = chordAppState.scaleDifficulty || 1;
     // 使用 updateChordScaleNotesByLevel 来正确初始化并应用琴键限制
     updateChordScaleNotesByLevel(chordAppState.scaleDifficulty || 1);
-    select.addEventListener('change', function () { 
-        const val = parseInt(this.value, 10); 
+    select.addEventListener('change', function () {
+        const val = parseInt(this.value, 10);
         if (!isNaN(val)) {
             updateChordScaleNotesByLevel(val);
         }
@@ -1259,18 +1282,18 @@ function updateInversionOptions() {
 
 function applyScaleRestrictionsToPiano() {
     const allowed = new Set((chordAppState.scaleNotes || []).map(n => n));
-    const piano = document.getElementById('piano-chord'); 
+    const piano = document.getElementById('piano-chord');
     if (!piano) return;
     const keys = piano.querySelectorAll('.white-key, .black-key');
-    keys.forEach(key => { 
-        const note = key.dataset.note; 
-        if (!allowed.has(note)) { 
-            key.classList.add('disabled'); 
-            key.dataset.disabled = 'true'; 
-        } else { 
-            key.classList.remove('disabled'); 
-            delete key.dataset.disabled; 
-        } 
+    keys.forEach(key => {
+        const note = key.dataset.note;
+        if (!allowed.has(note)) {
+            key.classList.add('disabled');
+            key.dataset.disabled = 'true';
+        } else {
+            key.classList.remove('disabled');
+            delete key.dataset.disabled;
+        }
     });
 }
 
@@ -7732,8 +7755,10 @@ function initSinglePiano() {
         else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
         else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
         key.appendChild(octaveLabel);
-        // 桌面端事件
+        // 桌面端事件（添加触摸锁检查，防止移动端双响）
         key.addEventListener('mousedown', (e) => {
+            // 如果是触摸事件触发的合成mousedown，跳过执行
+            if (Date.now() - lastPianoTouchTime < PIANO_TOUCH_LOCK_MS) return;
             e.preventDefault();
             handlePianoNoteOnSingle(note);
         });
@@ -7747,6 +7772,8 @@ function initSinglePiano() {
         let hasPlayed = false;
 
         key.addEventListener('touchstart', (e) => {
+            // 记录触摸时间，用于防止合成mousedown双响
+            lastPianoTouchTime = Date.now();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isScrolling = false;
@@ -7791,8 +7818,10 @@ function initSinglePiano() {
         key.innerHTML = note.display;
         key.dataset.note = note.note;
         key.style.left = calculateBlackKeyLeft(note.position);
-        // 桌面端事件
+        // 桌面端事件（添加触摸锁检查，防止移动端双响）
         key.addEventListener('mousedown', (e) => {
+            // 如果是触摸事件触发的合成mousedown，跳过执行
+            if (Date.now() - lastPianoTouchTime < PIANO_TOUCH_LOCK_MS) return;
             e.preventDefault();
             handlePianoNoteOnSingle(note);
         });
@@ -7806,6 +7835,8 @@ function initSinglePiano() {
         let hasPlayed = false;
 
         key.addEventListener('touchstart', (e) => {
+            // 记录触摸时间，用于防止合成mousedown双响
+            lastPianoTouchTime = Date.now();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isScrolling = false;
@@ -7862,8 +7893,10 @@ function initIntervalPiano() {
         else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
         else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
         key.appendChild(octaveLabel);
-        // 桌面端事件
+        // 桌面端事件（添加触摸锁检查，防止移动端双响）
         key.addEventListener('mousedown', (e) => {
+            // 如果是触摸事件触发的合成mousedown，跳过执行
+            if (Date.now() - lastPianoTouchTime < PIANO_TOUCH_LOCK_MS) return;
             e.preventDefault();
             handlePianoNoteOnInterval(note);
         });
@@ -7877,6 +7910,8 @@ function initIntervalPiano() {
         let hasPlayed = false;
 
         key.addEventListener('touchstart', (e) => {
+            // 记录触摸时间，用于防止合成mousedown双响
+            lastPianoTouchTime = Date.now();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isScrolling = false;
@@ -7921,8 +7956,10 @@ function initIntervalPiano() {
         key.innerHTML = `<span class="note-name">${note.display}</span>`;
         key.dataset.note = note.note;
         key.style.left = calculateBlackKeyLeft(note.position);
-        // 桌面端事件
+        // 桌面端事件（添加触摸锁检查，防止移动端双响）
         key.addEventListener('mousedown', (e) => {
+            // 如果是触摸事件触发的合成mousedown，跳过执行
+            if (Date.now() - lastPianoTouchTime < PIANO_TOUCH_LOCK_MS) return;
             e.preventDefault();
             handlePianoNoteOnInterval(note);
         });
@@ -7936,6 +7973,8 @@ function initIntervalPiano() {
         let hasPlayed = false;
 
         key.addEventListener('touchstart', (e) => {
+            // 记录触摸时间，用于防止合成mousedown双响
+            lastPianoTouchTime = Date.now();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isScrolling = false;
