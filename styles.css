@@ -3880,3 +3880,119 @@ body {
         font-size: 1.1rem;
     }
 }
+
+/* ==================== 旋律听辨模块样式 ==================== */
+
+.melody-params-section {
+    display: flex;
+    gap: 15px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+}
+
+.melody-answer-display {
+    margin: 15px 0;
+    padding: 12px;
+    background: rgba(255, 183, 77, 0.08);
+    border: 1px solid rgba(255, 183, 77, 0.3);
+    border-radius: 8px;
+}
+
+.melody-input-section {
+    margin: 15px 0;
+    padding: 12px;
+    background: rgba(79, 195, 247, 0.08);
+    border: 1px solid rgba(79, 195, 247, 0.3);
+    border-radius: 8px;
+}
+
+.melody-key-meter-section {
+    display: flex;
+    gap: 15px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.melody-key-meter-section .param-group {
+    flex: 1;
+    min-width: 100px;
+}
+
+.current-selection-display {
+    padding: 8px 12px;
+    border: 1px solid rgba(79, 195, 247, 0.4);
+    border-radius: 6px;
+    background: rgba(79, 195, 247, 0.1);
+    color: #4FC3F7;
+    font-size: 14px;
+    font-weight: bold;
+    min-height: 20px;
+    text-align: center;
+}
+
+.melody-duration-section {
+    margin: 15px 0;
+}
+
+.melody-duration-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.melody-duration-btn {
+    padding: 8px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.melody-duration-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.melody-duration-btn.active {
+    background: linear-gradient(135deg, #4FC3F7, #29B6F6);
+    color: #fff;
+    border-color: #4FC3F7;
+    box-shadow: 0 2px 8px rgba(79, 195, 247, 0.3);
+}
+
+.melody-note-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.melody-note-actions .btn {
+    flex: 1;
+    min-width: 100px;
+}
+
+/* 旋律答题区在移动端的适配 */
+@media (max-width: 768px) {
+
+    .melody-params-section,
+    .melody-key-meter-section {
+        flex-direction: column;
+    }
+
+    .melody-duration-tabs {
+        justify-content: center;
+    }
+
+    .melody-duration-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
+    .melody-note-actions {
+        flex-direction: column;
+    }
+}

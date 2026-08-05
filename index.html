@@ -8,8 +8,9 @@
     <title>音乐听觉综合训练系统 - 和弦听辨</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/abcjs@6.5.2/dist/abcjs-basic-min.js"></script>
-    <!-- VexFlow - 音乐记谱法渲染库 -->
-    <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+    <!-- VexFlow已移除，改用Canvas渲染 -->
+    <!-- OSMD - OpenSheetMusicDisplay (本地，用于正确答案五线谱渲染) -->
+    <script src="lib/osmd.js"></script>
     <script>
         (function () {
             function loadLocal() {
@@ -1194,6 +1195,314 @@
             </div>
         </div>
 
+        <!-- 旋律听辨页面 -->
+        <div id="melody-page" class="page">
+            <div class="container">
+                <div class="exercise-page">
+                    <div class="exercise-header">
+                        <h2 class="exercise-title"><i class="fas fa-music"></i> 旋律听辨</h2>
+                        <button id="back-home-melody" class="back-btn" title="返回首页">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="window-controls">
+                            <button id="fullscreen-btn-melody" class="window-btn" title="全屏">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                            <button id="close-btn-melody" class="window-btn" title="关闭">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 模式切换标签 -->
+                    <div class="mode-tabs">
+                        <button id="practice-btn-melody" class="tab-btn active">练习模式</button>
+                        <button id="test-btn-melody" class="tab-btn secondary">测试模式</button>
+                        <button id="leaderboard-btn-melody" class="tab-btn exam">风云榜单</button>
+                        <button id="end-test-btn-melody" class="tab-btn warning" style="display: none;">结束测试</button>
+                    </div>
+
+                    <!-- 练习说明 -->
+                    <div class="practice-instructions" id="practice-instructions-melody">
+                        <h4>📖 练习说明</h4>
+                        <ul id="melody-instructions-list">
+                            <li><strong>随机播放：</strong>点击"随机播放"听一段旋律，可选择不同曲目或上传MusicXML文件</li>
+                            <li><strong>选择调性拍号：</strong>根据听到的旋律，选择正确的调性和拍号</li>
+                            <li><strong>逐音输入：</strong>用钢琴键盘选择音高，用节奏按钮选择时值，点击"添加音符"将音符填入五线谱</li>
+                            <li><strong>修改音符：</strong>点击"删除末音"移除最后一个音符，或"清空"重置全部输入</li>
+                            <li><strong>提交验证：</strong>输入完成后点击"提交答案"，系统按小节评分（调性1分+拍号1分+旋律18分）</li>
+                            <li><strong>显示答案：</strong>练习模式可点击"显示答案"查看正确旋律（测试模式禁用）</li>
+                        </ul>
+                    </div>
+
+                    <div id="practice-test-content-melody">
+                        <div class="top-controls">
+                            <div class="right-controls" style="flex:1;min-width:0;">
+                                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                                    <div style="display:flex;flex-direction:column;flex:1;min-width:0;">
+                                        <label for="melody-bpm" style="font-size:12px;margin-bottom:6px;">速度
+                                            (BPM)</label>
+                                        <div style="display:flex;align-items:center;gap:8px;">
+                                            <input id="melody-bpm" type="range" min="40" max="200" value="90"
+                                                style="flex:1;">
+                                            <div id="bpm-display-melody" style="width:48px;text-align:center;">90</div>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+                                        <button id="reset-test-btn-melody" class="reset-btn">截屏</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 曲目选择 -->
+                        <div class="melody-params-section">
+                            <div class="param-group">
+                                <label for="melody-selector">曲目</label>
+                                <select id="melody-selector">
+                                    <option value="0">C大调练习曲</option>
+                                    <option value="1">G大调民谣</option>
+                                    <option value="2">a小调旋律</option>
+                                </select>
+                            </div>
+                            <div class="param-group" id="melody-file-info" style="display:none;">
+                                <label>已加载曲目</label>
+                                <div id="melody-file-info-text" style="color:#4FC3F7;font-size:12px;padding:4px 8px;">—
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="status-melody" class="status-message">请选择模式开始练习</div>
+
+                        <!-- 计分板（测试模式显示） -->
+                        <div class="stats-panel" id="stats-panel-melody" style="display: none;">
+                            <div class="stat-item">
+                                <div class="stat-label">得分</div>
+                                <div class="stat-value" id="score-melody">0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">正确</div>
+                                <div class="stat-value" id="correct-melody">0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">错误</div>
+                                <div class="stat-value" id="wrong-melody">0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">进度</div>
+                                <div class="stat-value" id="progress-melody">0题</div>
+                            </div>
+                        </div>
+
+                        <!-- 时间显示（测试模式显示） -->
+                        <div class="time-panel" id="time-panel-melody" style="display: none;">
+                            <div class="time-row">
+                                <div class="time-item">
+                                    <div class="time-label">当前时间：</div>
+                                    <div class="time-display" id="current-time-melody">--</div>
+                                </div>
+                                <div class="time-item">
+                                    <div class="time-label">用时：</div>
+                                    <div class="time-display" id="elapsed-time-melody">00:00.00</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 正确答案显示区（OSMD渲染，点击"显示答案"后显示） -->
+                        <div id="melody-answer-display" class="melody-answer-display" style="display: none;">
+                            <h4 style="color:#FFB74D;margin:0 0 8px 0;">📜 正确答案</h4>
+                            <div id="osmd-container-melody"
+                                style="background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;overflow:auto;">
+                            </div>
+                        </div>
+
+                        <!-- 调性与拍号选择 -->
+                        <div class="melody-key-meter-section">
+                            <div class="param-group">
+                                <label for="key-selector-melody">调性</label>
+                                <select id="key-selector-melody">
+                                    <option value="">请选择</option>
+                                    <option value="C">C大调</option>
+                                    <option value="G">G大调</option>
+                                    <option value="D">D大调</option>
+                                    <option value="A">A大调</option>
+                                    <option value="F">F大调</option>
+                                    <option value="Bb">♭B大调</option>
+                                    <option value="Eb">♭E大调</option>
+                                    <option value="a">a小调</option>
+                                    <option value="e">e小调</option>
+                                    <option value="d">d小调</option>
+                                </select>
+                            </div>
+                            <div class="param-group">
+                                <label for="timesig-selector-melody">拍号</label>
+                                <select id="timesig-selector-melody">
+                                    <option value="">请选择</option>
+                                    <option value="2/4">2/4</option>
+                                    <option value="3/4">3/4</option>
+                                    <option value="4/4">4/4</option>
+                                    <option value="3/8">3/8</option>
+                                    <option value="6/8">6/8</option>
+                                </select>
+                            </div>
+                            <div class="param-group">
+                                <label>当前音高</label>
+                                <div id="current-pitch-melody" class="current-selection-display">未选择</div>
+                            </div>
+                            <div class="param-group">
+                                <label>当前时值</label>
+                                <div id="current-duration-melody" class="current-selection-display">四分</div>
+                            </div>
+                        </div>
+
+                        <!-- 钢琴键盘 -->
+                        <div class="piano-container" id="piano-container-melody">
+                            <div id="piano-melody" class="piano"></div>
+                        </div>
+
+                        <!-- 时值选择按钮 -->
+                        <div class="melody-duration-section">
+                            <div class="melody-duration-tabs">
+                                <button class="melody-duration-btn active" data-duration="q">四分</button>
+                                <button class="melody-duration-btn" data-duration="h">二分</button>
+                                <button class="melody-duration-btn" data-duration="w">全音</button>
+                                <button class="melody-duration-btn" data-duration="8">八分</button>
+                                <button class="melody-duration-btn" data-duration="16">十六分</button>
+                                <button class="melody-duration-btn" data-duration="q." data-dots="1">附点四分</button>
+                                <button class="melody-duration-btn" data-duration="8." data-dots="1">附点八分</button>
+                                <button class="melody-duration-btn" data-duration="h." data-dots="1">附点二分</button>
+                                <button class="melody-duration-btn" data-duration="triplet">三连音</button>
+                            </div>
+                            <div class="melody-note-actions">
+                                <button id="add-note-btn-melody" class="btn success"><i class="fas fa-plus"></i>
+                                    添加音符</button>
+                                <button id="delete-note-btn-melody" class="btn warning"><i class="fas fa-undo"></i>
+                                    删除末音</button>
+                                <button id="clear-notes-btn-melody" class="btn danger"><i class="fas fa-trash"></i>
+                                    清空</button>
+                            </div>
+                        </div>
+
+                        <div id="test-result-melody" class="test-result"></div>
+                        <div id="test-analysis-melody" class="test-analysis"></div>
+
+                        <!-- 用户答题五线谱区（Canvas渲染） -->
+                        <div class="melody-input-section">
+                            <h4 style="color:#4FC3F7;margin:0 0 8px 0;">🎼 您的答案</h4>
+                            <div id="vexflow-container-melody"
+                                style="background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;overflow:auto;min-height:120px;">
+                            </div>
+                        </div>
+
+                        <!-- 底部控制按钮 -->
+                        <div class="play-controls" id="play-controls-melody">
+                            <button id="random-play-btn-melody" class="btn"><i class="fas fa-random"></i> 随机播放</button>
+                            <button id="play-btn-melody" class="btn secondary"><i class="fas fa-play"></i> 重复播放</button>
+                            <button id="submit-btn-melody" class="btn"><i class="fas fa-check"></i> 提交答案</button>
+                            <button id="show-answer-btn-melody" class="btn answer-btn">显示答案</button>
+                        </div>
+                    </div>
+
+                    <!-- 测试结束区域（测试结束后显示） -->
+                    <div id="melody-test-end-content" style="display: none;">
+                        <div class="test-end-inline">
+                            <h3 id="melody-test-end-title"
+                                style="text-align: center; color: #FFB74D; margin: 0 0 15px 0;">🎉 旋律听辨测试完成！</h3>
+                            <div class="user-info-with-score">
+                                <div class="compact-user-info-inline">
+                                    <p><strong>学校：</strong><span id="end-school-melody"></span></p>
+                                    <p><strong>专业班级：</strong><span id="end-major-class-melody"></span></p>
+                                    <p><strong>姓名：</strong><span id="end-name-melody"></span> |
+                                        <strong>指导教师：</strong><span id="end-teacher-melody"></span>
+                                    </p>
+                                    <p><strong>测试结束时间：</strong><span id="end-time-melody"></span></p>
+                                </div>
+                                <div class="score-badge-inline">
+                                    <div class="score-value-inline" id="end-total-score-melody">0</div>
+                                    <div class="score-label-inline">总分</div>
+                                </div>
+                            </div>
+                            <div class="test-analysis-panel-inline">
+                                <h3>测试结果分析</h3>
+                                <div id="analysis-content-melody"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 风云榜单 -->
+                    <div id="leaderboard-content-melody" style="display: none;">
+                        <div class="leaderboard-panel">
+                            <div class="leaderboard-config-info" id="leaderboard-config-melody"
+                                style="text-align: center; padding: 10px; color: rgba(255, 255, 255, 0.7); font-size: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 10px;">
+                            </div>
+                            <div class="leaderboard-table">
+                                <div class="leaderboard-header">
+                                    <div class="lb-col lb-rank">排名</div>
+                                    <div class="lb-col lb-name">姓名</div>
+                                    <div class="lb-col lb-score">得分</div>
+                                    <div class="lb-col lb-time">用时</div>
+                                </div>
+                                <div id="leaderboard-list-melody" class="leaderboard-list"></div>
+                            </div>
+                            <div class="leaderboard-footer">
+                                <button id="clear-leaderboard-btn-melody" class="btn warning">清空榜单</button>
+                                <button id="back-from-leaderboard-btn-melody" class="btn">返回</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 旋律听辨测试结束页 -->
+        <div id="melody-test-end-page" class="page">
+            <div class="container">
+                <div class="test-end-page">
+                    <div class="test-end-header">
+                        <h2>🎉 旋律听辨测试完成！</h2>
+                        <p>您已完成旋律听辨测试，以下是您的成绩报告</p>
+                    </div>
+                    <div class="compact-user-info">
+                        <p><strong>学校：</strong><span id="end-school-melody"></span></p>
+                        <p><strong>专业班级：</strong><span id="end-major-class-melody"></span></p>
+                        <p><strong>姓名：</strong><span id="end-name-melody"></span></p>
+                        <p><strong>指导教师：</strong><span id="end-teacher-melody"></span></p>
+                        <p><strong>测试结束时间：</strong><span id="end-time-melody"></span></p>
+                    </div>
+                    <div class="end-summary">
+                        <div class="item"><strong>调式：</strong> <span id="end-scale-melody">—</span></div>
+                        <div class="item"><strong>级别：</strong> <span id="end-difficulty-melody">—</span></div>
+                    </div>
+                    <div class="score-summary">
+                        <div class="score-card total-score">
+                            <div class="score-value" id="end-total-score-melody">0</div>
+                            <div class="score-label">总分</div>
+                        </div>
+                    </div>
+                    <div class="test-results-detail">
+                        <p><strong>正确题数：</strong><span id="end-correct-melody">0</span> 题</p>
+                        <p><strong>错误题数：</strong><span id="end-wrong-melody">0</span> 题</p>
+                        <p><strong>总题数：</strong><span id="end-total-melody">0</span> 题</p>
+                    </div>
+                    <div class="test-comment">
+                        <h3>评语</h3>
+                        <p id="end-comment-melody"></p>
+                    </div>
+                    <div class="test-analysis-panel">
+                        <h3>测试结果分析</h3>
+                        <div class="analysis-details">
+                            <div id="analysis-content-melody"></div>
+                        </div>
+                    </div>
+                    <div class="end-page-buttons">
+                        <button id="view-details-btn-melody" class="btn primary">查看详细报告</button>
+                        <button id="restart-test-btn-melody" class="btn success">重新开始测试</button>
+                        <button id="back-to-home-btn-melody" class="btn">返回首页</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 学习报告页面 -->
         <div id="learning-report-page" class="page">
             <div class="container">
@@ -1434,7 +1743,7 @@
         </div>
 
         <!-- 所有 JavaScript 逻辑已移至 app.js -->
-        <script src="app.js?v=20260601"></script>
+        <script src="app.js?v=20260730b"></script>
     </div>
 
     <script>

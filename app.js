@@ -145,6 +145,46 @@ const rhythmAppState = {
     measureBeatsFilled: [] // 每个小节已填充的拍数
 };
 
+// 旋律听辨状态管理
+const melodyAppState = {
+    currentMode: 'practice', // 'practice' | 'test'
+    testInProgress: false,
+    score: 0,
+    correct: 0,
+    wrong: 0,
+    totalQuestions: 0,
+    errorQuestions: [],
+    testStartTime: null,
+    testEndTime: null,
+    testTimer: null,
+    elapsedTime: 0,
+    elapsedTimeTimer: null,
+    userInfo: {
+        school: '',
+        majorClass: '',
+        name: '',
+        teacher: '',
+        saved: false
+    },
+    // 旋律相关状态
+    currentMelody: null, // 当前旋律题目 {title, key, timeSignature, notes, musicxml}
+    selectedKey: null, // 用户选择的调性
+    selectedTimeSignature: null, // 用户选择的拍号
+    inputNotes: [], // 用户输入的音符 [{pitch, duration, dots}]
+    currentPitch: null, // 当前选中的音高（钢琴键）
+    currentDuration: 'q', // 当前选中的时值
+    currentDots: 0, // 当前附点数
+    isPlaying: false,
+    bpm: 90,
+    osmd: null, // OSMD实例
+    vexflowRenderer: null, // VexFlow渲染器
+    vexflowContext: null,
+    vexflowStave: null,
+    loadedMelodies: [], // 从melodies/文件夹加载的预置曲目
+    leaderboard: [],
+    testAnalysis: [] // 测试结果分析记录
+};
+
 // 音符表 - 钢琴键盘范围 G3 至 F5
 const allNotes = [
     { note: 'G3', name: 'G', display: 'G3', type: 'white', octave: 3, position: 0, group: 'group1' },
@@ -657,9 +697,8 @@ async function initMIDI() {
 
         console.log('✅ MIDI 初始化成功，可用设备:', Array.from(midiAccess.inputs.keys()));
     } catch (error) {
-        console.error('❌ MIDI 初始化失败:', error);
+        console.warn('⚠️ MIDI 初始化失败（若无MIDI设备可忽略）:', error.message);
         updateMidiStatus(false);
-        alert('无法访问 MIDI 设备：' + error.message + '\n\n请确保：\n1. 使用 Chrome 或 Edge 浏览器\n2. 在弹出的对话框中点击"允许"\n3. MIDI 键盘已正确连接');
     }
 }
 
@@ -1023,6 +1062,7 @@ const pageManager = {
             'rhythm-page': '节奏听辨 - 音乐听觉综合训练系统',
             'rhythm-test-end-page': '节奏听辨结果 - 音乐听觉综合训练系统',
             'melody-page': '旋律听辨 - 音乐听觉综合训练系统',
+            'melody-test-end-page': '旋律听辨结果 - 音乐听觉综合训练系统',
             'learning-report-page': '学习报告 - 音乐听觉综合训练系统',
             'error-book-page': '错题本 - 音乐听觉综合训练系统',
             'adaptive-page': '智能推荐 - 音乐听觉综合训练系统'
@@ -1079,6 +1119,8 @@ const userManager = {
         chordAppState.userInfo = { ...userInfo };
         singleAppState.userInfo = { ...userInfo };
         intervalAppState.userInfo = { ...userInfo };
+        rhythmAppState.userInfo = { ...userInfo };
+        melodyAppState.userInfo = { ...userInfo };
 
         localStorage.setItem('userInfo', JSON.stringify(userInfo));
         this.showSaveStatus('信息已保存', 'success');
@@ -1093,6 +1135,8 @@ const userManager = {
                 chordAppState.userInfo = { ...userInfo, saved: true };
                 singleAppState.userInfo = { ...userInfo, saved: true };
                 intervalAppState.userInfo = { ...userInfo, saved: true };
+                rhythmAppState.userInfo = { ...userInfo, saved: true };
+                melodyAppState.userInfo = { ...userInfo, saved: true };
 
                 document.getElementById('school').value = userInfo.school || '';
                 document.getElementById('major-class').value = userInfo.majorClass || '';
@@ -5747,9 +5791,2147 @@ function initIntervalPage() {
     switchToPitchIdentificationInterval();
 }
 
+// ==================== 旋律听辨模块 ====================
+
+// 内置示例旋律数据（notes: {pitch, duration, dots}，duration: w/h/q/8/16）
+const MELODY_SAMPLES = [
+    {
+        title: 'C大调练习曲',
+        key: 'C',
+        keyName: 'C大调',
+        timeSignature: '4/4',
+        notes: [
+            { pitch: 'C4', duration: 'q', dots: 0 }, { pitch: 'E4', duration: 'q', dots: 0 },
+            { pitch: 'G4', duration: 'q', dots: 0 }, { pitch: 'E4', duration: 'q', dots: 0 },
+            { pitch: 'F4', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'C5', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'G4', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'D5', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'C5', duration: 'h', dots: 0 }, { pitch: 'G4', duration: 'h', dots: 0 },
+            { pitch: 'E4', duration: 'q', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'C5', duration: 'q', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'F4', duration: 'q', dots: 0 }, { pitch: 'D4', duration: 'q', dots: 0 },
+            { pitch: 'B3', duration: 'q', dots: 0 }, { pitch: 'D4', duration: 'q', dots: 0 },
+            { pitch: 'C4', duration: 'q', dots: 0 }, { pitch: 'E4', duration: 'q', dots: 0 },
+            { pitch: 'G4', duration: 'q', dots: 0 }, { pitch: 'E4', duration: 'q', dots: 0 },
+            { pitch: 'C4', duration: 'w', dots: 0 }
+        ]
+    },
+    {
+        title: 'G大调民谣',
+        key: 'G',
+        keyName: 'G大调',
+        timeSignature: '4/4',
+        notes: [
+            { pitch: 'G4', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'D5', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'C5', duration: 'q', dots: 0 },
+            { pitch: 'E5', duration: 'q', dots: 0 }, { pitch: 'C5', duration: 'q', dots: 0 },
+            { pitch: 'D5', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'G4', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'F#4', duration: 'q', dots: 0 },
+            { pitch: 'G4', duration: 'h', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'B4', duration: 'q', dots: 0 }, { pitch: 'D5', duration: 'q', dots: 0 },
+            { pitch: 'G5', duration: 'q', dots: 0 }, { pitch: 'D5', duration: 'q', dots: 0 },
+            { pitch: 'C5', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'F#4', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'G4', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'D5', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'G4', duration: 'w', dots: 0 }
+        ]
+    },
+    {
+        title: 'a小调旋律',
+        key: 'a',
+        keyName: 'a小调',
+        timeSignature: '3/4',
+        notes: [
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'C5', duration: 'q', dots: 0 },
+            { pitch: 'E5', duration: 'q', dots: 0 }, { pitch: 'D5', duration: 'h', dots: 0 },
+            { pitch: 'B4', duration: 'q', dots: 0 }, { pitch: 'C5', duration: 'q', dots: 0 },
+            { pitch: 'E5', duration: 'q', dots: 0 }, { pitch: 'A5', duration: 'q', dots: 0 },
+            { pitch: 'G5', duration: 'h', dots: 0 }, { pitch: 'F5', duration: 'q', dots: 0 },
+            { pitch: 'E5', duration: 'q', dots: 0 }, { pitch: 'D5', duration: 'q', dots: 0 },
+            { pitch: 'C5', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'h', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'h', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'h', dots: 0 }, { pitch: 'E4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'h', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 }
+        ]
+    }
+];
+
+// 时值描述映射
+const MELODY_DURATION_DESC = {
+    'w': '全音', 'h': '二分', 'q': '四分', '8': '八分', '16': '十六分',
+    'q.': '附点四分', '8.': '附点八分', 'h.': '附点二分', 'triplet': '三连音'
+};
+
+// 时值对应的拍数（以四分音符为1拍）
+const MELODY_DURATION_BEATS = {
+    'w': 4, 'h': 2, 'q': 1, '8': 0.5, '16': 0.25
+};
+
+// 调性对应的fifths（MusicXML用）
+const KEY_FIFTHS = {
+    'C': 0, 'G': 1, 'D': 2, 'A': 3, 'F': -1, 'Bb': -2, 'Eb': -3,
+    'a': 0, 'e': 1, 'd': -1, 'b': 2, 'g': -1
+};
+
+// 将音高字符串解析为 {step, alter, octave}
+function parsePitch(pitchStr) {
+    const match = pitchStr.match(/^([A-G])(#|b)?(\d)$/);
+    if (!match) return null;
+    const [, step, accidental, octave] = match;
+    let alter = 0;
+    if (accidental === '#') alter = 1;
+    else if (accidental === 'b') alter = -1;
+    return { step, alter, octave: parseInt(octave) };
+}
+
+// 将音高转为VexFlow键格式（如 C4 -> c/4, F#4 -> f#/4）
+function pitchToVexFlowKey(pitchStr) {
+    const p = parsePitch(pitchStr);
+    if (!p) return 'c/4';
+    return p.step.toLowerCase() + (p.alter === 1 ? '#' : p.alter === -1 ? 'b' : '') + '/' + p.octave;
+}
+
+// 将duration转为MusicXML type
+function durationToXmlType(duration) {
+    const map = { 'w': 'whole', 'h': 'half', 'q': 'quarter', '8': 'eighth', '16': '16th' };
+    return map[duration.replace('.', '')] || 'quarter';
+}
+
+// 获取时值的拍数（含附点）
+function getNoteBeats(duration, dots) {
+    const base = duration.replace('.', '');
+    const beats = MELODY_DURATION_BEATS[base] || 1;
+    return beats * (dots ? 1.5 : 1);
+}
+
+// 生成MusicXML字符串
+function generateMusicXML(melody) {
+    const fifths = KEY_FIFTHS[melody.key] !== undefined ? KEY_FIFTHS[melody.key] : 0;
+    const [beats, beatType] = melody.timeSignature.split('/');
+    const divisions = 4; // 每四分音符4个division
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">\n';
+    xml += '<score-partwise version="3.1">\n';
+    xml += '  <part-list>\n    <score-part id="P1">\n      <part-name>旋律</part-name>\n    </score-part>\n  </part-list>\n';
+    xml += '  <part id="P1">\n';
+
+    // 按小节切分音符
+    const beatsPerMeasure = parseInt(beats);
+    let measureNum = 1;
+    let currentMeasureBeats = 0;
+    let measureNotes = [];
+
+    function writeMeasure(isLast) {
+        xml += `    <measure number="${measureNum}">\n`;
+        if (measureNum === 1) {
+            xml += '      <attributes>\n';
+            xml += `        <divisions>${divisions}</divisions>\n`;
+            xml += `        <key><fifths>${fifths}</fifths></key>\n`;
+            xml += `        <time><beats>${beats}</beats><beat-type>${beatType}</beat-type></time>\n`;
+            xml += '        <clef><sign>G</sign><line>2</line></clef>\n';
+            xml += '      </attributes>\n';
+        }
+        measureNotes.forEach(n => {
+            xml += '      <note>';
+            if (n.pitch === 'rest') {
+                xml += '<rest/>';
+            } else {
+                const p = parsePitch(n.pitch);
+                xml += `<pitch><step>${p.step}</step>`;
+                if (p.alter !== 0) xml += `<alter>${p.alter}</alter>`;
+                xml += `<octave>${p.octave}</octave></pitch>`;
+            }
+            const dur = Math.round(getNoteBeats(n.duration, n.dots) * divisions);
+            xml += `<duration>${dur}</duration>`;
+            xml += `<type>${durationToXmlType(n.duration)}</type>`;
+            if (n.dots) xml += '<dot/>';
+            xml += '</note>\n';
+        });
+        if (isLast) {
+            xml += '      <barline location="right"><bar-style>light-heavy</bar-style></barline>\n';
+        }
+        xml += '    </measure>\n';
+        measureNum++;
+    }
+
+    melody.notes.forEach(note => {
+        measureNotes.push(note);
+        currentMeasureBeats += getNoteBeats(note.duration, note.dots);
+        if (currentMeasureBeats >= beatsPerMeasure - 0.01) {
+            writeMeasure(false);
+            measureNotes = [];
+            currentMeasureBeats = 0;
+        }
+    });
+    if (measureNotes.length > 0) writeMeasure(true);
+
+    xml += '  </part>\n</score-partwise>';
+    return xml;
+}
+
+// 解析MusicXML文件为旋律数据
+function parseMusicXML(xmlText) {
+    try {
+        // 去除DOCTYPE声明（某些浏览器会因DTD验证失败）
+        const cleanXml = xmlText.replace(/<!DOCTYPE[^>]*>/, '').replace(/<\?xml[^?]*\?>/, '');
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(cleanXml, 'text/xml');
+        // 检查解析错误
+        const parseError = doc.querySelector('parsererror');
+        if (parseError) {
+            console.error('MusicXML解析错误:', parseError.textContent);
+            return null;
+        }
+        const part = doc.querySelector('part');
+        if (!part) {
+            console.error('MusicXML: part元素未找到');
+            return null;
+        }
+
+        // 获取调性和拍号
+        let key = 'C', timeSignature = '4/4';
+        const fifthsEl = doc.querySelector('fifths');
+        if (fifthsEl) {
+            const fifths = parseInt(fifthsEl.textContent);
+            const majorKeys = { 0: 'C', 1: 'G', 2: 'D', 3: 'A', '-1': 'F', '-2': 'Bb', '-3': 'Eb' };
+            const minorKeys = { 0: 'a', 1: 'e', 2: 'b', '-1': 'd', '-2': 'g' };
+            key = majorKeys[fifths] || minorKeys[fifths] || 'C';
+        }
+        const beatsEl = doc.querySelector('beats');
+        const beatTypeEl = doc.querySelector('beat-type');
+        if (beatsEl && beatTypeEl) {
+            timeSignature = beatsEl.textContent + '/' + beatTypeEl.textContent;
+        }
+
+        // 解析音符
+        const notes = [];
+        const noteEls = part.querySelectorAll('note');
+        noteEls.forEach(noteEl => {
+            const pitchEl = noteEl.querySelector('pitch');
+            const typeEl = noteEl.querySelector('type');
+            const dotEl = noteEl.querySelector('dot');
+            let pitch = 'rest';
+            if (pitchEl) {
+                const stepEl = pitchEl.querySelector('step');
+                const octaveEl = pitchEl.querySelector('octave');
+                if (!stepEl || !octaveEl) return;
+                const step = stepEl.textContent;
+                const alterEl = pitchEl.querySelector('alter');
+                const octave = octaveEl.textContent;
+                const alter = alterEl ? parseInt(alterEl.textContent) : 0;
+                pitch = step + (alter === 1 ? '#' : alter === -1 ? 'b' : '') + octave;
+            }
+            if (pitch === 'rest') return; // 跳过休止符
+            let duration = 'q';
+            if (typeEl) {
+                const typeMap = { 'whole': 'w', 'half': 'h', 'quarter': 'q', 'eighth': '8', '16th': '16' };
+                duration = typeMap[typeEl.textContent] || 'q';
+            }
+            const dots = dotEl ? 1 : 0;
+            notes.push({ pitch, duration, dots });
+        });
+
+        return {
+            title: '上传曲目',
+            key: key,
+            keyName: key + (['a', 'e', 'd', 'b', 'g'].includes(key) ? '小调' : '大调'),
+            timeSignature: timeSignature,
+            notes: notes
+        };
+    } catch (e) {
+        console.error('解析MusicXML失败:', e);
+        return null;
+    }
+}
+
 function initMelodyPage() {
-    const back = document.getElementById('back-home-melody'); if (back) back.addEventListener('click', () => pageManager.switchToPage('home-page'));
-    alert('旋律听辨功能正在开发中，敬请期待！');
+    console.log('initMelodyPage 被调用');
+    if (initMelodyPage.initialized) {
+        // 已初始化，确保是练习模式
+        startMelodyPracticeMode();
+        return;
+    }
+    initMelodyPage.initialized = true;
+
+    const back = document.getElementById('back-home-melody');
+    if (back) back.addEventListener('click', () => pageManager.switchToPage('home-page'));
+
+    // 模式切换按钮
+    const practiceBtn = document.getElementById('practice-btn-melody');
+    const testBtn = document.getElementById('test-btn-melody');
+    const leaderboardBtn = document.getElementById('leaderboard-btn-melody');
+    const endTestBtn = document.getElementById('end-test-btn-melody');
+
+    if (practiceBtn) practiceBtn.addEventListener('click', startMelodyPracticeMode);
+    if (testBtn) testBtn.addEventListener('click', startMelodyTestMode);
+    if (leaderboardBtn) leaderboardBtn.addEventListener('click', showMelodyLeaderboard);
+    if (endTestBtn) endTestBtn.addEventListener('click', endMelodyTestMode);
+
+    // 全屏和关闭按钮
+    const fullscreenBtn = document.getElementById('fullscreen-btn-melody');
+    if (fullscreenBtn) fullscreenBtn.addEventListener('click', () => {
+        const elem = document.getElementById('melody-page');
+        if (elem) {
+            if (!document.fullscreenElement) elem.requestFullscreen?.();
+            else document.exitFullscreen?.();
+        }
+    });
+    const closeBtn = document.getElementById('close-btn-melody');
+    if (closeBtn) closeBtn.addEventListener('click', () => pageManager.switchToPage('home-page'));
+
+    // 初始化钢琴键盘
+    initMelodyPiano();
+
+    // 初始化时值按钮
+    initMelodyDurationButtons();
+
+    // 控制按钮
+    const randomPlayBtn = document.getElementById('random-play-btn-melody');
+    const playBtn = document.getElementById('play-btn-melody');
+    const submitBtn = document.getElementById('submit-btn-melody');
+    const showAnswerBtn = document.getElementById('show-answer-btn-melody');
+    if (randomPlayBtn) randomPlayBtn.addEventListener('click', playRandomMelody);
+    if (playBtn) playBtn.addEventListener('click', repeatMelody);
+    if (submitBtn) submitBtn.addEventListener('click', submitMelodyAnswer);
+    if (showAnswerBtn) showAnswerBtn.addEventListener('click', showAnswerMelody);
+
+    // 音符操作按钮
+    const addNoteBtn = document.getElementById('add-note-btn-melody');
+    const deleteNoteBtn = document.getElementById('delete-note-btn-melody');
+    const clearNotesBtn = document.getElementById('clear-notes-btn-melody');
+    if (addNoteBtn) addNoteBtn.addEventListener('click', addMelodyNote);
+    if (deleteNoteBtn) deleteNoteBtn.addEventListener('click', deleteLastMelodyNote);
+    if (clearNotesBtn) clearNotesBtn.addEventListener('click', clearMelodyNotes);
+
+    // BPM滑块
+    const bpmSlider = document.getElementById('melody-bpm');
+    const bpmDisplay = document.getElementById('bpm-display-melody');
+    if (bpmSlider) bpmSlider.addEventListener('input', (e) => {
+        melodyAppState.bpm = parseInt(e.target.value);
+        if (bpmDisplay) bpmDisplay.textContent = melodyAppState.bpm;
+    });
+
+    // 截屏按钮
+    const resetBtn = document.getElementById('reset-test-btn-melody');
+    if (resetBtn) resetBtn.addEventListener('click', () => {
+        const page = document.getElementById('melody-page');
+        if (page) html2canvas?.(page).then(canvas => {
+            const link = document.createElement('a');
+            link.download = 'melody-test.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }).catch(() => alert('截屏功能需要html2canvas库'));
+    });
+
+    // 曲目选择
+    const melodySelector = document.getElementById('melody-selector');
+    if (melodySelector) melodySelector.addEventListener('change', () => {
+        melodyAppState.currentMelody = null;
+        melodyAppState.inputNotes = [];
+        renderMelodyInput();
+        updateMelodyStatus('已切换曲目，请点击"随机播放"');
+    });
+
+    // 预置曲目加载：从melodies/文件夹加载MusicXML文件
+    loadPresetMelodies();
+
+    // 调性/拍号选择
+    const keySelector = document.getElementById('key-selector-melody');
+    const timesigSelector = document.getElementById('timesig-selector-melody');
+    if (keySelector) keySelector.addEventListener('change', (e) => {
+        melodyAppState.selectedKey = e.target.value || null;
+    });
+    if (timesigSelector) timesigSelector.addEventListener('change', (e) => {
+        melodyAppState.selectedTimeSignature = e.target.value || null;
+    });
+
+    // 风云榜单按钮
+    const clearLbBtn = document.getElementById('clear-leaderboard-btn-melody');
+    const backLbBtn = document.getElementById('back-from-leaderboard-btn-melody');
+    if (clearLbBtn) clearLbBtn.addEventListener('click', () => {
+        melodyAppState.leaderboard = [];
+        saveMelodyLeaderboard();
+        showMelodyLeaderboard();
+    });
+    if (backLbBtn) backLbBtn.addEventListener('click', startMelodyPracticeMode);
+
+    // 测试结束页按钮
+    const restartBtn = document.getElementById('restart-test-btn-melody');
+    const backHomeBtn = document.getElementById('back-to-home-btn-melody');
+    const viewDetailsBtn = document.getElementById('view-details-btn-melody');
+    if (restartBtn) restartBtn.addEventListener('click', () => {
+        pageManager.switchToPage('melody-page');
+        startMelodyTestMode();
+    });
+    if (backHomeBtn) backHomeBtn.addEventListener('click', () => pageManager.switchToPage('home-page'));
+    if (viewDetailsBtn) viewDetailsBtn.addEventListener('click', () => {
+        // 滚动到分析区域
+        const analysisPanel = document.querySelector('#melody-test-end-page .test-analysis-panel');
+        if (analysisPanel) analysisPanel.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    // 加载风云榜单
+    loadMelodyLeaderboard();
+
+    // 初始化VexFlow
+    initVexFlowMelody();
+
+    // 确保进入练习模式
+    startMelodyPracticeMode();
+
+    updateMelodyStatus('请点击"随机播放"开始旋律听辨');
+}
+
+// 初始化旋律钢琴键盘
+function initMelodyPiano() {
+    const piano = document.getElementById('piano-melody');
+    if (!piano) return;
+    piano.innerHTML = '';
+    const whiteNotes = allNotes.filter(n => n.type === 'white');
+    whiteNotes.forEach((note, index) => {
+        const key = document.createElement('div');
+        key.className = 'white-key';
+        key.innerHTML = `<span class="note-name">${note.display}</span>`;
+        key.dataset.note = note.note;
+        key.dataset.index = index;
+        const octaveLabel = document.createElement('div');
+        octaveLabel.className = `octave-label ${note.group}`;
+        if (note.group === 'group1') octaveLabel.textContent = '小字组';
+        else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
+        else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
+        key.appendChild(octaveLabel);
+        key.addEventListener('mousedown', (e) => {
+            if (Date.now() - lastPianoTouchTime < PIANO_TOUCH_LOCK_MS) return;
+            e.preventDefault();
+            handlePianoNoteOnMelody(note);
+        });
+        key.addEventListener('mouseup', () => handlePianoNoteOffMelody(note));
+        key.addEventListener('mouseleave', () => handlePianoNoteOffMelody(note));
+        let touchStartX = 0, touchStartY = 0, isScrolling = false, hasPlayed = false;
+        key.addEventListener('touchstart', (e) => {
+            lastPianoTouchTime = Date.now();
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isScrolling = false;
+            hasPlayed = false;
+            handlePianoNoteOnMelody(note);
+            hasPlayed = true;
+        }, { passive: false });
+        key.addEventListener('touchmove', (e) => {
+            const diffX = Math.abs(e.touches[0].clientX - touchStartX);
+            const diffY = Math.abs(e.touches[0].clientY - touchStartY);
+            if (diffX > diffY && diffX > 10) {
+                isScrolling = true;
+                if (hasPlayed) { handlePianoNoteOffMelody(note); hasPlayed = false; }
+            }
+        }, { passive: false });
+        key.addEventListener('touchend', () => {
+            if (!isScrolling && hasPlayed) handlePianoNoteOffMelody(note);
+        }, { passive: true });
+        piano.appendChild(key);
+    });
+    invalidatePianoMetrics();
+    updatePianoMetrics('piano-melody');
+    const blackNotes = allNotes.filter(n => n.type === 'black');
+    blackNotes.forEach(note => {
+        const key = document.createElement('div');
+        key.className = 'black-key';
+        key.innerHTML = note.display;
+        key.dataset.note = note.note;
+        key.style.left = calculateBlackKeyLeft(note.position);
+        key.addEventListener('mousedown', (e) => {
+            if (Date.now() - lastPianoTouchTime < PIANO_TOUCH_LOCK_MS) return;
+            e.preventDefault();
+            handlePianoNoteOnMelody(note);
+        });
+        key.addEventListener('mouseup', () => handlePianoNoteOffMelody(note));
+        key.addEventListener('mouseleave', () => handlePianoNoteOffMelody(note));
+        let touchStartX = 0, touchStartY = 0, isScrolling = false, hasPlayed = false;
+        key.addEventListener('touchstart', (e) => {
+            lastPianoTouchTime = Date.now();
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isScrolling = false;
+            hasPlayed = false;
+            handlePianoNoteOnMelody(note);
+            hasPlayed = true;
+        }, { passive: false });
+        key.addEventListener('touchmove', (e) => {
+            const diffX = Math.abs(e.touches[0].clientX - touchStartX);
+            const diffY = Math.abs(e.touches[0].clientY - touchStartY);
+            if (diffX > diffY && diffX > 10) {
+                isScrolling = true;
+                if (hasPlayed) { handlePianoNoteOffMelody(note); hasPlayed = false; }
+            }
+        }, { passive: false });
+        key.addEventListener('touchend', () => {
+            if (!isScrolling && hasPlayed) handlePianoNoteOffMelody(note);
+        }, { passive: true });
+        piano.appendChild(key);
+    });
+}
+
+// 旋律钢琴按键处理
+function handlePianoNoteOnMelody(note) {
+    // 测试模式下点击琴键不出声，但高亮（防漏题）
+    if (melodyAppState.currentMode === 'test') {
+        highlightKey(note.note);
+        melodyAppState.currentPitch = note.note;
+        const display = document.getElementById('current-pitch-melody');
+        if (display) display.textContent = note.note;
+        return;
+    }
+    // 练习模式下正常发声
+    ensureAudioReady();
+    startNoteWithWebAudio(note.note);
+    highlightKey(note.note);
+    melodyAppState.currentPitch = note.note;
+    const display = document.getElementById('current-pitch-melody');
+    if (display) display.textContent = note.note;
+}
+
+function handlePianoNoteOffMelody(note) {
+    stopNoteWithWebAudio(note.note);
+    removeHighlightKey(note.note);
+}
+
+// 初始化时值按钮
+function initMelodyDurationButtons() {
+    const buttons = document.querySelectorAll('.melody-duration-btn');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            melodyAppState.currentDuration = btn.dataset.duration;
+            melodyAppState.currentDots = parseInt(btn.dataset.dots || '0');
+            const display = document.getElementById('current-duration-melody');
+            if (display) {
+                const dur = melodyAppState.currentDuration;
+                display.textContent = MELODY_DURATION_DESC[dur] || dur;
+            }
+        });
+    });
+}
+
+// ==================== Canvas五线谱渲染（替代VexFlow，借鉴APP_WebPiano） ====================
+
+// 将音高转为五线谱位置（基于E4=position0，每行半音=position+1）
+function noteToStaffPosition(pitch) {
+    let noteName, octaveStr;
+    if (pitch.includes('#') || pitch.includes('b')) {
+        noteName = pitch.charAt(0);
+        octaveStr = pitch.slice(-1);
+    } else {
+        noteName = pitch.slice(0, -1);
+        octaveStr = pitch.slice(-1);
+    }
+    const octave = parseInt(octaveStr);
+    const pitchIndex = { 'C': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'A': 5, 'B': 6 }[noteName];
+    if (pitchIndex === undefined) return 0;
+    // E4 = position 0
+    return (octave - 4) * 7 + (pitchIndex - 2);
+}
+
+// 时值对应的拍数（以四分音符为1拍）
+function getNoteBeatsForDuration(duration, dots) {
+    const baseMap = { 'w': 4, 'h': 2, 'q': 1, '8': 0.5, '16': 0.25, 'triplet': 1 / 3 };
+    const base = baseMap[duration.replace('.', '')] || 1;
+    return dots ? base * 1.5 : base;
+}
+
+// 时值信息
+const DURATION_INFO = {
+    'w': { label: '全音', dur: 4, headW: 8, headH: 6, fill: 'hollow', stem: false, flag: 0 },
+    'h': { label: '二分', dur: 2, headW: 8, headH: 6, fill: 'hollow', stem: true, flag: 0 },
+    'q': { label: '四分', dur: 1, headW: 8, headH: 6, fill: 'solid', stem: true, flag: 0 },
+    '8': { label: '八分', dur: 0.5, headW: 8, headH: 6, fill: 'solid', stem: true, flag: 1 },
+    '16': { label: '十六分', dur: 0.25, headW: 8, headH: 6, fill: 'solid', stem: true, flag: 2 },
+    'triplet': { label: '三连音', dur: 1 / 3, headW: 8, headH: 6, fill: 'solid', stem: true, flag: 1 }
+};
+
+// 初始化Canvas渲染器
+function initVexFlowMelody() {
+    const container = document.getElementById('vexflow-container-melody');
+    if (!container) return;
+    // 确保Canvas已创建
+    ensureMelodyCanvas();
+    // 延迟渲染确保容器可见
+    setTimeout(() => { renderMelodyInput(); }, 100);
+}
+
+// 确保Canvas元素存在
+function ensureMelodyCanvas() {
+    const container = document.getElementById('vexflow-container-melody');
+    if (!container) return;
+    if (container.querySelector('canvas.melody-canvas')) return;
+
+    // 清空并创建Canvas
+    container.innerHTML = '';
+    const canvas = document.createElement('canvas');
+    canvas.className = 'melody-canvas';
+    canvas.style.width = '100%';
+    canvas.style.height = 'auto';
+    canvas.style.display = 'block';
+    canvas.style.background = '#fffef7';
+    canvas.style.borderRadius = '6px';
+    canvas.style.minHeight = '120px';
+    container.appendChild(canvas);
+    melodyAppState.vexflowCanvas = canvas;
+}
+
+// 渲染用户输入的音符（Canvas版本）
+function renderMelodyInput() {
+    const container = document.getElementById('vexflow-container-melody');
+    if (!container) return;
+    ensureMelodyCanvas();
+    const canvas = melodyAppState.vexflowCanvas;
+    if (!canvas) return;
+
+    const notes = melodyAppState.inputNotes;
+    const dpr = window.devicePixelRatio || 1;
+    const containerWidth = container.clientWidth || 780;
+
+    // 单行横向滚动布局
+    const leftMargin = 150;
+    const rightMargin = 40;
+    const noteSpacing = 50; // 每个音符占用的水平间距
+    const staffTopY = 50;
+    const lineSpacing = 12;
+    const paddingTop = 20;
+    const paddingBottom = 20;
+    const cssHeight = paddingTop + staffTopY + 4 * lineSpacing + 60 + paddingBottom; // 谱表+符干/符尾空间
+
+    // 画布宽度：至少撑满容器，音符多时自动加宽
+    const notesWidth = notes.length > 0 ? notes.length * noteSpacing : 0;
+    const cssWidth = Math.max(containerWidth, leftMargin + notesWidth + rightMargin);
+
+    canvas.width = cssWidth * dpr;
+    canvas.height = cssHeight * dpr;
+    canvas.style.width = cssWidth + 'px';
+    canvas.style.height = cssHeight + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+    // 背景
+    ctx.fillStyle = '#fffef7';
+    ctx.fillRect(0, 0, cssWidth, cssHeight);
+
+    // 绘制五线谱（单行）
+    drawStaffLines(ctx, 60, paddingTop + staffTopY, cssWidth - 80, lineSpacing);
+    drawClef(ctx, 60, paddingTop + staffTopY, paddingTop + staffTopY, 'treble', lineSpacing);
+    if (melodyAppState.selectedTimeSignature) {
+        drawTimeSignature(ctx, melodyAppState.selectedTimeSignature, 110, paddingTop + staffTopY, lineSpacing);
+    }
+    if (melodyAppState.selectedKey) {
+        drawKeySignature(ctx, melodyAppState.selectedKey, 140, paddingTop + staffTopY);
+    }
+
+    // 绘制音符
+    if (notes.length === 0) {
+        ctx.fillStyle = '#999';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('请选择音高和时值后点击"添加音符"', 160, paddingTop + staffTopY + 40);
+        return;
+    }
+
+    const startX = leftMargin;
+    const actualStaffTopY = paddingTop + staffTopY;
+
+    // 计算连音组及符干方向
+    const timeSig = melodyAppState.selectedTimeSignature;
+    const beamGroups = calculateBeamGroups(notes, timeSig);
+    const beamedNoteSet = new Set();
+    const beamGroupDirs = {}; // noteIdx -> 'up'/'down'
+    const beamYMap = {}; // noteIdx -> beamY (横梁Y坐标，用于符干弹性延长)
+    beamGroups.forEach(g => {
+        g.forEach(idx => beamedNoteSet.add(idx));
+        const avgPos = g.reduce((s, idx) => s + noteToStaffPosition(notes[idx].pitch), 0) / g.length;
+        const dir = avgPos <= 4 ? 'up' : 'down';
+        g.forEach(idx => beamGroupDirs[idx] = dir);
+
+        // 计算每个音符的beamY（与drawBeams一致，支持斜向横梁）
+        const stemUp = dir === 'up';
+        const beamOffset = stemUp ? -3.5 * lineSpacing : 3.5 * lineSpacing;
+        const stemTops = g.map(idx => {
+            const note = notes[idx];
+            const durKey = note.duration.replace('.', '');
+            const durInfo = DURATION_INFO[durKey] || DURATION_INFO['q'];
+            const pos = noteToStaffPosition(note.pitch);
+            const noteY = actualStaffTopY + (8 - pos) * (lineSpacing / 2);
+            return {
+                x: startX + idx * noteSpacing + (stemUp ? durInfo.headW : -durInfo.headW),
+                y: noteY + beamOffset
+            };
+        });
+
+        // 找极值音符索引
+        const extremeIdx = stemUp
+            ? stemTops.reduce((best, p, i) => p.y < stemTops[best].y ? i : best, 0)
+            : stemTops.reduce((best, p, i) => p.y > stemTops[best].y ? i : best, 0);
+        const isSlanted = extremeIdx === 0 || extremeIdx === stemTops.length - 1;
+
+        if (!isSlanted) {
+            const flatBeamY = stemTops[extremeIdx].y;
+            g.forEach(idx => { beamYMap[idx] = flatBeamY; });
+        } else {
+            const startNote = stemTops[extremeIdx];
+            const endNote = stemTops[extremeIdx === 0 ? stemTops.length - 1 : 0];
+            g.forEach((idx, i) => {
+                const t = (stemTops[i].x - startNote.x) / (endNote.x - startNote.x);
+                beamYMap[idx] = startNote.y + (endNote.y - startNote.y) * t;
+            });
+        }
+    });
+
+    // 绘制音符（连音的音符跳过单独旗绘制，使用组方向）
+    notes.forEach((note, noteIdx) => {
+        const noteX = startX + noteIdx * noteSpacing;
+        drawMelodyNote(ctx, noteX, note, actualStaffTopY, lineSpacing, beamedNoteSet.has(noteIdx), beamGroupDirs[noteIdx] || null, beamYMap[noteIdx] || null);
+    });
+
+    // 绘制连音横梁
+    drawBeams(ctx, notes, beamGroups, startX, noteSpacing, actualStaffTopY, lineSpacing);
+
+    // 绘制小节线
+    drawBarLines(ctx, notes, startX, noteSpacing, actualStaffTopY, lineSpacing, timeSig);
+}
+
+// 绘制五线谱线
+function drawStaffLines(ctx, x, topY, width, lineSpacing) {
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+        const y = topY + i * lineSpacing;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + width, y);
+        ctx.stroke();
+    }
+    // 左边竖线
+    ctx.beginPath();
+    ctx.moveTo(x, topY);
+    ctx.lineTo(x, topY + 4 * lineSpacing);
+    ctx.stroke();
+    // 右边竖线
+    ctx.beginPath();
+    ctx.moveTo(x + width, topY);
+    ctx.lineTo(x + width, topY + 4 * lineSpacing);
+    ctx.stroke();
+}
+
+// 绘制谱号
+function drawClef(ctx, x, y, staffTopY, type, lineSpacing) {
+    ctx.save();
+    ctx.font = "128px 'Times New Roman', serif";
+    ctx.fillStyle = '#222';
+    ctx.textBaseline = 'middle';
+    if (type === 'treble') {
+        // 高音谱号 𝄞
+        const clefY = staffTopY + (lineSpacing || 12) + 14; // 第二线
+        ctx.fillText('\u{1D11E}', x + 5, clefY);
+    }
+    ctx.restore();
+}
+
+// 绘制拍号（拍号中心位于三线）
+function drawTimeSignature(ctx, timeSig, x, staffTopY, lineSpacing) {
+    const [beats, beatType] = timeSig.split('/');
+    const thirdLineY = staffTopY + 2 * lineSpacing;
+    ctx.save();
+    ctx.font = 'bold 32px serif';
+    ctx.fillStyle = '#222';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const fontSize = 32;
+    const gap = 2;
+    ctx.fillText(beats, x, thirdLineY - fontSize / 2 - gap / 2);
+    ctx.fillText(beatType, x, thirdLineY + fontSize / 2 + gap / 2);
+    ctx.restore();
+}
+
+// 绘制调性记号（简化版：C大调不显示）
+function drawKeySignature(ctx, key, x, staffTopY) {
+    // C大调 / a小调 无升降号
+    if (key === 'C' || key === 'a') return;
+    const sharpKeys = { 'G': 1, 'D': 2, 'A': 3, 'E': 4 };
+    const flatKeys = { 'F': 1, 'Bb': 2, 'Eb': 3 };
+    const sharps = sharpKeys[key] || 0;
+    const flats = flatKeys[key] || 0;
+
+    if (sharps > 0) {
+        ctx.save();
+        ctx.font = "16px 'Times New Roman', serif";
+        ctx.fillStyle = '#222';
+        ctx.textAlign = 'center';
+        const sharpPositions = [4, 1, 3, 0, 2]; // 升号在五线谱上的位置
+        for (let i = 0; i < sharps; i++) {
+            const pos = sharpPositions[i];
+            const y = staffTopY + pos * 6;
+            ctx.fillText('♯', x + i * 14, y);
+        }
+        ctx.restore();
+    } else if (flats > 0) {
+        ctx.save();
+        ctx.font = "16px 'Times New Roman', serif";
+        ctx.fillStyle = '#222';
+        ctx.textAlign = 'center';
+        const flatPositions = [1, 3];
+        for (let i = 0; i < flats; i++) {
+            const pos = flatPositions[i] || 4;
+            const y = staffTopY + pos * 6;
+            ctx.fillText('♭', x + i * 14, y);
+        }
+        ctx.restore();
+    }
+}
+
+// 绘制单个音符（带时值处理）
+// stemDir: null=自动, 'up'=强制向上, 'down'=强制向下（用于连音组统一方向）
+// beamY: 连音组横梁的Y坐标（null=不延伸），用于让组内所有符干紧贴横梁
+function drawMelodyNote(ctx, x, note, staffTopY, lineSpacing, isBeamed = false, stemDir = null, beamY = null) {
+    const position = noteToStaffPosition(note.pitch);
+    // 计算音符Y坐标（高音谱表）
+    // 五条线从上到下：F5 D5 B4 G4 E4（position 8 6 4 2 0）
+    // position 0 = E4 (最底下线), Y = staffTopY + 4*lineSpacing
+    // position 8 = F5 (最顶上线), Y = staffTopY
+    // position 2 = G4 (第二线), Y = staffTopY + 3*lineSpacing
+    const noteY = staffTopY + (8 - position) * (lineSpacing / 2);
+    const isOnLine = position % 2 === 0;
+
+    // 绘制加线
+    drawLedgerLines(ctx, x, noteY, position, staffTopY, lineSpacing);
+
+    // 获取时值信息
+    const durInfo = DURATION_INFO[note.duration.replace('.', '')] || DURATION_INFO['q'];
+
+    // 绘制符头
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(x, noteY, durInfo.headW, durInfo.headH, -0.3, 0, 2 * Math.PI);
+    if (durInfo.fill === 'solid') {
+        ctx.fillStyle = '#222';
+        ctx.fill();
+    } else {
+        ctx.fillStyle = 'transparent';
+        ctx.fill();
+    }
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.restore();
+
+    // 绘制附点：
+    //  - 间上的音符：附点保留在本间中心 noteY
+    //  - 线上的音符：附点放入该线视觉上方一间（屏幕Y更小的方向），避免压到谱线
+    //      例外：第五线 (position == 8 谱表最顶线 F5) 放入下方一间，保持在五谱线范围内不外飘
+    if (note.dots) {
+        ctx.fillStyle = '#222';
+        for (let d = 0; d < note.dots; d++) {
+            let dotY;
+            if (!isOnLine) {
+                dotY = noteY;
+            } else if (position === 8) {
+                dotY = noteY + lineSpacing / 4;
+            } else {
+                dotY = noteY - lineSpacing / 4;
+            }
+            ctx.beginPath();
+            ctx.arc(x + durInfo.headW + 4 + d * 8, dotY, 2, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+    }
+
+    // 绘制符干
+    if (durInfo.stem) {
+        // 符干方向：符头低于三线(position<4)向上→符干在右侧；高于三线(position>4)向下→符干在左侧；三线默认向上
+        const stemUp = stemDir === 'up' ? true : stemDir === 'down' ? false : position <= 4;
+        const stemX = stemUp ? x + durInfo.headW : x - durInfo.headW;
+        // 连音组内的音符：符干延伸至横梁高度（弹性延长，紧贴横梁）
+        // 非连音或无beamY：使用默认长度
+        const stemEnd = (isBeamed && beamY !== null)
+            ? beamY
+            : (stemUp ? noteY - 3.5 * lineSpacing : noteY + 3.5 * lineSpacing);
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(stemX, noteY);
+        ctx.lineTo(stemX, stemEnd);
+        ctx.stroke();
+    }
+
+    // 绘制旗（连音时不绘制单独的旗，由 drawBeams 统一绘制横梁）
+    if (durInfo.flag > 0 && !isBeamed) {
+        const stemUp = stemDir === 'up' ? true : stemDir === 'down' ? false : position <= 4;
+        const stemEndX = stemUp ? x + durInfo.headW : x - durInfo.headW;
+        const flagY = stemUp ? noteY - 3.5 * lineSpacing : noteY + 3.5 * lineSpacing;
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        if (stemUp) {
+            // 旗向上：从符干顶部向右下弯曲
+            ctx.moveTo(stemEndX, flagY);
+            ctx.quadraticCurveTo(stemEndX + 15, flagY + 8, stemEndX + 12, flagY + 20);
+            if (durInfo.flag === 2) {
+                ctx.moveTo(stemEndX, flagY + 12);
+                ctx.quadraticCurveTo(stemEndX + 18, flagY + 20, stemEndX + 15, flagY + 32);
+            }
+        } else {
+            // 旗向下：从符干底部向右上弯曲
+            ctx.moveTo(stemEndX, flagY);
+            ctx.quadraticCurveTo(stemEndX + 15, flagY - 8, stemEndX + 12, flagY - 20);
+            if (durInfo.flag === 2) {
+                ctx.moveTo(stemEndX, flagY - 12);
+                ctx.quadraticCurveTo(stemEndX + 18, flagY - 20, stemEndX + 15, flagY - 32);
+            }
+        }
+        ctx.fill();
+    }
+
+    // 绘制变音记号
+    if (note.pitch.includes('#')) {
+        ctx.save();
+        ctx.font = "bold 14px 'Times New Roman', serif";
+        ctx.fillStyle = '#222';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('♯', x - 18, noteY);
+        ctx.restore();
+    } else if (note.pitch.includes('b')) {
+        ctx.save();
+        ctx.font = "bold 14px 'Times New Roman', serif";
+        ctx.fillStyle = '#222';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('♭', x - 18, noteY);
+        ctx.restore();
+    }
+}
+
+// 绘制加线
+function drawLedgerLines(ctx, x, noteY, position, staffTopY, lineSpacing) {
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 1;
+
+    // 上方加线（position > 8：谱表上方，音更高，屏幕Y更小）
+    // 例如 position=10 (A5) 需要 上加一线
+    if (position > 8) {
+        for (let p = 10; p <= position; p += 2) {
+            const ly = staffTopY + (8 - p) * (lineSpacing / 2);
+            ctx.beginPath();
+            ctx.moveTo(x - 14, ly);
+            ctx.lineTo(x + 14, ly);
+            ctx.stroke();
+        }
+    }
+    // 下方加线（position < 0：谱表下方，音更低，屏幕Y更大）
+    // 例如 position=-2 (C4) 需要 下加一线
+    if (position < 0) {
+        for (let p = -2; p >= position; p -= 2) {
+            const ly = staffTopY + (8 - p) * (lineSpacing / 2);
+            ctx.beginPath();
+            ctx.moveTo(x - 14, ly);
+            ctx.lineTo(x + 14, ly);
+            ctx.stroke();
+        }
+    }
+}
+
+// ==================== 连音横梁与小节线 ====================
+
+// 计算连音组：将同一拍内的八分/十六分/三连音音符分组（支持混合时值：切分、附点、三连音等）
+function calculateBeamGroups(notes, timeSignature) {
+    let beatUnit = 1.0; // 默认每拍 = 1个四分音符
+    if (timeSignature) {
+        const beatType = parseInt(timeSignature.split('/')[1]);
+        if (beatType === 8) beatUnit = 1.5; // 拍子单位为附点四分（如6/8）
+    }
+
+    // 预计算每个音符的拍位和时值
+    let cumulativeBeats = 0;
+    const noteBeatInfo = notes.map(note => {
+        const dur = note.duration.replace('.', '');
+        const isBeamable = dur === '8' || dur === '16' || dur === 'triplet';
+        const noteBeats = getNoteBeatsForDuration(note.duration, note.dots);
+        const beatNum = Math.floor(cumulativeBeats / beatUnit + 0.001);
+        cumulativeBeats += noteBeats;
+        return { isBeamable, beatNum, dur };
+    });
+
+    const groups = [];
+    let currentGroup = [];
+
+    for (let i = 0; i < noteBeatInfo.length; i++) {
+        const info = noteBeatInfo[i];
+        if (info.isBeamable) {
+            if (currentGroup.length === 0) {
+                currentGroup.push(i);
+            } else {
+                const prev = noteBeatInfo[currentGroup[currentGroup.length - 1]];
+                // 同一拍内的可连音音符都连音（不再要求时值相同）
+                if (info.beatNum === prev.beatNum) {
+                    currentGroup.push(i);
+                } else {
+                    if (currentGroup.length >= 2) groups.push([...currentGroup]);
+                    currentGroup = [i];
+                }
+            }
+        } else {
+            if (currentGroup.length >= 2) groups.push([...currentGroup]);
+            currentGroup = [];
+        }
+    }
+    if (currentGroup.length >= 2) groups.push([...currentGroup]);
+    return groups;
+}
+
+// 绘制连音横梁
+// 规则：
+// - 主横梁：水平（最高音在中间）或斜向（最高音在两侧）
+// - 第二横梁：与主横梁平行
+// - 连续16分音符的第二横梁贯穿不断开；单个16分音符的第二横梁为短横
+// - 横梁边缘对齐符干末端，无缝紧贴
+function drawBeams(ctx, notes, beamGroups, startX, noteSpacing, staffTopY, lineSpacing) {
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'butt';
+    const beamHalfW = ctx.lineWidth / 2;
+
+    beamGroups.forEach(group => {
+        const avgPos = group.reduce((s, idx) => s + noteToStaffPosition(notes[idx].pitch), 0) / group.length;
+        const stemUp = avgPos <= 4;
+        const beamOffset = stemUp ? -3.5 * lineSpacing : 3.5 * lineSpacing;
+        const secondBeamGap = stemUp ? 10 : -10;
+
+        // 获取每个音符的符干顶部坐标
+        const stemTops = group.map(idx => {
+            const note = notes[idx];
+            const durKey = note.duration.replace('.', '');
+            const durInfo = DURATION_INFO[durKey] || DURATION_INFO['q'];
+            const pos = noteToStaffPosition(note.pitch);
+            const noteY = staffTopY + (8 - pos) * (lineSpacing / 2);
+            return {
+                x: startX + idx * noteSpacing + (stemUp ? durInfo.headW : -durInfo.headW),
+                y: noteY + beamOffset,
+                level: durKey === '16' ? 2 : (durKey === '8' || durKey === 'triplet' ? 1 : 0)
+            };
+        });
+
+        // 找组内极值音符索引（最高/最低音）
+        const extremeIdx = stemUp
+            ? stemTops.reduce((best, p, i) => p.y < stemTops[best].y ? i : best, 0)
+            : stemTops.reduce((best, p, i) => p.y > stemTops[best].y ? i : best, 0);
+
+        // 判断主横梁是否斜向：极值音符在组的两端
+        const isSlanted = extremeIdx === 0 || extremeIdx === stemTops.length - 1;
+
+        // 计算每个音符的beamY（符干末端Y）
+        // 水平：所有音符共用极值Y；斜向：按X线性插值
+        let beamYPerNote;
+        if (!isSlanted) {
+            const flatBeamY = stemTops[extremeIdx].y;
+            beamYPerNote = stemTops.map(() => flatBeamY);
+        } else {
+            const startNote = stemTops[extremeIdx];
+            const endNote = stemTops[extremeIdx === 0 ? stemTops.length - 1 : 0];
+            beamYPerNote = stemTops.map(p => {
+                const t = (p.x - startNote.x) / (endNote.x - startNote.x);
+                return startNote.y + (endNote.y - startNote.y) * t;
+            });
+        }
+
+        // 主横梁绘制路径
+        const first = stemTops[0];
+        const last = stemTops[stemTops.length - 1];
+
+        if (!isSlanted) {
+            // 水平横梁
+            const beamY = beamYPerNote[0];
+            const mainStrokeY = stemUp ? beamY + beamHalfW : beamY - beamHalfW;
+            ctx.beginPath();
+            ctx.moveTo(first.x, mainStrokeY);
+            ctx.lineTo(last.x, mainStrokeY);
+            ctx.stroke();
+        } else {
+            // 斜向横梁：从极值音符符干顶端连到对端音符符干顶端
+            const startNote = stemTops[extremeIdx];
+            const endNote = stemTops[extremeIdx === 0 ? stemTops.length - 1 : 0];
+            const startStrokeY = stemUp ? startNote.y + beamHalfW : startNote.y - beamHalfW;
+            const endStrokeY = stemUp ? endNote.y + beamHalfW : endNote.y - beamHalfW;
+            ctx.beginPath();
+            ctx.moveTo(startNote.x, startStrokeY);
+            ctx.lineTo(endNote.x, endStrokeY);
+            ctx.stroke();
+        }
+
+        // 计算每个音符的beamLevel
+        const levels = stemTops.map(p => p.level);
+
+        // 第二横梁（level 2）：与主横梁平行
+        // 找出连续level>=2子分组，每组绘制一条连续横梁
+        const subGroups = [];
+        let subStart = -1;
+        for (let i = 0; i < stemTops.length; i++) {
+            if (levels[i] >= 2) {
+                if (subStart === -1) subStart = i;
+            } else {
+                if (subStart !== -1) {
+                    subGroups.push({ start: subStart, end: i - 1 });
+                    subStart = -1;
+                }
+            }
+        }
+        if (subStart !== -1) {
+            subGroups.push({ start: subStart, end: stemTops.length - 1 });
+        }
+
+        subGroups.forEach(sub => {
+            if (sub.start === sub.end) {
+                // 单个16分音符：绘制短横梁
+                const cur = stemTops[sub.start];
+                const leftX = sub.start > 0 ? (stemTops[sub.start - 1].x + cur.x) / 2 : cur.x;
+                const rightX = sub.start < stemTops.length - 1 ? (cur.x + stemTops[sub.start + 1].x) / 2 : cur.x;
+
+                // 在该X位置处的主横梁Y + 偏移
+                const midX = (leftX + rightX) / 2;
+                const subBeamY = getBeamYAtX(midX, beamYPerNote, stemTops);
+                const secondStrokeY = stemUp ? subBeamY + secondBeamGap + beamHalfW
+                    : subBeamY + secondBeamGap - beamHalfW;
+                ctx.beginPath();
+                ctx.moveTo(leftX, secondStrokeY);
+                ctx.lineTo(rightX, secondStrokeY);
+                ctx.stroke();
+            } else {
+                // 多个连续16分音符：绘制贯穿的横梁
+                const subFirst = stemTops[sub.start];
+                const subLast = stemTops[sub.end];
+
+                // 在首尾X处分别计算主横梁Y + secondBeamGap
+                const firstBeamY = getBeamYAtX(subFirst.x, beamYPerNote, stemTops) + secondBeamGap;
+                const lastBeamY = getBeamYAtX(subLast.x, beamYPerNote, stemTops) + secondBeamGap;
+                const firstStrokeY = stemUp ? firstBeamY + beamHalfW : firstBeamY - beamHalfW;
+                const lastStrokeY = stemUp ? lastBeamY + beamHalfW : lastBeamY - beamHalfW;
+                ctx.beginPath();
+                ctx.moveTo(subFirst.x, firstStrokeY);
+                ctx.lineTo(subLast.x, lastStrokeY);
+                ctx.stroke();
+            }
+        });
+
+        // 三连音数字
+        const hasTriplet = group.some(idx => notes[idx].duration.replace('.', '') === 'triplet');
+        if (hasTriplet) {
+            const midIdx = group[Math.floor(group.length / 2)];
+            const mid = stemTops[group.indexOf(midIdx)] || stemTops[0];
+            const midBeamY = getBeamYAtX(mid.x, beamYPerNote, stemTops);
+            const numY = stemUp ? midBeamY - 12 : midBeamY + 18;
+            ctx.save();
+            ctx.font = 'bold 14px serif';
+            ctx.fillStyle = '#222';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('3', mid.x, numY);
+            ctx.restore();
+        }
+    });
+}
+
+// 辅助函数：根据X位置获取横梁Y坐标（线性插值）
+function getBeamYAtX(x, beamYPerNote, stemTops) {
+    if (stemTops.length === 1) return beamYPerNote[0];
+    // 找到x所在的区间
+    for (let i = 0; i < stemTops.length - 1; i++) {
+        if (x >= stemTops[i].x && x <= stemTops[i + 1].x) {
+            const t = (x - stemTops[i].x) / (stemTops[i + 1].x - stemTops[i].x);
+            return beamYPerNote[i] + (beamYPerNote[i + 1] - beamYPerNote[i]) * t;
+        }
+    }
+    // 超出范围，返回最近的
+    if (x < stemTops[0].x) return beamYPerNote[0];
+    return beamYPerNote[beamYPerNote.length - 1];
+}
+
+// 绘制小节线
+function drawBarLines(ctx, notes, startX, noteSpacing, staffTopY, lineSpacing, timeSignature) {
+    if (!timeSignature) return;
+    const [beats, beatType] = timeSignature.split('/').map(Number);
+    // 每小节的拍数（以四分音符为1拍）
+    const measureBeats = beatType === 8 ? beats * 0.5 : beats;
+
+    let cumulativeBeats = 0;
+    for (let i = 0; i < notes.length - 1; i++) {
+        const noteBeats = getNoteBeatsForDuration(notes[i].duration, notes[i].dots);
+        cumulativeBeats += noteBeats;
+
+        const remainder = cumulativeBeats % measureBeats;
+        if (remainder < 0.01 || remainder > measureBeats - 0.01) {
+            const barX = startX + (i + 0.5) * noteSpacing;
+            ctx.strokeStyle = '#777';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(barX, staffTopY);
+            ctx.lineTo(barX, staffTopY + 4 * lineSpacing);
+            ctx.stroke();
+        }
+    }
+}
+
+// 渲染正确答案（Canvas版，当OSMD不可用时使用）
+function renderMelodyAnswerCanvas(melody, container) {
+    if (!container) return;
+    container.innerHTML = '';
+
+    const canvas = document.createElement('canvas');
+    canvas.style.display = 'block';
+    canvas.style.background = '#fffef7';
+    canvas.style.borderRadius = '6px';
+    canvas.style.minHeight = '120px';
+    container.appendChild(canvas);
+
+    const notes = melody.notes;
+    const dpr = window.devicePixelRatio || 1;
+    const containerWidth = container.clientWidth - 20 || 760;
+
+    // 单行横向滚动布局
+    const leftMargin = 150;
+    const rightMargin = 40;
+    const noteSpacing = 50;
+    const staffTopY = 50;
+    const lineSpacing = 12;
+    const paddingTop = 20;
+    const paddingBottom = 20;
+    const cssHeight = paddingTop + staffTopY + 4 * lineSpacing + 60 + paddingBottom;
+
+    const notesWidth = notes.length > 0 ? notes.length * noteSpacing : 0;
+    const cssWidth = Math.max(containerWidth, leftMargin + notesWidth + rightMargin);
+
+    canvas.width = cssWidth * dpr;
+    canvas.height = cssHeight * dpr;
+    canvas.style.width = cssWidth + 'px';
+    canvas.style.height = cssHeight + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+    ctx.fillStyle = '#fffef7';
+    ctx.fillRect(0, 0, cssWidth, cssHeight);
+
+    const actualStaffTopY = paddingTop + staffTopY;
+    drawStaffLines(ctx, 60, actualStaffTopY, cssWidth - 80, lineSpacing);
+    drawClef(ctx, 60, actualStaffTopY, actualStaffTopY, 'treble', lineSpacing);
+
+    if (melody.timeSignature) {
+        drawTimeSignature(ctx, melody.timeSignature, 110, actualStaffTopY, lineSpacing);
+    }
+    if (melody.key) {
+        drawKeySignature(ctx, melody.key, 140, actualStaffTopY);
+    }
+
+    const startX = leftMargin;
+
+    // 计算连音组及符干方向
+    const beamGroups = calculateBeamGroups(notes, melody.timeSignature);
+    const beamedNoteSet = new Set();
+    const beamGroupDirs = {};
+    const beamYMap = {};
+    beamGroups.forEach(g => {
+        g.forEach(idx => beamedNoteSet.add(idx));
+        const avgPos = g.reduce((s, idx) => s + noteToStaffPosition(notes[idx].pitch), 0) / g.length;
+        const dir = avgPos <= 4 ? 'up' : 'down';
+        g.forEach(idx => beamGroupDirs[idx] = dir);
+
+        // 计算每个音符的beamY（支持斜向横梁）
+        const stemUp = dir === 'up';
+        const beamOffset = stemUp ? -3.5 * lineSpacing : 3.5 * lineSpacing;
+        const stemTops = g.map(idx => {
+            const note = notes[idx];
+            const durKey = note.duration.replace('.', '');
+            const durInfo = DURATION_INFO[durKey] || DURATION_INFO['q'];
+            const pos = noteToStaffPosition(note.pitch);
+            const noteY = actualStaffTopY + (8 - pos) * (lineSpacing / 2);
+            return {
+                x: startX + idx * noteSpacing + (stemUp ? durInfo.headW : -durInfo.headW),
+                y: noteY + beamOffset
+            };
+        });
+
+        const extremeIdx = stemUp
+            ? stemTops.reduce((best, p, i) => p.y < stemTops[best].y ? i : best, 0)
+            : stemTops.reduce((best, p, i) => p.y > stemTops[best].y ? i : best, 0);
+        const isSlanted = extremeIdx === 0 || extremeIdx === stemTops.length - 1;
+
+        if (!isSlanted) {
+            const flatBeamY = stemTops[extremeIdx].y;
+            g.forEach(idx => { beamYMap[idx] = flatBeamY; });
+        } else {
+            const startNote = stemTops[extremeIdx];
+            const endNote = stemTops[extremeIdx === 0 ? stemTops.length - 1 : 0];
+            g.forEach((idx, i) => {
+                const t = (stemTops[i].x - startNote.x) / (endNote.x - startNote.x);
+                beamYMap[idx] = startNote.y + (endNote.y - startNote.y) * t;
+            });
+        }
+    });
+
+    // 绘制音符
+    notes.forEach((note, noteIdx) => {
+        const noteX = startX + noteIdx * noteSpacing;
+        drawMelodyNote(ctx, noteX, note, actualStaffTopY, lineSpacing, beamedNoteSet.has(noteIdx), beamGroupDirs[noteIdx] || null, beamYMap[noteIdx] || null);
+    });
+
+    // 绘制连音横梁
+    drawBeams(ctx, notes, beamGroups, startX, noteSpacing, actualStaffTopY, lineSpacing);
+
+    // 绘制小节线
+    drawBarLines(ctx, notes, startX, noteSpacing, actualStaffTopY, lineSpacing, melody.timeSignature);
+}
+
+// 添加音符
+function addMelodyNote() {
+    if (!melodyAppState.currentPitch) {
+        updateMelodyStatus('请先在钢琴键盘上选择音高');
+        return;
+    }
+    const note = {
+        pitch: melodyAppState.currentPitch,
+        duration: melodyAppState.currentDuration,
+        dots: melodyAppState.currentDots
+    };
+    melodyAppState.inputNotes.push(note);
+    renderMelodyInput();
+    updateMelodyStatus(`已添加音符: ${note.pitch} (${MELODY_DURATION_DESC[note.duration] || note.duration})，共${melodyAppState.inputNotes.length}个音符`);
+}
+
+// 删除末音
+function deleteLastMelodyNote() {
+    if (melodyAppState.inputNotes.length === 0) {
+        updateMelodyStatus('没有可删除的音符');
+        return;
+    }
+    melodyAppState.inputNotes.pop();
+    renderMelodyInput();
+    updateMelodyStatus(`已删除末音，剩余${melodyAppState.inputNotes.length}个音符`);
+}
+
+// 清空音符
+function clearMelodyNotes() {
+    melodyAppState.inputNotes = [];
+    renderMelodyInput();
+    updateMelodyStatus('已清空所有音符');
+}
+
+// 预置曲目文件列表（放在melodies/文件夹下，同时嵌入XML数据作为file://协议的兜底）
+const PRESET_MELODY_FILES = [
+    {
+        file: 'melodies/c_major_etude.xml', title: 'C大调练习曲', key: 'C', keyName: 'C大调',
+        xmlContent: `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>C大调练习曲</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1"><attributes><divisions>4</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="2"><note><pitch><step>F</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="3"><note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="4"><note><pitch><step>C</step><octave>5</octave></pitch><duration>8</duration><type>half</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>8</duration><type>half</type></note></measure>
+    <measure number="5"><note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="6"><note><pitch><step>F</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>3</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="7"><note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="8"><note><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><type>whole</type></note>
+      <barline location="right"><bar-style>light-heavy</bar-style></barline></measure>
+  </part>
+</score-partwise>`
+    },
+    {
+        file: 'melodies/g_major_folk.xml', title: 'G大调民谣', key: 'G', keyName: 'G大调',
+        xmlContent: `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>G大调民谣</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1"><attributes><divisions>4</divisions><key><fifths>1</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="2"><note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="3"><note><pitch><step>D</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="4"><note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><alter>1</alter><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="5"><note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="6"><note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><alter>1</alter><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="7"><note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="8"><note><pitch><step>G</step><octave>4</octave></pitch><duration>16</duration><type>whole</type></note>
+      <barline location="right"><bar-style>light-heavy</bar-style></barline></measure>
+  </part>
+</score-partwise>`
+    },
+    {
+        file: 'melodies/a_minor_melody.xml', title: 'a小调旋律', key: 'a', keyName: 'a小调',
+        xmlContent: `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>a小调旋律</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1"><attributes><divisions>4</divisions><key><fifths>0</fifths></key><time><beats>3</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="2"><note><pitch><step>D</step><octave>5</octave></pitch><duration>8</duration><type>half</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="3"><note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="4"><note><pitch><step>G</step><octave>5</octave></pitch><duration>8</duration><type>half</type></note>
+      <note><pitch><step>F</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="5"><note><pitch><step>E</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="6"><note><pitch><step>B</step><octave>4</octave></pitch><duration>8</duration><type>half</type></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="7"><note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="8"><note><pitch><step>A</step><octave>4</octave></pitch><duration>8</duration><type>half</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="9"><note><pitch><step>A</step><octave>4</octave></pitch><duration>8</duration><type>half</type></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="10"><note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <barline location="right"><bar-style>light-heavy</bar-style></barline></measure>
+  </part>
+</score-partwise>`
+    }
+];
+
+// 从melodies/文件夹加载预置曲目（尝试fetch，失败则用嵌入数据兜底）
+async function loadPresetMelodies() {
+    melodyAppState.loadedMelodies = [];
+    const selector = document.getElementById('melody-selector');
+    if (!selector) return;
+
+    // 先加载内置示例作为基础选项
+    selector.innerHTML = '';
+    MELODY_SAMPLES.forEach((m, i) => {
+        const opt = document.createElement('option');
+        opt.value = 'sample_' + i;
+        opt.textContent = m.title + ' (内置)';
+        selector.appendChild(opt);
+    });
+
+    // 尝试从melodies/文件夹加载MusicXML文件
+    for (const preset of PRESET_MELODY_FILES) {
+        let xmlText = null;
+        try {
+            const response = await fetch(preset.file + '?t=' + Date.now());
+            if (response.ok) xmlText = await response.text();
+        } catch (e) {
+            // fetch失败（如file://协议），使用嵌入数据
+        }
+        // 兜底：使用嵌入的xmlContent
+        if (!xmlText && preset.xmlContent) {
+            xmlText = preset.xmlContent;
+        }
+        if (xmlText) {
+            const melody = parseMusicXML(xmlText);
+            if (melody && melody.notes.length > 0) {
+                melody.filePath = preset.file;
+                melody.key = preset.key;
+                melody.keyName = preset.keyName;
+                melodyAppState.loadedMelodies.push(melody);
+                const opt = document.createElement('option');
+                opt.value = 'file_' + melody.filePath;
+                opt.textContent = melody.title;
+                selector.appendChild(opt);
+            }
+        }
+    }
+
+    // 更新信息显示
+    if (melodyAppState.loadedMelodies.length > 0) {
+        const fileInfo = document.getElementById('melody-file-info');
+        const fileInfoText = document.getElementById('melody-file-info-text');
+        if (fileInfo && fileInfoText) {
+            fileInfo.style.display = 'block';
+            fileInfoText.textContent = `已加载 ${melodyAppState.loadedMelodies.length} 首预置曲目`;
+        }
+    }
+}
+
+// 获取当前旋律（优先从加载的文件，回退到内置示例）
+function getCurrentMelody() {
+    const selector = document.getElementById('melody-selector');
+    const value = selector ? selector.value : '0';
+
+    if (value.startsWith('file_')) {
+        const filePath = value.substring(5);
+        return melodyAppState.loadedMelodies.find(m => m.filePath === filePath) || MELODY_SAMPLES[0];
+    }
+    if (value.startsWith('sample_')) {
+        const idx = parseInt(value.substring(7));
+        return MELODY_SAMPLES[idx] || MELODY_SAMPLES[0];
+    }
+    const idx = parseInt(value);
+    return MELODY_SAMPLES[idx] || MELODY_SAMPLES[0];
+}
+
+// 随机播放旋律
+async function playRandomMelody() {
+    if (melodyAppState.isPlaying) return;
+    try {
+        await Tone.start();
+        melodyAppState.isPlaying = true;
+        const melody = getCurrentMelody();
+        melodyAppState.currentMelody = melody;
+        // 清空输入
+        melodyAppState.inputNotes = [];
+        melodyAppState.selectedKey = null;
+        melodyAppState.selectedTimeSignature = null;
+        const keySel = document.getElementById('key-selector-melody');
+        const tsSel = document.getElementById('timesig-selector-melody');
+        if (keySel) keySel.value = '';
+        if (tsSel) tsSel.value = '';
+        renderMelodyInput();
+        // 隐藏答案区
+        const answerDisplay = document.getElementById('melody-answer-display');
+        if (answerDisplay) answerDisplay.style.display = 'none';
+
+        await playMelodySequence(melody);
+        updateMelodyStatus(`已播放: ${melody.title}，请逐音输入您的答案`);
+    } catch (error) {
+        console.error('播放旋律失败:', error);
+        updateMelodyStatus('播放失败，请重试');
+    } finally {
+        melodyAppState.isPlaying = false;
+    }
+}
+
+// 播放旋律序列
+async function playMelodySequence(melody) {
+    const bpm = melodyAppState.bpm || 90;
+    const beatDuration = 60 / bpm;
+    for (const note of melody.notes) {
+        const noteBeats = getNoteBeats(note.duration, note.dots);
+        const noteDuration = beatDuration * noteBeats;
+        playNoteWithWebAudio(note.pitch, noteDuration, 0.8);
+        await new Promise(resolve => setTimeout(resolve, noteDuration * 1000));
+    }
+    await new Promise(resolve => setTimeout(resolve, 200));
+}
+
+// 重复播放
+async function repeatMelody() {
+    if (!melodyAppState.currentMelody) {
+        updateMelodyStatus('请先点击"随机播放"生成题目');
+        return;
+    }
+    if (melodyAppState.isPlaying) return;
+    try {
+        await Tone.start();
+        melodyAppState.isPlaying = true;
+        await playMelodySequence(melodyAppState.currentMelody);
+        updateMelodyStatus('旋律已重复播放');
+    } catch (e) {
+        console.error('重复播放失败:', e);
+    } finally {
+        melodyAppState.isPlaying = false;
+    }
+}
+
+// 提交旋律答案
+function submitMelodyAnswer() {
+    if (!melodyAppState.currentMelody) {
+        updateMelodyStatus('请先点击"随机播放"听题');
+        return;
+    }
+    const correctMelody = melodyAppState.currentMelody;
+    const userKey = melodyAppState.selectedKey;
+    const userTimeSig = melodyAppState.selectedTimeSignature;
+    const userNotes = melodyAppState.inputNotes;
+
+    if (!userKey) {
+        updateMelodyStatus('请选择调性');
+        return;
+    }
+    if (!userTimeSig) {
+        updateMelodyStatus('请选择拍号');
+        return;
+    }
+    if (userNotes.length === 0) {
+        updateMelodyStatus('请输入旋律音符');
+        return;
+    }
+
+    // 评分
+    const result = scoreMelody(userNotes, correctMelody, userKey, userTimeSig);
+
+    // 记录学习数据
+    learningManager.recordResult('melody', {
+        question: `${correctMelody.title} - ${correctMelody.keyName} ${correctMelody.timeSignature}`,
+        correct: result.totalScore >= 15,
+        userAnswer: `${userKey} ${userTimeSig} ${userNotes.map(n => n.pitch + n.duration).join(' ')}`,
+        correctAnswer: `${correctMelody.key} ${correctMelody.timeSignature} ${correctMelody.notes.map(n => n.pitch + n.duration).join(' ')}`,
+        mode: 'melody',
+        difficulty: 1,
+        learningMode: melodyAppState.currentMode || 'practice',
+        score: result.totalScore
+    });
+
+    // 显示评分结果
+    const analysisEl = document.getElementById('test-analysis-melody');
+    if (analysisEl) {
+        analysisEl.innerHTML = result.detailHtml;
+        analysisEl.style.display = 'block';
+    }
+
+    if (melodyAppState.currentMode === 'test') {
+        melodyAppState.totalQuestions++;
+        if (result.totalScore >= 15) {
+            melodyAppState.correct++;
+            melodyAppState.score += result.totalScore;
+            updateMelodyStatus(`✅ 本题得分: ${result.totalScore}/20`);
+        } else {
+            melodyAppState.wrong++;
+            melodyAppState.score += result.totalScore;
+            melodyAppState.errorQuestions.push({
+                correct: correctMelody,
+                user: { key: userKey, timeSig: userTimeSig, notes: [...userNotes] },
+                score: result.totalScore
+            });
+            updateMelodyStatus(`❌ 本题得分: ${result.totalScore}/20`);
+        }
+        melodyAppState.testAnalysis.push({
+            title: correctMelody.title,
+            score: result.totalScore,
+            keyCorrect: result.keyCorrect,
+            timeSigCorrect: result.timeSigCorrect,
+            melodyScore: result.melodyScore
+        });
+        updateMelodyStats();
+
+        if (melodyAppState.totalQuestions >= 5) {
+            setTimeout(() => endMelodyTestMode(), 3000);
+        } else {
+            setTimeout(() => playRandomMelody(), 3000);
+        }
+    } else {
+        updateMelodyStatus(`本题得分: ${result.totalScore}/20 (调性${result.keyScore}+拍号${result.timeSigScore}+旋律${result.melodyScore})`);
+    }
+}
+
+// 旋律评分：调性1分 + 拍号1分 + 旋律18分（按小节平均）
+function scoreMelody(userNotes, correctMelody, userKey, userTimeSig) {
+    let keyScore = 0, timeSigScore = 0, melodyScore = 0;
+    const keyCorrect = userKey === correctMelody.key;
+    const timeSigCorrect = userTimeSig === correctMelody.timeSignature;
+    if (keyCorrect) keyScore = 1;
+    if (timeSigCorrect) timeSigScore = 1;
+
+    // 旋律评分：按小节平均
+    const beatsPerMeasure = parseInt(correctMelody.timeSignature.split('/')[0]);
+    // 将正确音符按小节分组
+    const correctMeasures = groupNotesByMeasure(correctMelody.notes, beatsPerMeasure);
+    const userMeasures = groupNotesByMeasure(userNotes, beatsPerMeasure);
+    const measureCount = correctMeasures.length;
+    const scorePerMeasure = measureCount > 0 ? 18 / measureCount : 0;
+    let totalMelodyScore = 0;
+    let measureDetails = [];
+
+    for (let i = 0; i < measureCount; i++) {
+        const correctMeasure = correctMeasures[i] || [];
+        const userMeasure = userMeasures[i] || [];
+        // 比较音高
+        const correctPitches = correctMeasure.map(n => n.pitch);
+        const userPitches = userMeasure.map(n => n.pitch);
+        const pitchCorrect = arraysEqual(correctPitches, userPitches);
+        // 比较节奏（时值序列）
+        const correctRhythms = correctMeasure.map(n => n.duration + (n.dots ? '.' : ''));
+        const userRhythms = userMeasure.map(n => n.duration + (n.dots ? '.' : ''));
+        const rhythmCorrect = arraysEqual(correctRhythms, userRhythms);
+
+        let measureScore = 0;
+        if (pitchCorrect && rhythmCorrect) measureScore = scorePerMeasure;
+        else if (pitchCorrect || rhythmCorrect) measureScore = scorePerMeasure / 2;
+        else measureScore = 0;
+
+        totalMelodyScore += measureScore;
+        measureDetails.push({
+            index: i + 1,
+            pitchCorrect,
+            rhythmCorrect,
+            score: measureScore,
+            correctPitches: correctPitches.join(' '),
+            userPitches: userPitches.join(' ')
+        });
+    }
+    melodyScore = Math.round(totalMelodyScore * 10) / 10;
+    const totalScore = keyScore + timeSigScore + melodyScore;
+
+    // 生成详情HTML
+    let detailHtml = '<div style="color:#333;font-size:14px;">';
+    detailHtml += `<h4 style="color:#FFB74D;">评分详情 (总分: ${totalScore}/20)</h4>`;
+    detailHtml += `<p>调性: ${userKey} ${keyCorrect ? '✅' : '❌ (正确: ' + correctMelody.key + ')'} → ${keyScore}分</p>`;
+    detailHtml += `<p>拍号: ${userTimeSig} ${timeSigCorrect ? '✅' : '❌ (正确: ' + correctMelody.timeSignature + ')'} → ${timeSigScore}分</p>`;
+    detailHtml += `<p>旋律: ${melodyScore}/18分</p>`;
+    detailHtml += '<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;">';
+    detailHtml += '<tr style="background:#f0f0f0;"><th style="padding:4px;border:1px solid #ddd;">小节</th><th style="padding:4px;border:1px solid #ddd;">音高</th><th style="padding:4px;border:1px solid #ddd;">节奏</th><th style="padding:4px;border:1px solid #ddd;">得分</th></tr>';
+    measureDetails.forEach(m => {
+        detailHtml += `<tr><td style="padding:4px;border:1px solid #ddd;text-align:center;">${m.index}</td>`;
+        detailHtml += `<td style="padding:4px;border:1px solid #ddd;text-align:center;">${m.pitchCorrect ? '✅' : '❌'}</td>`;
+        detailHtml += `<td style="padding:4px;border:1px solid #ddd;text-align:center;">${m.rhythmCorrect ? '✅' : '❌'}</td>`;
+        detailHtml += `<td style="padding:4px;border:1px solid #ddd;text-align:center;">${m.score.toFixed(1)}</td></tr>`;
+    });
+    detailHtml += '</table>';
+    detailHtml += '</div>';
+
+    return { totalScore, keyScore, timeSigScore, melodyScore, keyCorrect, timeSigCorrect, detailHtml };
+}
+
+// 将音符按小节分组
+function groupNotesByMeasure(notes, beatsPerMeasure) {
+    const measures = [];
+    let currentMeasure = [];
+    let currentBeats = 0;
+    notes.forEach(note => {
+        currentMeasure.push(note);
+        currentBeats += getNoteBeats(note.duration, note.dots);
+        if (currentBeats >= beatsPerMeasure - 0.01) {
+            measures.push(currentMeasure);
+            currentMeasure = [];
+            currentBeats = 0;
+        }
+    });
+    if (currentMeasure.length > 0) measures.push(currentMeasure);
+    return measures;
+}
+
+// 数组相等比较
+function arraysEqual(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
+
+// 显示答案（OSMD渲染）
+function showAnswerMelody() {
+    if (!melodyAppState.currentMelody) {
+        updateMelodyStatus('请先点击"随机播放"听题');
+        return;
+    }
+    const answerDisplay = document.getElementById('melody-answer-display');
+    const osmdContainer = document.getElementById('osmd-container-melody');
+    if (!answerDisplay || !osmdContainer) return;
+    answerDisplay.style.display = 'block';
+    osmdContainer.innerHTML = '';
+
+    const melody = melodyAppState.currentMelody;
+
+    // 优先尝试OSMD，失败则使用Canvas兜底
+    try {
+        if (typeof opensheetmusicdisplay === 'undefined') {
+            // OSMD不可用，直接用Canvas渲染正确答案
+            renderMelodyAnswerCanvas(melody, osmdContainer);
+            return;
+        }
+        const osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay(osmdContainer, {
+            autoResize: true,
+            backend: 'svg',
+            drawTitle: true
+        });
+        const xml = generateMusicXML(melody);
+        osmd.load(xml).then(() => {
+            osmd.render();
+            melodyAppState.osmd = osmd;
+        }).catch(e => {
+            console.warn('OSMD渲染失败，使用Canvas兜底:', e);
+            renderMelodyAnswerCanvas(melody, osmdContainer);
+        });
+    } catch (e) {
+        console.warn('OSMD初始化失败，使用Canvas兜底:', e);
+        renderMelodyAnswerCanvas(melody, osmdContainer);
+    }
+    updateMelodyStatus('已显示正确答案');
+}
+
+// 练习模式
+function startMelodyPracticeMode() {
+    melodyAppState.currentMode = 'practice';
+    melodyAppState.testInProgress = false;
+    const practiceInstructions = document.getElementById('practice-instructions-melody');
+    if (practiceInstructions) practiceInstructions.style.display = 'block';
+    const statsPanel = document.getElementById('stats-panel-melody');
+    if (statsPanel) statsPanel.style.display = 'none';
+    const timePanel = document.getElementById('time-panel-melody');
+    if (timePanel) timePanel.style.display = 'none';
+    const endTestBtn = document.getElementById('end-test-btn-melody');
+    if (endTestBtn) endTestBtn.style.display = 'none';
+    const testEndContent = document.getElementById('melody-test-end-content');
+    if (testEndContent) testEndContent.style.display = 'none';
+    const leaderboardContent = document.getElementById('leaderboard-content-melody');
+    if (leaderboardContent) leaderboardContent.style.display = 'none';
+    const practiceContent = document.getElementById('practice-test-content-melody');
+    if (practiceContent) practiceContent.style.display = 'block';
+    updateMelodyButtonStates();
+    updateMelodyStatus('练习模式：可重复播放，点击琴键有声音，可显示答案');
+}
+
+// 测试模式
+function startMelodyTestMode() {
+    if (!melodyAppState.userInfo.saved) {
+        userManager.showSaveStatus('未保存学生信息（可跳过）', 'error');
+        setTimeout(() => userManager.hideSaveStatus(), 1800);
+    }
+    melodyAppState.currentMode = 'test';
+    melodyAppState.testInProgress = true;
+    melodyAppState.score = 0;
+    melodyAppState.correct = 0;
+    melodyAppState.wrong = 0;
+    melodyAppState.totalQuestions = 0;
+    melodyAppState.errorQuestions = [];
+    melodyAppState.testAnalysis = [];
+    melodyAppState.testStartTime = new Date();
+
+    const practiceInstructions = document.getElementById('practice-instructions-melody');
+    if (practiceInstructions) practiceInstructions.style.display = 'none';
+    const statsPanel = document.getElementById('stats-panel-melody');
+    if (statsPanel) statsPanel.style.display = 'flex';
+    const timePanel = document.getElementById('time-panel-melody');
+    if (timePanel) timePanel.style.display = 'block';
+    const testEndContent = document.getElementById('melody-test-end-content');
+    if (testEndContent) testEndContent.style.display = 'none';
+    const leaderboardContent = document.getElementById('leaderboard-content-melody');
+    if (leaderboardContent) leaderboardContent.style.display = 'none';
+    const endTestBtn = document.getElementById('end-test-btn-melody');
+    if (endTestBtn) endTestBtn.style.display = 'block';
+
+    startMelodyElapsedTimeTimer();
+    startTimeUpdateMelody();
+    updateMelodyStats();
+    updateMelodyButtonStates();
+    playRandomMelody();
+    updateMelodyStatus('测试已开始，请认真听题并作答');
+}
+
+// 结束测试模式
+function endMelodyTestMode() {
+    melodyAppState.currentMode = 'practice';
+    melodyAppState.testInProgress = false;
+    melodyAppState.testEndTime = new Date();
+    const endBtn = document.getElementById('end-test-btn-melody');
+    if (endBtn) endBtn.style.display = 'none';
+    const statsPanel = document.getElementById('stats-panel-melody');
+    if (statsPanel) statsPanel.style.display = 'none';
+    const timePanel = document.getElementById('time-panel-melody');
+    if (timePanel) timePanel.style.display = 'none';
+    stopMelodyElapsedTimeTimer();
+    stopTimeUpdateMelody();
+    updateMelodyStatus('测试已结束');
+    updateMelodyLeaderboard();
+
+    // 隐藏练习内容，显示结束页
+    const playControls = document.getElementById('play-controls-melody');
+    const testEndContent = document.getElementById('melody-test-end-content');
+    if (playControls) playControls.style.display = 'none';
+    if (testEndContent) testEndContent.style.display = 'block';
+
+    // 跳转到测试结束页
+    pageManager.switchToPage('melody-test-end-page');
+    showMelodyTestEndPage();
+}
+
+// 显示测试结束页
+function showMelodyTestEndPage() {
+    const userInfo = melodyAppState.userInfo;
+    const schoolEl = document.getElementById('end-school-melody');
+    const majorEl = document.getElementById('end-major-class-melody');
+    const nameEl = document.getElementById('end-name-melody');
+    const teacherEl = document.getElementById('end-teacher-melody');
+    if (schoolEl) schoolEl.textContent = (userInfo && userInfo.school) || '未填写';
+    if (majorEl) majorEl.textContent = (userInfo && userInfo.majorClass) || '未填写';
+    if (nameEl) nameEl.textContent = (userInfo && userInfo.name) || '未填写';
+    if (teacherEl) teacherEl.textContent = (userInfo && userInfo.teacher) || '未填写';
+
+    // 测试结束时间
+    const endTimeEl = document.getElementById('end-time-melody');
+    if (endTimeEl && melodyAppState.testEndTime) {
+        const endTime = melodyAppState.testEndTime;
+        const year = endTime.getFullYear();
+        const month = String(endTime.getMonth() + 1).padStart(2, '0');
+        const day = String(endTime.getDate()).padStart(2, '0');
+        const hours = String(endTime.getHours()).padStart(2, '0');
+        const minutes = String(endTime.getMinutes()).padStart(2, '0');
+        const seconds = String(endTime.getSeconds()).padStart(2, '0');
+        endTimeEl.textContent = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+
+    // 总分
+    const scoreEl = document.getElementById('end-total-score-melody');
+    if (scoreEl) scoreEl.textContent = melodyAppState.score;
+
+    // 正确/错误/总题数
+    const correctEl = document.getElementById('end-correct-melody');
+    const wrongEl = document.getElementById('end-wrong-melody');
+    const totalEl = document.getElementById('end-total-melody');
+    if (correctEl) correctEl.textContent = melodyAppState.correct;
+    if (wrongEl) wrongEl.textContent = melodyAppState.wrong;
+    if (totalEl) totalEl.textContent = melodyAppState.totalQuestions;
+
+    // 评语
+    const commentEl = document.getElementById('end-comment-melody');
+    if (commentEl) commentEl.textContent = generateMelodyTestComment();
+
+    // 测试结果分析
+    generateMelodyAnalysisContent();
+}
+
+// 生成旋律测试评语
+function generateMelodyTestComment() {
+    const total = melodyAppState.totalQuestions;
+    const correct = melodyAppState.correct;
+    const accuracy = total > 0 ? (correct / total * 100) : 0;
+
+    if (total === 0) {
+        return '测试尚未开始。请点击"测试模式"开始重新答题';
+    }
+    if (accuracy >= 90) {
+        return '优秀！旋律听辨能力出色，音准和节奏感都很强，继续保持！';
+    } else if (accuracy >= 70) {
+        return '良好！基础扎实，建议加强对复杂旋律和调性变化的练习。';
+    } else if (accuracy >= 60) {
+        return '及格！需要加强旋律记忆和音高听辨训练，建议从短旋律开始逐步提升。';
+    } else {
+        return '需要努力！建议从简单旋律听辨开始，每天坚持练习，逐步提高旋律记忆力和音准感。';
+    }
+}
+
+// 生成旋律测试分析内容
+function generateMelodyAnalysisContent() {
+    const analysisContent = document.getElementById('analysis-content-melody');
+    if (!analysisContent) return;
+
+    let html = '';
+
+    // 成绩统计
+    html += `<div class="analysis-section">`;
+    html += `<h4>成绩统计</h4>`;
+    html += `<div class="stats-row">`;
+    html += `<span><strong>总题数：</strong>${melodyAppState.totalQuestions} 题</span>`;
+    html += `<span><strong>正确题数：</strong>${melodyAppState.correct} 题</span>`;
+    html += `<span><strong>错误题数：</strong>${melodyAppState.wrong} 题</span>`;
+    html += `</div>`;
+
+    // 正确率 + 用时
+    const accuracy = melodyAppState.totalQuestions > 0
+        ? ((melodyAppState.correct / melodyAppState.totalQuestions) * 100).toFixed(1)
+        : 0;
+    const elapsedSeconds = melodyAppState.elapsedTime || 0;
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = (elapsedSeconds % 60).toFixed(2);
+    const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.padStart(5, '0')}`;
+
+    html += `<div class="stats-row">`;
+    html += `<span><strong>正确率：</strong>${accuracy}%</span>`;
+    html += `<span><strong>用时：</strong>${timeStr}</span>`;
+    html += `</div>`;
+    html += `</div>`;
+
+    // 逐题分析
+    if (melodyAppState.testAnalysis.length > 0) {
+        html += `<div class="analysis-section">`;
+        html += `<h4>逐题分析</h4>`;
+        html += `<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;color:#333;">`;
+        html += `<tr style="background:#f0f0f0;"><th style="padding:4px;border:1px solid #ddd;">题号</th><th style="padding:4px;border:1px solid #ddd;">曲目</th><th style="padding:4px;border:1px solid #ddd;">得分</th><th style="padding:4px;border:1px solid #ddd;">调性</th><th style="padding:4px;border:1px solid #ddd;">拍号</th><th style="padding:4px;border:1px solid #ddd;">旋律</th></tr>`;
+        melodyAppState.testAnalysis.forEach((a, i) => {
+            html += `<tr><td style="padding:4px;border:1px solid #ddd;text-align:center;">${i + 1}</td><td style="padding:4px;border:1px solid #ddd;">${a.title}</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.score}/20</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.keyCorrect ? '✓' : '✗'}</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.timeSigCorrect ? '✓' : '✗'}</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.melodyScore}</td></tr>`;
+        });
+        html += `</table>`;
+        html += `</div>`;
+    }
+
+    // 评语
+    html += `<div class="analysis-section">`;
+    html += `<h4>评语</h4>`;
+    html += `<p>${generateMelodyTestComment()}</p>`;
+    html += `</div>`;
+
+    analysisContent.innerHTML = html;
+}
+
+// 按钮状态管理
+function updateMelodyButtonStates() {
+    const practiceBtn = document.getElementById('practice-btn-melody');
+    const testBtn = document.getElementById('test-btn-melody');
+    const randomPlayBtn = document.getElementById('random-play-btn-melody');
+    const playBtn = document.getElementById('play-btn-melody');
+    const showAnswerBtn = document.getElementById('show-answer-btn-melody');
+    if (melodyAppState.currentMode === 'test') {
+        if (practiceBtn) practiceBtn.classList.remove('active');
+        if (testBtn) testBtn.classList.add('active');
+        // 测试模式：随机播放禁用、重复播放可用、显示答案禁用
+        if (randomPlayBtn) randomPlayBtn.disabled = true;
+        if (playBtn) playBtn.disabled = false;
+        if (showAnswerBtn) showAnswerBtn.disabled = true;
+    } else {
+        if (practiceBtn) practiceBtn.classList.add('active');
+        if (testBtn) testBtn.classList.remove('active');
+        if (randomPlayBtn) randomPlayBtn.disabled = false;
+        if (playBtn) playBtn.disabled = false;
+        if (showAnswerBtn) showAnswerBtn.disabled = false;
+    }
+}
+
+// 状态更新
+function updateMelodyStatus(msg) {
+    const el = document.getElementById('status-melody');
+    if (el) el.textContent = msg;
+}
+
+// 统计更新
+function updateMelodyStats() {
+    document.getElementById('score-melody').textContent = melodyAppState.score;
+    document.getElementById('correct-melody').textContent = melodyAppState.correct;
+    document.getElementById('wrong-melody').textContent = melodyAppState.wrong;
+    document.getElementById('progress-melody').textContent = melodyAppState.totalQuestions + '题';
+}
+
+// 计时器
+function startMelodyElapsedTimeTimer() {
+    stopMelodyElapsedTimeTimer();
+    melodyAppState.elapsedTimeTimer = setInterval(() => {
+        if (melodyAppState.testStartTime) {
+            melodyAppState.elapsedTime = Math.floor((new Date() - melodyAppState.testStartTime) / 1000);
+            const min = Math.floor(melodyAppState.elapsedTime / 60);
+            const sec = melodyAppState.elapsedTime % 60;
+            const el = document.getElementById('elapsed-time-melody');
+            if (el) el.textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+        }
+    }, 1000);
+}
+
+function stopMelodyElapsedTimeTimer() {
+    if (melodyAppState.elapsedTimeTimer) {
+        clearInterval(melodyAppState.elapsedTimeTimer);
+        melodyAppState.elapsedTimeTimer = null;
+    }
+}
+
+function startTimeUpdateMelody() {
+    stopTimeUpdateMelody();
+    melodyAppState.testTimer = setInterval(() => {
+        const el = document.getElementById('current-time-melody');
+        if (el) el.textContent = new Date().toLocaleTimeString('zh-CN');
+    }, 1000);
+}
+
+function stopTimeUpdateMelody() {
+    if (melodyAppState.testTimer) {
+        clearInterval(melodyAppState.testTimer);
+        melodyAppState.testTimer = null;
+    }
+}
+
+// 风云榜单
+function loadMelodyLeaderboard() {
+    try {
+        const data = localStorage.getItem('melodyLeaderboard');
+        if (data) melodyAppState.leaderboard = JSON.parse(data);
+    } catch (e) { melodyAppState.leaderboard = []; }
+}
+
+function saveMelodyLeaderboard() {
+    try {
+        localStorage.setItem('melodyLeaderboard', JSON.stringify(melodyAppState.leaderboard));
+    } catch (e) { console.error('保存榜单失败:', e); }
+}
+
+function updateMelodyLeaderboard() {
+    if (melodyAppState.totalQuestions === 0) return;
+    const userInfo = melodyAppState.userInfo;
+    const elapsed = melodyAppState.elapsedTime || 0;
+    const min = Math.floor(elapsed / 60);
+    const sec = elapsed % 60;
+    melodyAppState.leaderboard.push({
+        name: userInfo.name || '匿名',
+        school: userInfo.school || '—',
+        score: melodyAppState.score,
+        correct: melodyAppState.correct,
+        total: melodyAppState.totalQuestions,
+        time: `${min}分${sec}秒`,
+        timeSeconds: elapsed,
+        date: new Date().toLocaleDateString('zh-CN')
+    });
+    melodyAppState.leaderboard.sort((a, b) => b.score - a.score || a.timeSeconds - b.timeSeconds);
+    melodyAppState.leaderboard = melodyAppState.leaderboard.slice(0, 50);
+    saveMelodyLeaderboard();
+}
+
+function showMelodyLeaderboard() {
+    const practiceContent = document.getElementById('practice-test-content-melody');
+    const leaderboardContent = document.getElementById('leaderboard-content-melody');
+    if (practiceContent) practiceContent.style.display = 'none';
+    if (leaderboardContent) leaderboardContent.style.display = 'block';
+    const list = document.getElementById('leaderboard-list-melody');
+    const config = document.getElementById('leaderboard-config-melody');
+    if (config) config.textContent = `旋律听辨风云榜单（共${melodyAppState.leaderboard.length}条记录）`;
+    if (list) {
+        if (melodyAppState.leaderboard.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.5);">暂无榜单数据</div>';
+        } else {
+            let html = '';
+            melodyAppState.leaderboard.forEach((item, i) => {
+                const rank = i + 1;
+                const rankClass = rank <= 3 ? `lb-rank-${rank}` : '';
+                const timeStr = item.time || formatElapsedTime(item.timeSeconds || 0);
+                html += `<div class="leaderboard-row ${rankClass}"><div class="lb-rank-value">${rank}</div><div class="lb-name-value">${item.name}</div><div class="lb-score-value">${item.score}</div><div class="lb-time-value">${timeStr}</div></div>`;
+            });
+            list.innerHTML = html;
+        }
+    }
 }
 
 function initRhythmPage() {
