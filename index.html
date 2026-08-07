@@ -280,8 +280,6 @@
                                     <!-- 转位选项将通过JS动态生成 -->
                                 </select>
                             </div>
-
-                            <button id="screenshot-btn-chord" class="reset-btn" style="margin-left:auto;">截屏</button>
                         </div>
 
                         <!-- 状态消息 -->
@@ -310,6 +308,11 @@
                                 <div class="test-analysis-panel-inline">
                                     <h3>测试结果分析</h3>
                                     <div id="analysis-content-chord"></div>
+                                </div>
+
+                                <!-- 截屏按钮 -->
+                                <div style="text-align:center;margin-top:12px;">
+                                    <button id="screenshot-btn-chord" class="reset-btn">截屏</button>
                                 </div>
                             </div>
                         </div>
@@ -527,8 +530,6 @@
                                     <!-- 选项将通过JS动态生成 -->
                                 </select>
                             </div>
-
-                            <button id="screenshot-btn-interval" class="reset-btn" style="margin-left:auto;">截屏</button>
                         </div>
 
                         <!-- 状态消息 -->
@@ -559,6 +560,11 @@
                                 <div class="test-analysis-panel-inline">
                                     <h3>测试结果分析</h3>
                                     <div id="analysis-content-interval"></div>
+                                </div>
+
+                                <!-- 截屏按钮 -->
+                                <div style="text-align:center;margin-top:12px;">
+                                    <button id="screenshot-btn-interval" class="reset-btn">截屏</button>
                                 </div>
                             </div>
                         </div>
@@ -771,8 +777,6 @@
                                 <select id="difficulty-single" title="难度级别">
                                 </select>
                             </div>
-
-                            <button id="screenshot-btn-single" class="reset-btn" style="margin-left:auto;">截屏</button>
                         </div>
                     </div>
 
@@ -804,6 +808,11 @@
                             <div class="test-analysis-panel-inline">
                                 <h3>测试结果分析</h3>
                                 <div id="analysis-content-single"></div>
+                            </div>
+
+                            <!-- 截屏按钮 -->
+                            <div style="text-align:center;margin-top:12px;">
+                                <button id="screenshot-btn-single" class="reset-btn">截屏</button>
                             </div>
                         </div>
                     </div>
@@ -971,7 +980,6 @@
 
                                     <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
                                         <button id="toggle-metronome-rhythm" class="btn">节拍器 开</button>
-                                        <button id="reset-test-btn-rhythm" class="reset-btn">截屏</button>
                                     </div>
                                 </div>
                             </div>
@@ -1120,6 +1128,11 @@
                                 <h3>测试结果分析</h3>
                                 <div id="analysis-content-rhythm"></div>
                             </div>
+
+                            <!-- 截屏按钮 -->
+                            <div style="text-align:center;margin-top:12px;">
+                                <button id="reset-test-btn-rhythm" class="reset-btn">截屏</button>
+                            </div>
                         </div>
                     </div>
 
@@ -1236,28 +1249,19 @@
                     </div>
 
                     <div id="practice-test-content-melody">
-                        <div class="top-controls">
-                            <div class="right-controls" style="flex:1;min-width:0;">
-                                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                                    <div style="display:flex;flex-direction:column;flex:1;min-width:0;">
-                                        <label for="melody-bpm" style="font-size:12px;margin-bottom:6px;">速度
-                                            (BPM)</label>
-                                        <div style="display:flex;align-items:center;gap:8px;">
-                                            <input id="melody-bpm" type="range" min="40" max="200" value="90"
-                                                style="flex:1;">
-                                            <div id="bpm-display-melody" style="width:48px;text-align:center;">90</div>
-                                        </div>
-                                    </div>
-                                    <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
-                                        <button id="reset-test-btn-melody" class="reset-btn">截屏</button>
-                                    </div>
+                        <!-- 速度（节拍器）、曲目选项、已加载曲目说明 并排同一排 -->
+                        <div class="melody-params-section"
+                            style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                            <div class="param-group" style="flex:1;min-width:140px;">
+                                <label for="melody-bpm" style="font-size:12px;margin-bottom:6px;">节拍器 (BPM)</label>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <input id="melody-bpm" type="range" min="40" max="200" value="90" style="flex:1;">
+                                    <div id="bpm-display-melody" style="width:48px;text-align:center;">90</div>
+                                    <button id="toggle-metronome-melody" class="btn"
+                                        style="padding:4px 10px;font-size:12px;white-space:nowrap;">节拍器 开</button>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- 曲目选择 -->
-                        <div class="melody-params-section">
-                            <div class="param-group">
+                            <div class="param-group" style="min-width:120px;">
                                 <label for="melody-selector">曲目</label>
                                 <select id="melody-selector">
                                     <option value="0">C大调练习曲</option>
@@ -1265,7 +1269,7 @@
                                     <option value="2">a小调旋律</option>
                                 </select>
                             </div>
-                            <div class="param-group" id="melody-file-info" style="display:none;">
+                            <div class="param-group" id="melody-file-info" style="display:none;min-width:120px;">
                                 <label>已加载曲目</label>
                                 <div id="melody-file-info-text" style="color:#4FC3F7;font-size:12px;padding:4px 8px;">—
                                 </div>
@@ -1308,18 +1312,10 @@
                             </div>
                         </div>
 
-                        <!-- 正确答案显示区（OSMD渲染，点击"显示答案"后显示） -->
-                        <div id="melody-answer-display" class="melody-answer-display" style="display: none;">
-                            <h4 style="color:#FFB74D;margin:0 0 8px 0;">📜 正确答案</h4>
-                            <div id="osmd-container-melody"
-                                style="background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;overflow:auto;">
-                            </div>
-                        </div>
-
-                        <!-- 调性与拍号选择 -->
+                        <!-- 调式调性与拍号 并排同一排 -->
                         <div class="melody-key-meter-section">
                             <div class="param-group">
-                                <label for="key-selector-melody">调性</label>
+                                <label for="key-selector-melody">调式调性</label>
                                 <select id="key-selector-melody">
                                     <option value="">请选择</option>
                                     <option value="C">C大调</option>
@@ -1345,14 +1341,6 @@
                                     <option value="6/8">6/8</option>
                                 </select>
                             </div>
-                            <div class="param-group">
-                                <label>当前音高</label>
-                                <div id="current-pitch-melody" class="current-selection-display">未选择</div>
-                            </div>
-                            <div class="param-group">
-                                <label>当前时值</label>
-                                <div id="current-duration-melody" class="current-selection-display">四分</div>
-                            </div>
                         </div>
 
                         <!-- 钢琴键盘 -->
@@ -1360,17 +1348,19 @@
                             <div id="piano-melody" class="piano"></div>
                         </div>
 
-                        <!-- 时值选择按钮 -->
+                        <!-- 时值选择按钮：第一行按时值长短排列 -->
                         <div class="melody-duration-section">
                             <div class="melody-duration-tabs">
-                                <button class="melody-duration-btn active" data-duration="q">四分</button>
-                                <button class="melody-duration-btn" data-duration="h">二分</button>
                                 <button class="melody-duration-btn" data-duration="w">全音</button>
+                                <button class="melody-duration-btn" data-duration="h">二分</button>
+                                <button class="melody-duration-btn active" data-duration="q">四分</button>
                                 <button class="melody-duration-btn" data-duration="8">八分</button>
                                 <button class="melody-duration-btn" data-duration="16">十六分</button>
+                            </div>
+                            <div class="melody-duration-tabs">
+                                <button class="melody-duration-btn" data-duration="h." data-dots="1">附点二分</button>
                                 <button class="melody-duration-btn" data-duration="q." data-dots="1">附点四分</button>
                                 <button class="melody-duration-btn" data-duration="8." data-dots="1">附点八分</button>
-                                <button class="melody-duration-btn" data-duration="h." data-dots="1">附点二分</button>
                                 <button class="melody-duration-btn" data-duration="triplet">三连音</button>
                             </div>
                             <div class="melody-note-actions">
@@ -1384,7 +1374,6 @@
                         </div>
 
                         <div id="test-result-melody" class="test-result"></div>
-                        <div id="test-analysis-melody" class="test-analysis"></div>
 
                         <!-- 用户答题五线谱区（Canvas渲染） -->
                         <div class="melody-input-section">
@@ -1392,6 +1381,19 @@
                             <div id="vexflow-container-melody"
                                 style="background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;overflow:auto;min-height:120px;">
                             </div>
+                        </div>
+
+                        <!-- 正确答案显示区（提交答案后显示） -->
+                        <div id="melody-answer-display" class="melody-answer-display"
+                            style="display: none; margin-top: 12px;">
+                            <h4 style="color:#FFB74D;margin:0 0 8px 0;">📜 正确答案</h4>
+                            <div id="osmd-container-melody"
+                                style="background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;overflow:auto;">
+                            </div>
+                        </div>
+
+                        <!-- 评分详情（提交答案后显示） -->
+                        <div id="test-analysis-melody" class="test-analysis" style="display: none; margin-top: 12px;">
                         </div>
 
                         <!-- 底部控制按钮 -->
@@ -1425,6 +1427,11 @@
                             <div class="test-analysis-panel-inline">
                                 <h3>测试结果分析</h3>
                                 <div id="analysis-content-melody"></div>
+                            </div>
+
+                            <!-- 截屏按钮 -->
+                            <div style="text-align:center;margin-top:12px;">
+                                <button id="reset-test-btn-melody" class="reset-btn">截屏</button>
                             </div>
                         </div>
                     </div>

@@ -1444,17 +1444,30 @@ function switchChordTab(tabName) {
 function resetNoteSelectionState() { chordAppState.selectedNotes = []; }
 function invalidatePianoMetrics() { pianoMetrics.spacing = null; pianoMetrics.offset = null; pianoMetrics.whiteWidth = null; }
 function updatePianoMetrics(pianoId = 'piano-chord') {
-    const piano = document.getElementById(pianoId); if (!piano) return; const whiteKeys = piano.querySelectorAll('.white-key'); if (!whiteKeys.length) return; const pianoRect = piano.getBoundingClientRect(); const firstRect = whiteKeys[0].getBoundingClientRect(); pianoMetrics.offset = firstRect.left - pianoRect.left; pianoMetrics.whiteWidth = whiteKeys[0].offsetWidth; if (whiteKeys.length > 1) { const secondRect = whiteKeys[1].getBoundingClientRect(); pianoMetrics.spacing = secondRect.left - firstRect.left; } else { const whiteKeyStyle = window.getComputedStyle(whiteKeys[0]); const marginRight = parseFloat(whiteKeyStyle.marginRight || 0); pianoMetrics.spacing = pianoMetrics.whiteWidth + marginRight; }
-    console.log(`updatePianoMetrics(${pianoId}) - offset: ${pianoMetrics.offset}, spacing: ${pianoMetrics.spacing}, whiteWidth: ${pianoMetrics.whiteWidth}`);
+    const piano = document.getElementById(pianoId); if (!piano) return; const whiteKeys = piano.querySelectorAll('.white-key'); if (!whiteKeys.length) return;
+    // 使用offsetWidth/offsetLeft（元素内部坐标系，不受zoom影响）
+    const firstRectLeft = whiteKeys[0].offsetLeft;
+    pianoMetrics.offset = firstRectLeft;
+    pianoMetrics.whiteWidth = whiteKeys[0].offsetWidth;
+    if (whiteKeys.length > 1) {
+        pianoMetrics.spacing = whiteKeys[1].offsetLeft - whiteKeys[0].offsetLeft;
+    } else {
+        const whiteKeyStyle = window.getComputedStyle(whiteKeys[0]);
+        const marginRight = parseFloat(whiteKeyStyle.marginRight || 0);
+        pianoMetrics.spacing = pianoMetrics.whiteWidth + marginRight;
+    }
+    // 读取实际黑键宽度（从CSS），不要硬编码
+    const sampleBlack = piano.querySelector('.black-key');
+    pianoMetrics.blackWidth = sampleBlack ? sampleBlack.offsetWidth : 30;
 }
 
 function calculateBlackKeyLeft(position) {
     if (pianoMetrics.spacing === null || pianoMetrics.offset === null || pianoMetrics.whiteWidth === null) updatePianoMetrics();
-    const BLACK_KEY_WIDTH = 20;
+    const blackWidth = pianoMetrics.blackWidth || 30;
     if (pianoMetrics.spacing === null || pianoMetrics.offset === null || pianoMetrics.whiteWidth === null) return '0px';
-    const halfWhite = pianoMetrics.whiteWidth / 2; const halfBlack = BLACK_KEY_WIDTH / 2;
-    // Shift black keys 2px to the left for better centering
-    const offsetAdjustment = -2;
+    const halfWhite = pianoMetrics.whiteWidth / 2;
+    const halfBlack = blackWidth / 2;
+    const offsetAdjustment = 0;
     return `${pianoMetrics.offset + position * pianoMetrics.spacing + halfWhite - halfBlack + offsetAdjustment}px`;
 }
 
@@ -6118,6 +6131,23 @@ function initMelodyPage() {
         if (bpmDisplay) bpmDisplay.textContent = melodyAppState.bpm;
     });
 
+    // 节拍器开关（复用节奏听辨的节拍器逻辑）
+    const metronomeBtn = document.getElementById('toggle-metronome-melody');
+    if (metronomeBtn) metronomeBtn.addEventListener('click', () => {
+        rhythmAppState.metronomeOn = !rhythmAppState.metronomeOn;
+        if (rhythmAppState.metronomeOn) {
+            // 同步BPM到节奏听辨的节拍器
+            rhythmAppState.bpm = melodyAppState.bpm || 90;
+            metronomeBtn.textContent = '节拍器 关';
+            metronomeBtn.classList.add('active');
+            startMetronome();
+        } else {
+            metronomeBtn.textContent = '节拍器 开';
+            metronomeBtn.classList.remove('active');
+            stopMetronome();
+        }
+    });
+
     // 截屏按钮
     const resetBtn = document.getElementById('reset-test-btn-melody');
     if (resetBtn) resetBtn.addEventListener('click', () => {
@@ -6284,8 +6314,6 @@ function handlePianoNoteOnMelody(note) {
     if (melodyAppState.currentMode === 'test') {
         highlightKey(note.note);
         melodyAppState.currentPitch = note.note;
-        const display = document.getElementById('current-pitch-melody');
-        if (display) display.textContent = note.note;
         return;
     }
     // 练习模式下正常发声
@@ -6293,8 +6321,6 @@ function handlePianoNoteOnMelody(note) {
     startNoteWithWebAudio(note.note);
     highlightKey(note.note);
     melodyAppState.currentPitch = note.note;
-    const display = document.getElementById('current-pitch-melody');
-    if (display) display.textContent = note.note;
 }
 
 function handlePianoNoteOffMelody(note) {
@@ -6311,11 +6337,6 @@ function initMelodyDurationButtons() {
             btn.classList.add('active');
             melodyAppState.currentDuration = btn.dataset.duration;
             melodyAppState.currentDots = parseInt(btn.dataset.dots || '0');
-            const display = document.getElementById('current-duration-melody');
-            if (display) {
-                const dur = melodyAppState.currentDuration;
-                display.textContent = MELODY_DURATION_DESC[dur] || dur;
-            }
         });
     });
 }
@@ -7335,9 +7356,11 @@ async function playRandomMelody() {
         if (keySel) keySel.value = '';
         if (tsSel) tsSel.value = '';
         renderMelodyInput();
-        // 隐藏答案区
+        // 隐藏答案区和评分详情
         const answerDisplay = document.getElementById('melody-answer-display');
         if (answerDisplay) answerDisplay.style.display = 'none';
+        const analysisEl = document.getElementById('test-analysis-melody');
+        if (analysisEl) analysisEl.style.display = 'none';
 
         await playMelodySequence(melody);
         updateMelodyStatus(`已播放: ${melody.title}，请逐音输入您的答案`);
@@ -7426,6 +7449,9 @@ function submitMelodyAnswer() {
         analysisEl.innerHTML = result.detailHtml;
         analysisEl.style.display = 'block';
     }
+
+    // 渲染正确答案五线谱（在用户答案下方）
+    showAnswerMelody();
 
     if (melodyAppState.currentMode === 'test') {
         melodyAppState.totalQuestions++;

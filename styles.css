@@ -75,6 +75,8 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.15);
     margin: 0 auto;
     /* ← 确保在 body 中水平居中 */
+    /* 整体等比缩小，适配窄屏手机，防止横排按钮竖排 */
+    zoom: 0.85;
 }
 
 /* 隐藏 app-wrapper 的滚动条 */
