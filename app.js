@@ -175,7 +175,7 @@ const melodyAppState = {
     currentDuration: 'q', // 当前选中的时值
     currentDots: 0, // 当前附点数
     isPlaying: false,
-    bpm: 90,
+    bpm: 72,
     osmd: null, // OSMD实例
     vexflowRenderer: null, // VexFlow渲染器
     vexflowContext: null,
@@ -6126,9 +6126,13 @@ function initMelodyPage() {
     // BPM滑块
     const bpmSlider = document.getElementById('melody-bpm');
     const bpmDisplay = document.getElementById('bpm-display-melody');
+    const bpmLabel = document.querySelector('label[for="melody-bpm"]');
     if (bpmSlider) bpmSlider.addEventListener('input', (e) => {
         melodyAppState.bpm = parseInt(e.target.value);
         if (bpmDisplay) bpmDisplay.textContent = melodyAppState.bpm;
+        if (bpmLabel) bpmLabel.textContent = `节拍器 (${melodyAppState.bpm})`;
+        // 同步到节拍器
+        rhythmAppState.bpm = melodyAppState.bpm;
     });
 
     // 节拍器开关（复用节奏听辨的节拍器逻辑）
@@ -6137,12 +6141,12 @@ function initMelodyPage() {
         rhythmAppState.metronomeOn = !rhythmAppState.metronomeOn;
         if (rhythmAppState.metronomeOn) {
             // 同步BPM到节奏听辨的节拍器
-            rhythmAppState.bpm = melodyAppState.bpm || 90;
-            metronomeBtn.textContent = '节拍器 关';
+            rhythmAppState.bpm = melodyAppState.bpm || 72;
+            metronomeBtn.textContent = '关';
             metronomeBtn.classList.add('active');
             startMetronome();
         } else {
-            metronomeBtn.textContent = '节拍器 开';
+            metronomeBtn.textContent = '开';
             metronomeBtn.classList.remove('active');
             stopMetronome();
         }
@@ -7265,25 +7269,48 @@ const PRESET_MELODY_FILES = [
       <barline location="right"><bar-style>light-heavy</bar-style></barline></measure>
   </part>
 </score-partwise>`
+    },
+    {
+        file: 'melodies/test01.musicxml', title: 'test01', key: 'C', keyName: 'C大调',
+        xmlContent: `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>test01</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1"><attributes><divisions>4</divisions><key><fifths>0</fifths></key><time><beats>2</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="2"><note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="3"><note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="4"><note><pitch><step>G</step><octave>4</octave></pitch><duration>8</duration><type>half</type></note></measure>
+    <measure number="5"><note><pitch><step>F</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="6"><note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="7"><note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="8"><note><pitch><step>F</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="9"><note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note></measure>
+    <measure number="10"><note><pitch><step>C</step><octave>4</octave></pitch><duration>8</duration><type>half</type></note>
+      <barline location="right"><bar-style>light-heavy</bar-style></barline></measure>
+  </part>
+</score-partwise>`
     }
 ];
 
 // 从melodies/文件夹加载预置曲目（尝试fetch，失败则用嵌入数据兜底）
+// 曲目显示名称使用文件名（去扩展名），与文件夹内文件名保持一致
 async function loadPresetMelodies() {
     melodyAppState.loadedMelodies = [];
     const selector = document.getElementById('melody-selector');
     if (!selector) return;
 
-    // 先加载内置示例作为基础选项
     selector.innerHTML = '';
-    MELODY_SAMPLES.forEach((m, i) => {
-        const opt = document.createElement('option');
-        opt.value = 'sample_' + i;
-        opt.textContent = m.title + ' (内置)';
-        selector.appendChild(opt);
-    });
 
-    // 尝试从melodies/文件夹加载MusicXML文件
     for (const preset of PRESET_MELODY_FILES) {
         let xmlText = null;
         try {
@@ -7297,7 +7324,7 @@ async function loadPresetMelodies() {
             xmlText = preset.xmlContent;
         }
         if (xmlText) {
-            const melody = parseMusicXML(xmlText);
+            const melody = parseMusicXML(xmlText, preset.file);
             if (melody && melody.notes.length > 0) {
                 melody.filePath = preset.file;
                 melody.key = preset.key;
@@ -7305,7 +7332,9 @@ async function loadPresetMelodies() {
                 melodyAppState.loadedMelodies.push(melody);
                 const opt = document.createElement('option');
                 opt.value = 'file_' + melody.filePath;
-                opt.textContent = melody.title;
+                // 从文件路径提取文件名（去扩展名）作为显示名
+                const fileName = preset.file.split('/').pop().replace(/\.[^.]+$/, '');
+                opt.textContent = fileName;
                 selector.appendChild(opt);
             }
         }
@@ -7317,7 +7346,7 @@ async function loadPresetMelodies() {
         const fileInfoText = document.getElementById('melody-file-info-text');
         if (fileInfo && fileInfoText) {
             fileInfo.style.display = 'block';
-            fileInfoText.textContent = `已加载 ${melodyAppState.loadedMelodies.length} 首预置曲目`;
+            fileInfoText.textContent = `${melodyAppState.loadedMelodies.length}首预置曲目`;
         }
     }
 }

@@ -1251,27 +1251,32 @@
                     <div id="practice-test-content-melody">
                         <!-- 速度（节拍器）、曲目选项、已加载曲目说明 并排同一排 -->
                         <div class="melody-params-section"
-                            style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
-                            <div class="param-group" style="flex:1;min-width:140px;">
-                                <label for="melody-bpm" style="font-size:12px;margin-bottom:6px;">节拍器 (BPM)</label>
-                                <div style="display:flex;align-items:center;gap:8px;">
-                                    <input id="melody-bpm" type="range" min="40" max="200" value="90" style="flex:1;">
-                                    <div id="bpm-display-melody" style="width:48px;text-align:center;">90</div>
-                                    <button id="toggle-metronome-melody" class="btn"
-                                        style="padding:4px 10px;font-size:12px;white-space:nowrap;">节拍器 开</button>
+                            style="display:flex;gap:6px;align-items:flex-end;flex-wrap:nowrap;">
+                            <div class="param-group" style="flex:1;min-width:80px;">
+                                <label for="melody-bpm" style="font-size:12px;margin-bottom:4px;">节拍器 (72)</label>
+                                <div style="display:flex;align-items:center;gap:3px;">
+                                    <input id="melody-bpm" type="range" min="40" max="104" value="72" style="flex:1;">
+                                    <div id="bpm-display-melody"
+                                        style="width:22px;text-align:center;font-size:11px;min-width:22px;">72</div>
                                 </div>
                             </div>
-                            <div class="param-group" style="min-width:120px;">
-                                <label for="melody-selector">曲目</label>
-                                <select id="melody-selector">
-                                    <option value="0">C大调练习曲</option>
-                                    <option value="1">G大调民谣</option>
-                                    <option value="2">a小调旋律</option>
+                            <div style="display:flex;align-items:flex-end;padding-bottom:4px;flex-shrink:0;">
+                                <button id="toggle-metronome-melody" class="btn metronome-circle-btn"
+                                    data-tip="节拍器">开</button>
+                            </div>
+                            <div class="param-group" style="flex:0 0 auto;min-width:100px;max-width:120px;">
+                                <label for="melody-selector" style="font-size:12px;margin-bottom:4px;">曲目</label>
+                                <select id="melody-selector" style="font-size:12px;padding:4px 6px;width:100%;">
+                                    <option value="0">c_major_etude</option>
+                                    <option value="1">g_major_folk</option>
+                                    <option value="2">a_minor_melody</option>
+                                    <option value="3">test01</option>
                                 </select>
                             </div>
-                            <div class="param-group" id="melody-file-info" style="display:none;min-width:120px;">
-                                <label>已加载曲目</label>
-                                <div id="melody-file-info-text" style="color:#4FC3F7;font-size:12px;padding:4px 8px;">—
+                            <div class="param-group" id="melody-file-info"
+                                style="display:none;flex:0 0 auto;min-width:60px;">
+                                <label style="font-size:12px;margin-bottom:4px;">已加载</label>
+                                <div id="melody-file-info-text" style="color:#4FC3F7;font-size:11px;padding:4px 6px;">—
                                 </div>
                             </div>
                         </div>
@@ -1313,10 +1318,10 @@
                         </div>
 
                         <!-- 调式调性与拍号 并排同一排 -->
-                        <div class="melody-key-meter-section">
-                            <div class="param-group">
-                                <label for="key-selector-melody">调式调性</label>
-                                <select id="key-selector-melody">
+                        <div class="melody-key-meter-section" style="flex-wrap:nowrap;">
+                            <div class="param-group" style="min-width:100px;">
+                                <label for="key-selector-melody" style="font-size:12px;margin-bottom:4px;">调式调性</label>
+                                <select id="key-selector-melody" style="font-size:12px;padding:4px 6px;">
                                     <option value="">请选择</option>
                                     <option value="C">C大调</option>
                                     <option value="G">G大调</option>
@@ -1330,9 +1335,10 @@
                                     <option value="d">d小调</option>
                                 </select>
                             </div>
-                            <div class="param-group">
-                                <label for="timesig-selector-melody">拍号</label>
-                                <select id="timesig-selector-melody">
+                            <div class="param-group" style="min-width:80px;">
+                                <label for="timesig-selector-melody"
+                                    style="font-size:12px;margin-bottom:4px;">拍号</label>
+                                <select id="timesig-selector-melody" style="font-size:12px;padding:4px 6px;">
                                     <option value="">请选择</option>
                                     <option value="2/4">2/4</option>
                                     <option value="3/4">3/4</option>

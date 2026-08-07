@@ -1653,6 +1653,30 @@ body {
     color: white;
 }
 
+/* 节拍器圆形小按钮 */
+.metronome-circle-btn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #FF9800, #F57C00);
+    color: #fff;
+    font-size: 11px !important;
+    font-weight: bold;
+    line-height: 28px;
+    text-align: center;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.metronome-circle-btn.active {
+    background: linear-gradient(135deg, #FF7043, #F4511E);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 8px rgba(255, 112, 67, 0.6);
+}
+
 .btn.success {
     background: #4CAF50;
     color: white;
@@ -2026,14 +2050,15 @@ body {
 .param-group {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
     flex: 1;
-    min-width: 120px;
+    min-width: 0;
 }
 
 .param-group label {
     font-size: 13px;
     color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 2px;
 }
 
 .param-group select {
@@ -3887,9 +3912,9 @@ body {
 
 .melody-params-section {
     display: flex;
-    gap: 15px;
-    margin: 15px 0;
-    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+    flex-wrap: nowrap;
 }
 
 .melody-answer-display {
@@ -3910,15 +3935,15 @@ body {
 
 .melody-key-meter-section {
     display: flex;
-    gap: 15px;
-    margin: 15px 0;
-    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+    flex-wrap: nowrap;
     align-items: flex-end;
 }
 
 .melody-key-meter-section .param-group {
     flex: 1;
-    min-width: 100px;
+    min-width: 0;
 }
 
 .current-selection-display {
@@ -3939,20 +3964,23 @@ body {
 
 .melody-duration-tabs {
     display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 12px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    margin-bottom: 8px;
 }
 
 .melody-duration-btn {
-    padding: 8px 14px;
+    padding: 6px 10px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.8);
-    font-size: 13px;
+    font-size: 12px;
     cursor: pointer;
     transition: all 0.2s;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
 }
 
 .melody-duration-btn:hover {
@@ -3968,22 +3996,19 @@ body {
 
 .melody-note-actions {
     display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
+    gap: 8px;
+    flex-wrap: nowrap;
 }
 
 .melody-note-actions .btn {
     flex: 1;
-    min-width: 100px;
+    min-width: 0;
+    padding: 8px 10px;
+    font-size: 13px;
 }
 
 /* 旋律答题区在移动端的适配 */
 @media (max-width: 768px) {
-
-    .melody-params-section,
-    .melody-key-meter-section {
-        flex-direction: column;
-    }
 
     .melody-duration-tabs {
         justify-content: center;
@@ -3992,9 +4017,5 @@ body {
     .melody-duration-btn {
         padding: 6px 10px;
         font-size: 12px;
-    }
-
-    .melody-note-actions {
-        flex-direction: column;
     }
 }
