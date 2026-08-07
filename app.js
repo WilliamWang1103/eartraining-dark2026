@@ -175,6 +175,7 @@ const melodyAppState = {
     currentDuration: 'q', // 当前选中的时值
     currentDots: 0, // 当前附点数
     isPlaying: false,
+    stopRequested: false, // 请求停止播放的标志
     bpm: 72,
     osmd: null, // OSMD实例
     vexflowRenderer: null, // VexFlow渲染器
@@ -182,7 +183,8 @@ const melodyAppState = {
     vexflowStave: null,
     loadedMelodies: [], // 从melodies/文件夹加载的预置曲目
     leaderboard: [],
-    testAnalysis: [] // 测试结果分析记录
+    testAnalysis: [], // 测试结果分析记录
+    activeAudioNodes: [] // 当前活跃的音频节点（用于立即停止）
 };
 
 // 音符表 - 钢琴键盘范围 G3 至 F5
@@ -881,6 +883,28 @@ function playNoteWithWebAudio(note, duration = 2.5, volume = 1.0) {
     noiseGain.connect(masterGain);
     noise.start(now);
     noise.stop(now + noiseDuration);
+
+    // 追踪活跃音频节点，用于立即停止
+    const allOsc = [...oscillators, noise];
+    allOsc.forEach(osc => {
+        melodyAppState.activeAudioNodes.push(osc);
+        osc.onended = () => {
+            const idx = melodyAppState.activeAudioNodes.indexOf(osc);
+            if (idx >= 0) melodyAppState.activeAudioNodes.splice(idx, 1);
+        };
+    });
+}
+
+// 立即停止所有旋律播放的音频
+function stopMelodyAudio() {
+    melodyAppState.stopRequested = true;
+    melodyAppState.isPlaying = false;
+    // 立即停止所有活跃的音频节点
+    melodyAppState.activeAudioNodes.forEach(osc => {
+        try { osc.stop(0); } catch (e) { /* already stopped */ }
+        try { osc.disconnect(); } catch (e) { /* ignore */ }
+    });
+    melodyAppState.activeAudioNodes = [];
 }
 
 // 启动一个可控制的音符（用于 MIDI 和鼠标持续按压）
@@ -6584,8 +6608,38 @@ function drawTimeSignature(ctx, timeSig, x, staffTopY, lineSpacing) {
     ctx.restore();
 }
 
+// 调性级别映射表
+// 级别 → { keys: 该级别包含的调, drawKey: 用于绘制调号的代表调, name: 级别名称 }
+const KEY_LEVEL_MAP = {
+    '1': { keys: ['C', 'a'], drawKey: 'C', name: '无升降号调' },
+    '2': { keys: ['G', 'e'], drawKey: 'G', name: '一升调' },
+    '3': { keys: ['F', 'd'], drawKey: 'F', name: '一降调' },
+    '4': { keys: ['D'], drawKey: 'D', name: '两升调' },
+    '5': { keys: ['Bb'], drawKey: 'Bb', name: '两降调' },
+    '6': { keys: ['A'], drawKey: 'A', name: '三升调' },
+    '7': { keys: ['Eb'], drawKey: 'Eb', name: '三降调' },
+    '8': { keys: ['C', 'G', 'D', 'A', 'F', 'Bb', 'Eb', 'a', 'e', 'd'], drawKey: null, name: '随机调（综合）' }
+};
+
+// 调性 → 级别 反查表
+const KEY_TO_LEVEL = {
+    'C': '1', 'a': '1',
+    'G': '2', 'e': '2',
+    'F': '3', 'd': '3',
+    'D': '4',
+    'Bb': '5',
+    'A': '6',
+    'Eb': '7'
+};
+
 // 绘制调性记号（简化版：C大调不显示）
+// 支持传入级别编号（1-8）或传统调名（C, G, a等）
 function drawKeySignature(ctx, key, x, staffTopY) {
+    // 级别编号转换为代表调
+    if (KEY_LEVEL_MAP[key]) {
+        key = KEY_LEVEL_MAP[key].drawKey;
+        if (!key) return; // 8级随机调不绘制调号
+    }
     // C大调 / a小调 无升降号
     if (key === 'C' || key === 'a') return;
     const sharpKeys = { 'G': 1, 'D': 2, 'A': 3, 'E': 4 };
@@ -7351,8 +7405,23 @@ async function loadPresetMelodies() {
     }
 }
 
-// 获取当前旋律（优先从加载的文件，回退到内置示例）
+// 获取当前旋律
+// 测试模式：从曲目库随机抽取；练习模式：按用户选择的曲目
 function getCurrentMelody() {
+    // 测试模式：随机抽取
+    if (melodyAppState.currentMode === 'test') {
+        const pool = melodyAppState.loadedMelodies.length > 0
+            ? melodyAppState.loadedMelodies
+            : MELODY_SAMPLES;
+        // 避免连续抽取同一首
+        let candidates = pool;
+        if (melodyAppState.currentMelody && pool.length > 1) {
+            candidates = pool.filter(m => m !== melodyAppState.currentMelody);
+        }
+        return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
+    // 练习模式：按用户选择的曲目
     const selector = document.getElementById('melody-selector');
     const value = selector ? selector.value : '0';
 
@@ -7405,12 +7474,15 @@ async function playRandomMelody() {
 async function playMelodySequence(melody) {
     const bpm = melodyAppState.bpm || 90;
     const beatDuration = 60 / bpm;
+    melodyAppState.stopRequested = false;
     for (const note of melody.notes) {
+        if (melodyAppState.stopRequested) return;
         const noteBeats = getNoteBeats(note.duration, note.dots);
         const noteDuration = beatDuration * noteBeats;
         playNoteWithWebAudio(note.pitch, noteDuration, 0.8);
         await new Promise(resolve => setTimeout(resolve, noteDuration * 1000));
     }
+    if (melodyAppState.stopRequested) return;
     await new Promise(resolve => setTimeout(resolve, 200));
 }
 
@@ -7445,7 +7517,7 @@ function submitMelodyAnswer() {
     const userNotes = melodyAppState.inputNotes;
 
     if (!userKey) {
-        updateMelodyStatus('请选择调性');
+        updateMelodyStatus('请选择调');
         return;
     }
     if (!userTimeSig) {
@@ -7461,11 +7533,12 @@ function submitMelodyAnswer() {
     const result = scoreMelody(userNotes, correctMelody, userKey, userTimeSig);
 
     // 记录学习数据
+    const userLevelName = KEY_LEVEL_MAP[userKey] ? KEY_LEVEL_MAP[userKey].name : userKey;
     learningManager.recordResult('melody', {
         question: `${correctMelody.title} - ${correctMelody.keyName} ${correctMelody.timeSignature}`,
         correct: result.totalScore >= 15,
-        userAnswer: `${userKey} ${userTimeSig} ${userNotes.map(n => n.pitch + n.duration).join(' ')}`,
-        correctAnswer: `${correctMelody.key} ${correctMelody.timeSignature} ${correctMelody.notes.map(n => n.pitch + n.duration).join(' ')}`,
+        userAnswer: `${userLevelName} ${userTimeSig} ${userNotes.map(n => n.pitch + n.duration).join(' ')}`,
+        correctAnswer: `${correctMelody.keyName || correctMelody.key} ${correctMelody.timeSignature} ${correctMelody.notes.map(n => n.pitch + n.duration).join(' ')}`,
         mode: 'melody',
         difficulty: 1,
         learningMode: melodyAppState.currentMode || 'practice',
@@ -7484,23 +7557,27 @@ function submitMelodyAnswer() {
 
     if (melodyAppState.currentMode === 'test') {
         melodyAppState.totalQuestions++;
-        if (result.totalScore >= 15) {
+        melodyAppState.score += result.totalScore;
+        // 满分题数（20分为满分）
+        if (result.totalScore >= 20) {
             melodyAppState.correct++;
-            melodyAppState.score += result.totalScore;
-            updateMelodyStatus(`✅ 本题得分: ${result.totalScore}/20`);
-        } else {
+        }
+        // ≥70%题数（14分及以上，70% of 20 = 14）
+        if (result.totalScore >= 14) {
             melodyAppState.wrong++;
-            melodyAppState.score += result.totalScore;
+        } else {
             melodyAppState.errorQuestions.push({
                 correct: correctMelody,
                 user: { key: userKey, timeSig: userTimeSig, notes: [...userNotes] },
                 score: result.totalScore
             });
-            updateMelodyStatus(`❌ 本题得分: ${result.totalScore}/20`);
         }
+        // 每题正确率 = 得分 / 20 * 100
+        const questionAccuracy = (result.totalScore / 20 * 100).toFixed(1);
         melodyAppState.testAnalysis.push({
             title: correctMelody.title,
             score: result.totalScore,
+            accuracy: parseFloat(questionAccuracy),
             keyCorrect: result.keyCorrect,
             timeSigCorrect: result.timeSigCorrect,
             melodyScore: result.melodyScore
@@ -7508,8 +7585,10 @@ function submitMelodyAnswer() {
         updateMelodyStats();
 
         if (melodyAppState.totalQuestions >= 5) {
+            updateMelodyStatus(`本题得分: ${result.totalScore}/20（正确率${questionAccuracy}%），测试完成！`);
             setTimeout(() => endMelodyTestMode(), 3000);
         } else {
+            updateMelodyStatus(`本题得分: ${result.totalScore}/20（正确率${questionAccuracy}%），即将播放下一题...`);
             setTimeout(() => playRandomMelody(), 3000);
         }
     } else {
@@ -7520,7 +7599,11 @@ function submitMelodyAnswer() {
 // 旋律评分：调性1分 + 拍号1分 + 旋律18分（按小节平均）
 function scoreMelody(userNotes, correctMelody, userKey, userTimeSig) {
     let keyScore = 0, timeSigScore = 0, melodyScore = 0;
-    const keyCorrect = userKey === correctMelody.key;
+    // 调性按级别判定：用户选择的级别包含正确曲目的调性即为正确
+    const correctKeyLevel = KEY_TO_LEVEL[correctMelody.key] || '1';
+    const keyCorrect = userKey === correctKeyLevel ||
+        (userKey === '8') || // 8级随机调（综合）始终算正确
+        (KEY_LEVEL_MAP[userKey] && KEY_LEVEL_MAP[userKey].keys.includes(correctMelody.key));
     const timeSigCorrect = userTimeSig === correctMelody.timeSignature;
     if (keyCorrect) keyScore = 1;
     if (timeSigCorrect) timeSigScore = 1;
@@ -7566,9 +7649,11 @@ function scoreMelody(userNotes, correctMelody, userKey, userTimeSig) {
     const totalScore = keyScore + timeSigScore + melodyScore;
 
     // 生成详情HTML
+    const userLevelName = KEY_LEVEL_MAP[userKey] ? KEY_LEVEL_MAP[userKey].name : userKey;
+    const correctLevelName = KEY_LEVEL_MAP[correctKeyLevel] ? KEY_LEVEL_MAP[correctKeyLevel].name : correctMelody.keyName || correctMelody.key;
     let detailHtml = '<div style="color:#333;font-size:14px;">';
     detailHtml += `<h4 style="color:#FFB74D;">评分详情 (总分: ${totalScore}/20)</h4>`;
-    detailHtml += `<p>调性: ${userKey} ${keyCorrect ? '✅' : '❌ (正确: ' + correctMelody.key + ')'} → ${keyScore}分</p>`;
+    detailHtml += `<p>调: ${userLevelName} ${keyCorrect ? '✅' : '❌ (正确: ' + correctLevelName + ')'} → ${keyScore}分</p>`;
     detailHtml += `<p>拍号: ${userTimeSig} ${timeSigCorrect ? '✅' : '❌ (正确: ' + correctMelody.timeSignature + ')'} → ${timeSigScore}分</p>`;
     detailHtml += `<p>旋律: ${melodyScore}/18分</p>`;
     detailHtml += '<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;">';
@@ -7671,8 +7756,16 @@ function startMelodyPracticeMode() {
     if (leaderboardContent) leaderboardContent.style.display = 'none';
     const practiceContent = document.getElementById('practice-test-content-melody');
     if (practiceContent) practiceContent.style.display = 'block';
+    // 练习模式：启用曲目选择
+    const melodySelector = document.getElementById('melody-selector');
+    if (melodySelector) melodySelector.disabled = false;
+    // 恢复钢琴等控件显示
+    const pianoContainer = document.getElementById('piano-container-melody');
+    if (pianoContainer) pianoContainer.style.display = 'block';
+    const playControls = document.getElementById('play-controls-melody');
+    if (playControls) playControls.style.display = 'flex';
     updateMelodyButtonStates();
-    updateMelodyStatus('练习模式：可重复播放，点击琴键有声音，可显示答案');
+    updateMelodyStatus('练习模式：可自选曲目，可重复播放，点击琴键有声音，可显示答案');
 }
 
 // 测试模式
@@ -7708,12 +7801,18 @@ function startMelodyTestMode() {
     startTimeUpdateMelody();
     updateMelodyStats();
     updateMelodyButtonStates();
+    // 测试模式：禁用曲目选择（由系统随机抽取）
+    const melodySelector = document.getElementById('melody-selector');
+    if (melodySelector) melodySelector.disabled = true;
     playRandomMelody();
-    updateMelodyStatus('测试已开始，请认真听题并作答');
+    updateMelodyStatus('测试已开始，系统随机抽题，请认真听题并作答');
 }
 
 // 结束测试模式
 function endMelodyTestMode() {
+    // 立即停止所有音频播放
+    stopMelodyAudio();
+
     melodyAppState.currentMode = 'practice';
     melodyAppState.testInProgress = false;
     melodyAppState.testEndTime = new Date();
@@ -7723,23 +7822,24 @@ function endMelodyTestMode() {
     if (statsPanel) statsPanel.style.display = 'none';
     const timePanel = document.getElementById('time-panel-melody');
     if (timePanel) timePanel.style.display = 'none';
+    // 恢复曲目选择
+    const melodySelector = document.getElementById('melody-selector');
+    if (melodySelector) melodySelector.disabled = false;
     stopMelodyElapsedTimeTimer();
     stopTimeUpdateMelody();
     updateMelodyStatus('测试已结束');
     updateMelodyLeaderboard();
 
-    // 隐藏练习内容，显示结束页
-    const playControls = document.getElementById('play-controls-melody');
+    // 隐藏练习内容，显示结束页（内嵌式，与其他模块一致）
+    const practiceContent = document.getElementById('practice-test-content-melody');
     const testEndContent = document.getElementById('melody-test-end-content');
-    if (playControls) playControls.style.display = 'none';
+    if (practiceContent) practiceContent.style.display = 'none';
     if (testEndContent) testEndContent.style.display = 'block';
 
-    // 跳转到测试结束页
-    pageManager.switchToPage('melody-test-end-page');
     showMelodyTestEndPage();
 }
 
-// 显示测试结束页
+// 显示测试结束页（内嵌式，与其他模块一致）
 function showMelodyTestEndPage() {
     const userInfo = melodyAppState.userInfo;
     const schoolEl = document.getElementById('end-school-melody');
@@ -7768,18 +7868,6 @@ function showMelodyTestEndPage() {
     const scoreEl = document.getElementById('end-total-score-melody');
     if (scoreEl) scoreEl.textContent = melodyAppState.score;
 
-    // 正确/错误/总题数
-    const correctEl = document.getElementById('end-correct-melody');
-    const wrongEl = document.getElementById('end-wrong-melody');
-    const totalEl = document.getElementById('end-total-melody');
-    if (correctEl) correctEl.textContent = melodyAppState.correct;
-    if (wrongEl) wrongEl.textContent = melodyAppState.wrong;
-    if (totalEl) totalEl.textContent = melodyAppState.totalQuestions;
-
-    // 评语
-    const commentEl = document.getElementById('end-comment-melody');
-    if (commentEl) commentEl.textContent = generateMelodyTestComment();
-
     // 测试结果分析
     generateMelodyAnalysisContent();
 }
@@ -7787,12 +7875,12 @@ function showMelodyTestEndPage() {
 // 生成旋律测试评语
 function generateMelodyTestComment() {
     const total = melodyAppState.totalQuestions;
-    const correct = melodyAppState.correct;
-    const accuracy = total > 0 ? (correct / total * 100) : 0;
-
     if (total === 0) {
         return '测试尚未开始。请点击"测试模式"开始重新答题';
     }
+    // 正确率 = 总分 / 满分(100) * 100
+    const accuracy = total > 0 ? (melodyAppState.score / (total * 20) * 100) : 0;
+
     if (accuracy >= 90) {
         return '优秀！旋律听辨能力出色，音准和节奏感都很强，继续保持！';
     } else if (accuracy >= 70) {
@@ -7816,13 +7904,13 @@ function generateMelodyAnalysisContent() {
     html += `<h4>成绩统计</h4>`;
     html += `<div class="stats-row">`;
     html += `<span><strong>总题数：</strong>${melodyAppState.totalQuestions} 题</span>`;
-    html += `<span><strong>正确题数：</strong>${melodyAppState.correct} 题</span>`;
-    html += `<span><strong>错误题数：</strong>${melodyAppState.wrong} 题</span>`;
+    html += `<span><strong>满分题数：</strong>${melodyAppState.correct} 题</span>`;
+    html += `<span><strong>≥70分题数：</strong>${melodyAppState.wrong} 题</span>`;
     html += `</div>`;
 
-    // 正确率 + 用时
-    const accuracy = melodyAppState.totalQuestions > 0
-        ? ((melodyAppState.correct / melodyAppState.totalQuestions) * 100).toFixed(1)
+    // 正确率 = 5道题正确率的平均值 = 总分 / 100 * 100
+    const totalAccuracy = melodyAppState.totalQuestions > 0
+        ? (melodyAppState.score / (melodyAppState.totalQuestions * 20) * 100).toFixed(1)
         : 0;
     const elapsedSeconds = melodyAppState.elapsedTime || 0;
     const minutes = Math.floor(elapsedSeconds / 60);
@@ -7830,19 +7918,19 @@ function generateMelodyAnalysisContent() {
     const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.padStart(5, '0')}`;
 
     html += `<div class="stats-row">`;
-    html += `<span><strong>正确率：</strong>${accuracy}%</span>`;
+    html += `<span><strong>正确率：</strong>${totalAccuracy}%</span>`;
     html += `<span><strong>用时：</strong>${timeStr}</span>`;
     html += `</div>`;
     html += `</div>`;
 
-    // 逐题分析
+    // 逐题分析（列出全部题目，含正确率列）
     if (melodyAppState.testAnalysis.length > 0) {
         html += `<div class="analysis-section">`;
         html += `<h4>逐题分析</h4>`;
         html += `<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;color:#333;">`;
-        html += `<tr style="background:#f0f0f0;"><th style="padding:4px;border:1px solid #ddd;">题号</th><th style="padding:4px;border:1px solid #ddd;">曲目</th><th style="padding:4px;border:1px solid #ddd;">得分</th><th style="padding:4px;border:1px solid #ddd;">调性</th><th style="padding:4px;border:1px solid #ddd;">拍号</th><th style="padding:4px;border:1px solid #ddd;">旋律</th></tr>`;
+        html += `<tr style="background:#f0f0f0;"><th style="padding:4px;border:1px solid #ddd;">题号</th><th style="padding:4px;border:1px solid #ddd;">曲目</th><th style="padding:4px;border:1px solid #ddd;">得分</th><th style="padding:4px;border:1px solid #ddd;">调性</th><th style="padding:4px;border:1px solid #ddd;">拍号</th><th style="padding:4px;border:1px solid #ddd;">旋律</th><th style="padding:4px;border:1px solid #ddd;">正确率</th></tr>`;
         melodyAppState.testAnalysis.forEach((a, i) => {
-            html += `<tr><td style="padding:4px;border:1px solid #ddd;text-align:center;">${i + 1}</td><td style="padding:4px;border:1px solid #ddd;">${a.title}</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.score}/20</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.keyCorrect ? '✓' : '✗'}</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.timeSigCorrect ? '✓' : '✗'}</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.melodyScore}</td></tr>`;
+            html += `<tr><td style="padding:4px;border:1px solid #ddd;text-align:center;">${i + 1}</td><td style="padding:4px;border:1px solid #ddd;">${a.title}</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.score}/20</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.keyCorrect ? '✓' : '✗'}</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.timeSigCorrect ? '✓' : '✗'}</td><td style="padding:4px;border:1px solid #ddd;text-align:center;">${a.melodyScore}</td><td style="padding:4px;border:1px solid #ddd;text-align:center;font-weight:bold;">${a.accuracy}%</td></tr>`;
         });
         html += `</table>`;
         html += `</div>`;
@@ -7950,11 +8038,15 @@ function updateMelodyLeaderboard() {
     const elapsed = melodyAppState.elapsedTime || 0;
     const min = Math.floor(elapsed / 60);
     const sec = elapsed % 60;
+    // 正确率 = 总分 / 满分(100) * 100
+    const accuracy = (melodyAppState.score / (melodyAppState.totalQuestions * 20) * 100).toFixed(1);
     melodyAppState.leaderboard.push({
         name: userInfo.name || '匿名',
         school: userInfo.school || '—',
         score: melodyAppState.score,
-        correct: melodyAppState.correct,
+        correct: melodyAppState.correct,        // 满分题数
+        passCount: melodyAppState.wrong,         // ≥70分题数
+        accuracy: parseFloat(accuracy),          // 正确率
         total: melodyAppState.totalQuestions,
         time: `${min}分${sec}秒`,
         timeSeconds: elapsed,
@@ -7967,12 +8059,12 @@ function updateMelodyLeaderboard() {
 
 function showMelodyLeaderboard() {
     const practiceContent = document.getElementById('practice-test-content-melody');
+    const testEndContent = document.getElementById('melody-test-end-content');
     const leaderboardContent = document.getElementById('leaderboard-content-melody');
     if (practiceContent) practiceContent.style.display = 'none';
+    if (testEndContent) testEndContent.style.display = 'none';
     if (leaderboardContent) leaderboardContent.style.display = 'block';
     const list = document.getElementById('leaderboard-list-melody');
-    const config = document.getElementById('leaderboard-config-melody');
-    if (config) config.textContent = `旋律听辨风云榜单（共${melodyAppState.leaderboard.length}条记录）`;
     if (list) {
         if (melodyAppState.leaderboard.length === 0) {
             list.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.5);">暂无榜单数据</div>';

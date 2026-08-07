@@ -1290,11 +1290,11 @@
                                 <div class="stat-value" id="score-melody">0</div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-label">正确</div>
+                                <div class="stat-label">满分</div>
                                 <div class="stat-value" id="correct-melody">0</div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-label">错误</div>
+                                <div class="stat-label">≥70分</div>
                                 <div class="stat-value" id="wrong-melody">0</div>
                             </div>
                             <div class="stat-item">
@@ -1318,21 +1318,19 @@
                         </div>
 
                         <!-- 调式调性与拍号 并排同一排 -->
-                        <div class="melody-key-meter-section" style="flex-wrap:nowrap;">
-                            <div class="param-group" style="min-width:100px;">
-                                <label for="key-selector-melody" style="font-size:12px;margin-bottom:4px;">调式调性</label>
-                                <select id="key-selector-melody" style="font-size:12px;padding:4px 6px;">
+                        <div class="melody-key-meter-section">
+                            <div class="param-group">
+                                <label for="key-selector-melody">调式调性</label>
+                                <select id="key-selector-melody">
                                     <option value="">请选择</option>
-                                    <option value="C">C大调</option>
-                                    <option value="G">G大调</option>
-                                    <option value="D">D大调</option>
-                                    <option value="A">A大调</option>
-                                    <option value="F">F大调</option>
-                                    <option value="Bb">♭B大调</option>
-                                    <option value="Eb">♭E大调</option>
-                                    <option value="a">a小调</option>
-                                    <option value="e">e小调</option>
-                                    <option value="d">d小调</option>
+                                    <option value="1">1级：无升降号调</option>
+                                    <option value="2">2级：一升调</option>
+                                    <option value="3">3级：一降调</option>
+                                    <option value="4">4级：两升调</option>
+                                    <option value="5">5级：两降调</option>
+                                    <option value="6">6级：三升调</option>
+                                    <option value="7">7级：三降调</option>
+                                    <option value="8">8级：随机调（综合）</option>
                                 </select>
                             </div>
                             <div class="param-group" style="min-width:80px;">
@@ -1445,9 +1443,6 @@
                     <!-- 风云榜单 -->
                     <div id="leaderboard-content-melody" style="display: none;">
                         <div class="leaderboard-panel">
-                            <div class="leaderboard-config-info" id="leaderboard-config-melody"
-                                style="text-align: center; padding: 10px; color: rgba(255, 255, 255, 0.7); font-size: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 10px;">
-                            </div>
                             <div class="leaderboard-table">
                                 <div class="leaderboard-header">
                                     <div class="lb-col lb-rank">排名</div>
