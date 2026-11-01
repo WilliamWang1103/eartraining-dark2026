@@ -8399,16 +8399,19 @@ function getMeterBeatsPerMeasure() {
 
 // 可选时值（以四分音符为1拍）
 const METER_DURATION_UNITS = {
-    'h': { beats: 2, label: '二分' },
-    'q': { beats: 1, label: '四分' },
-    '8': { beats: 0.5, label: '八分' },
-    '16': { beats: 0.25, label: '十六分' }
+    'h': { base: 'h', beats: 2, dots: 0, label: '二分' },
+    'q': { base: 'q', beats: 1, dots: 0, label: '四分' },
+    '8': { base: '8', beats: 0.5, dots: 0, label: '八分' },
+    '16': { base: '16', beats: 0.25, dots: 0, label: '十六分' },
+    'h.': { base: 'h', beats: 3, dots: 1, label: '附点二分' },
+    'q.': { base: 'q', beats: 1.5, dots: 1, label: '附点四分' },
+    '8.': { base: '8', beats: 0.75, dots: 1, label: '附点八分' }
 };
 
 // 生成节拍单元对象（音符或休止符）
 function makeMeterUnit(duration, rest) {
     const info = METER_DURATION_UNITS[duration] || METER_DURATION_UNITS['q'];
-    return { duration, dots: 0, rest: !!rest, beats: info.beats, label: info.label + (rest ? '休止' : '') };
+    return { duration: info.base, dots: info.dots || 0, rest: !!rest, beats: info.beats, label: info.label + (rest ? '休止' : '') };
 }
 
 // 取节拍单元显示名
@@ -8416,9 +8419,9 @@ function meterUnitLabel(unit) {
     return unit && unit.label ? unit.label : '';
 }
 
-// 比较两个节拍单元是否相等（只比时值与是否休止）
+// 比较两个节拍单元是否相等（比时值、附点与是否休止）
 function meterUnitsEqual(a, b) {
-    return !!a && !!b && a.duration === b.duration && !!a.rest === !!b.rest;
+    return !!a && !!b && a.duration === b.duration && (a.dots || 0) === (b.dots || 0) && !!a.rest === !!b.rest;
 }
 
 // 设置休止模式开关（仅更新状态与按钮样式，不弹提示）
@@ -8593,17 +8596,16 @@ function buildVexRhythmNotes(descriptors) {
         const isRest = !!d.rest;
         let dur;
         if (isRest) {
-            // 休止符：时值 + 'r' 后缀（qr/8r/16r/hr）
-            dur = (isTriplet ? 'q' : d.duration) + 'r';
+            // 休止符：时值 + (附点)d + r 后缀（qr/8r/16r/hr/qdr/8dr）
+            dur = (isTriplet ? 'q' : d.duration) + (d.dots ? 'd' : '') + 'r';
         } else {
             dur = isTriplet ? '8' : d.duration;
             if (d.dots && !isTriplet) dur = dur + 'd';
         }
         const note = new VF.StaveNote({ keys: ['b/4'], duration: dur });
-        if (!isRest) {
-            if (d.dots && !isTriplet) note.addDot(0);
-            note.setStemDirection(VF.Stem.UP);
-        }
+        // 附点（音符与休止符都需手动 addDot 渲染出圆点）
+        if (d.dots && !isTriplet) note.addDot(0);
+        if (!isRest) note.setStemDirection(VF.Stem.UP);
         totalBeats += (d.beats || 0);
         return { note, baseDur: isTriplet ? '8' : d.duration, isTriplet, isRest, breakBeam: !!d.breakBeam };
     });
@@ -9605,11 +9607,12 @@ function generateRandomRhythm() {
         const beatsPerMeasure = parseInt(beatType); // 2或3
         const measureCount = quantity; // 2或4
 
-        // 加权候选（四分/八分更常见，二分/十六分次之）
-        const pool = ['q', 'q', '8', '8', '16', 'h'];
+        // 加权候选（四分/八分更常见，二分/十六分/附点次之）
+        const pool = ['q', 'q', '8', '8', '16', 'h', 'q.', '8.', 'h.'];
 
         const measures = [];
         const allNotes = [];
+        let totalRests = 0; // 每题最多2个休止符
         for (let m = 0; m < measureCount; m++) {
             const measureUnits = [];
             let remaining = beatsPerMeasure;
@@ -9619,9 +9622,11 @@ function generateRandomRhythm() {
                 const chosen = candidates.length ? candidates : ['q'];
                 const dur = chosen[Math.floor(Math.random() * chosen.length)];
                 const beats = METER_DURATION_UNITS[dur].beats;
-                const rest = Math.random() < 0.35; // 约35%概率为休止符
-                measureUnits.push(makeMeterUnit(dur, rest));
-                allNotes.push({ duration: dur, beats: beats, dots: 0, rest: rest });
+                const rest = totalRests < 2 && Math.random() < 0.35; // 每题最多2个休止符
+                if (rest) totalRests++;
+                const unit = makeMeterUnit(dur, rest);
+                measureUnits.push(unit);
+                allNotes.push({ duration: unit.duration, beats: unit.beats, dots: unit.dots, rest: unit.rest });
                 remaining -= beats;
             }
             measures.push(measureUnits);
