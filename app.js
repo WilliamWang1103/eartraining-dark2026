@@ -8444,12 +8444,13 @@ function buildVexRhythmNotes(patterns) {
         const pattern = RHYTHM_DURATION_MAP[name];
         if (!pattern || !pattern.length) return;
 
-        // 1) 创建音符（附点用 '8d' / 'qd' / 'hd' 时值字符串）
+        // 1) 创建音符：附点用 '8d'/'qd' 时值字符串保证时值，再用 addDot 保证渲染出附点
         const items = pattern.map(n => {
             const isTriplet = n.duration === 'triplet';
             let dur = isTriplet ? '8' : n.duration;
             if (n.dots && !isTriplet) dur = dur + 'd';
             const note = new VF.StaveNote({ keys: ['b/4'], duration: dur });
+            if (n.dots && !isTriplet) note.addDot(0);
             note.setStemDirection(VF.Stem.UP);
             totalBeats += (n.beats || 0);
             return { note, isTriplet, baseDur: isTriplet ? '8' : n.duration };
@@ -8459,7 +8460,7 @@ function buildVexRhythmNotes(patterns) {
         let tripRun = [];
         const flushTriplet = () => {
             if (tripRun.length === 3) {
-                tuplets.push(new VF.Tuplet(tripRun, { ratioed: true, num_notes: 3, notes_occupied: 2 }));
+                tuplets.push(new VF.Tuplet(tripRun, { num_notes: 3, notes_occupied: 2, ratioed: false }));
             }
             tripRun = [];
         };
