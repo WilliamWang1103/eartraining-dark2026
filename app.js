@@ -10558,8 +10558,21 @@ function captureElementAsImage(elementSelector, fileNamePrefix, onSuccess, onErr
 }
 
 // 截屏功能 - 单音听辨页面
+// 生成更精确的文件名：区分声部（单声部/双声部/三声部）与高低音，避免上传错误
+function getSingleScreenshotPrefix() {
+    const voices = singleAppState.currentVoices || 1;
+    const voiceLabel = voices === 1 ? '单声部' : voices === 2 ? '双声部' : '三声部';
+    let prefix = `单音听辨_${voiceLabel}`;
+    if (voices >= 2) {
+        const levelSelect = document.getElementById('difficulty-single');
+        const level = levelSelect && levelSelect.value ? levelSelect.value : '';
+        if (level) prefix += `_${level}`;
+    }
+    return prefix;
+}
+
 function captureSinglePageScreenshot() {
-    captureElementAsImage('#single-page .exercise-page', '单音听辨测试',
+    captureElementAsImage('#single-page .exercise-page', getSingleScreenshotPrefix(),
         () => updateSingleStatus('截屏已保存！'));
 }
 

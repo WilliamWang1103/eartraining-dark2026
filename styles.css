@@ -1758,7 +1758,7 @@ body {
     background: linear-gradient(135deg, rgba(40, 50, 60, 0.8) 0%, rgba(30, 40, 50, 0.8) 100%);
     border-radius: 8px;
     padding: 12px 15px;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     line-height: 1.8;
     border-left: 3px solid #2196F3;
 }
@@ -1788,14 +1788,14 @@ body {
 }
 
 .score-value-inline {
-    font-size: 2.2rem;
+    font-size: 2rem;
     font-weight: bold;
     margin-bottom: 3px;
     line-height: 1;
 }
 
 .score-label-inline {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     opacity: 0.9;
 }
 
@@ -1810,19 +1810,19 @@ body {
 .test-analysis-panel-inline h3 {
     margin: 0 0 12px 0;
     color: #FFB74D;
-    font-size: 1rem;
+    font-size: 0.9rem;
 }
 
 .test-analysis-panel-inline h4 {
     color: #64B5F6;
     margin: 0 0 8px 0;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
 }
 
 .test-analysis-panel-inline p,
 .test-analysis-panel-inline li {
     color: rgba(255, 255, 255, 0.85);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     line-height: 1.6;
     margin: 5px 0;
 }
@@ -1839,7 +1839,9 @@ body {
 /* 成绩统计行布局 */
 .stats-row {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
+    gap: 4px 12px;
     margin: 8px 0;
     padding: 6px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -1851,7 +1853,7 @@ body {
 
 .stats-row span {
     color: rgba(255, 255, 255, 0.85);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
 }
 
 .stats-row strong {
@@ -1866,13 +1868,13 @@ body {
 .analysis-section h4 {
     color: #64B5F6;
     margin: 0 0 8px 0;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
 }
 
 .analysis-section p,
 .analysis-section li {
     color: rgba(255, 255, 255, 0.85);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     line-height: 1.6;
     margin: 5px 0;
 }
