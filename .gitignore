@@ -22,3 +22,7 @@ npm-debug.log*
 *.tmp
 *.temp
 eartraining-dark/
+
+# IDE / 工具生成缓存
+.codewhale/
+.trae-html-share-packages/

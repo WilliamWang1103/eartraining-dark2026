@@ -1075,6 +1075,7 @@ const pageManager = {
             initSingleEndPage();
         }
         else if (pageId === 'rhythm-test-end-page') setRhythmInteractiveVisibility(false);
+        else if (pageId === 'comprehensive-exam-page') initExamPage();
     },
     getPageTitle(pageId) {
         const titles = {
@@ -1089,7 +1090,8 @@ const pageManager = {
             'melody-test-end-page': '旋律听辨结果 - 音乐听觉综合训练系统',
             'learning-report-page': '学习报告 - 音乐听觉综合训练系统',
             'error-book-page': '错题本 - 音乐听觉综合训练系统',
-            'adaptive-page': '智能推荐 - 音乐听觉综合训练系统'
+            'adaptive-page': '智能推荐 - 音乐听觉综合训练系统',
+            'comprehensive-exam-page': '综合考试 - 音乐听觉综合训练系统'
         };
         return titles[pageId] || '音乐听觉综合训练系统';
     },
@@ -2721,10 +2723,40 @@ function clearChordLeaderboard() {
     }
 }
 
+// 练习说明折叠/展开（移动端优先：包裹内容用于平滑过渡 + 提升触控体验）
+function initPracticeInstructionsToggle() {
+    document.querySelectorAll('.practice-instructions').forEach(function (box) {
+        const h4 = box.querySelector('h4');
+        if (!h4 || h4._toggleBound) return;
+        h4._toggleBound = true;
+
+        // 将除标题之外的内容包裹进 .pi-content，以便用 max-height 做平滑过渡
+        let content = box.querySelector('.pi-content');
+        if (!content) {
+            content = document.createElement('div');
+            content.className = 'pi-content';
+            while (h4.nextSibling) {
+                content.appendChild(h4.nextSibling);
+            }
+            box.appendChild(content);
+        }
+
+        h4.addEventListener('click', function (e) {
+            // 避免移动端触发默认行为（如文本选择/双击缩放干扰）
+            e.preventDefault();
+            box.classList.toggle('collapsed');
+        });
+
+        // 默认收起，点击标题时展开，节省垂直空间
+        box.classList.add('collapsed');
+    });
+}
+
 function init() {
-    // 初始不自动加载本地学生信息，保持默认空白状态
-    // 若需要恢复上次保存的信息，请使用“加载/恢复”按钮手动触发
+    // 默认自动加载上次保存的学生信息，避免每次重复输入
+    userManager.loadUserInfo();
     initHomePage();
+    initPracticeInstructionsToggle();
     initChordPage();
     initWindowControls();
     initEndPage();
@@ -2765,7 +2797,7 @@ function initHomePage() {
                 case 'chord': pageManager.switchToPage('chord-page'); break;
                 case 'rhythm': pageManager.switchToPage('rhythm-page'); break;
                 case 'melody': pageManager.switchToPage('melody-page'); break;
-                case 'comprehensive-exam': alert('📊 综合考试功能正在开发中，敬请期待！'); break;
+                case 'comprehensive-exam': pageManager.switchToPage('comprehensive-exam-page'); break;
             }
         });
     });
@@ -9560,6 +9592,38 @@ const RHYTHM_DURATION_MAP = {
         { duration: '16', beats: 0.25, description: '十六分音符' },
         { duration: '16', beats: 0.25, description: '十六分音符' },
         { duration: 'q', beats: 1.5, dots: 1, description: '附点四分音符' }
+    ],
+
+    // ===== 三、单个音符时值（用于旋律输入）=====
+
+    // 全音 = 4拍
+    '全音': [
+        { duration: 'w', beats: 4, description: '全音音符' }
+    ],
+
+    // 八分 = 0.5拍
+    '八分': [
+        { duration: '8', beats: 0.5, description: '八分音符' }
+    ],
+
+    // 十六分 = 0.25拍
+    '十六分': [
+        { duration: '16', beats: 0.25, description: '十六分音符' }
+    ],
+
+    // 附点二分 = 3拍
+    '附点二分': [
+        { duration: 'h', beats: 3, dots: 1, description: '附点二分音符' }
+    ],
+
+    // 附点四分 = 1.5拍
+    '附点四分': [
+        { duration: 'q', beats: 1.5, dots: 1, description: '附点四分音符' }
+    ],
+
+    // 附点八分 = 0.75拍
+    '附点八分': [
+        { duration: '8', beats: 0.75, dots: 1, description: '附点八分音符' }
     ]
 };
 
@@ -12794,6 +12858,2086 @@ function generateStudyPlan(data) {
 // 生成新计划（重新生成随机建议）
 function generateNewPlan() {
     showStudyPlan();
+}
+
+// ==================== 综合考试模块 ====================
+
+// --- 配置常量 ---
+// 7 种考试题型元数据
+const EXAM_QUESTION_TYPES = [
+    { type: 'single', name: '单音听辨', unit: '个', defaultCount: 10, defaultScore: 1, defaultDifficulty: 1, difficultySource: 'scale', difficultyLevels: 8, scoreModel: 'perCount' },
+    { type: 'interval-pitch', name: '音程音准听辨', unit: '个', defaultCount: 10, defaultScore: 2, defaultDifficulty: 1, difficultySource: 'scale', difficultyLevels: 8, scoreModel: 'perCount' },
+    { type: 'interval-quality', name: '音程性质听辨', unit: '个', defaultCount: 10, defaultScore: 2, defaultDifficulty: 1, difficultySource: 'interval', difficultyLevels: 3, scoreModel: 'perCount' },
+    { type: 'chord-pitch', name: '和弦音准听辨', unit: '个', defaultCount: 10, defaultScore: 3, defaultDifficulty: 1, difficultySource: 'chord', difficultyLevels: 3, scoreModel: 'perCount' },
+    { type: 'chord-quality', name: '和弦性质听辨', unit: '个', defaultCount: 10, defaultScore: 3, defaultDifficulty: 1, difficultySource: 'chord', difficultyLevels: 3, scoreModel: 'perCount' },
+    { type: 'rhythm', name: '节奏听辨', unit: '小节', defaultCount: 4, defaultScore: 2, defaultDifficulty: 1, difficultySource: 'rhythm', difficultyLevels: 3, scoreModel: 'perCountPlus1' },
+    { type: 'melody', name: '旋律听辨', unit: '小节', defaultCount: 8, defaultScore: 2, defaultDifficulty: 1, difficultySource: 'scale', difficultyLevels: 8, scoreModel: 'perCountPlus2' }
+];
+// scoreModel: perCount=count*score | perCountPlus1=(count+1)*score (timeSig) | perCountPlus2=(count+2)*score (key+timeSig)
+
+// 默认考卷（6题）
+function buildDefaultExamPaper() {
+    return [
+        { id: 1, type: 'single', count: 10, score: 1, difficulty: 1 },
+        { id: 2, type: 'interval-pitch', count: 10, score: 2, difficulty: 1 },
+        { id: 3, type: 'chord-pitch', count: 10, score: 3, difficulty: 1 },
+        { id: 4, type: 'rhythm', count: 4, score: 2, difficulty: 1 },
+        { id: 5, type: 'chord-quality', count: 10, score: 3, difficulty: 1 },
+        { id: 6, type: 'melody', count: 8, score: 2, difficulty: 1 }
+    ];
+}
+
+function getExamTypeMeta(type) { return EXAM_QUESTION_TYPES.find(t => t.type === type); }
+
+function getExamItemScore(q) {
+    const meta = getExamTypeMeta(q.type);
+    if (!meta) return 0;
+    if (meta.scoreModel === 'perCount') return q.count * q.score;
+    if (meta.scoreModel === 'perCountPlus1') return (q.count + 1) * q.score;
+    if (meta.scoreModel === 'perCountPlus2') return (q.count + 2) * q.score;
+    return 0;
+}
+
+function getDifficultyOptions(difficultySource) {
+    if (difficultySource === 'scale') {
+        const arr = [];
+        for (let i = 1; i <= 8; i++) arr.push({ value: i, label: scaleDifficultyConfig[i].name });
+        return arr;
+    }
+    if (difficultySource === 'chord') {
+        const arr = [];
+        for (let i = 1; i <= 3; i++) arr.push({ value: i, label: difficultyConfig[i].name });
+        return arr;
+    }
+    if (difficultySource === 'interval') {
+        const arr = [];
+        for (let i = 1; i <= 3; i++) arr.push({ value: i, label: intervalLevelConfig[i].name });
+        return arr;
+    }
+    if (difficultySource === 'rhythm') {
+        return [
+            { value: 1, label: '简单（基础节奏型）' },
+            { value: 2, label: '中等（含切分附点）' },
+            { value: 3, label: '困难（含复杂节奏型）' }
+        ];
+    }
+    return [];
+}
+
+const EXAM_NOTES = [];
+for (let oct = 3; oct <= 5; oct++) {
+    ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].forEach(n => {
+        if (oct === 3 && !['G', 'G#', 'A', 'A#', 'B'].includes(n)) return;
+        if (oct === 5 && !['C', 'C#', 'D', 'D#', 'E', 'F'].includes(n)) return;
+        EXAM_NOTES.push(n + oct);
+    });
+}
+
+const EXAM_CHORD_TYPES = [
+    { name: '大三', intervals: [0, 4, 7] }, { name: '小三', intervals: [0, 3, 7] },
+    { name: '增三', intervals: [0, 4, 8] }, { name: '减三', intervals: [0, 3, 6] },
+    { name: '大七', intervals: [0, 4, 7, 11] }, { name: '属七', intervals: [0, 4, 7, 10] },
+    { name: '小七', intervals: [0, 3, 7, 10] }, { name: '半减七', intervals: [0, 3, 6, 10] },
+    { name: '减七', intervals: [0, 3, 6, 9] }
+];
+
+const EXAM_RHYTHM_1BEAT = ['四分', '2个八分', '4个十六分', '前十六', '后十六', '小切分', '小附点', '小后附点', '三连音'];
+const EXAM_RHYTHM_2BEAT = ['二分', '八分大切分', '十六分大切分', '前十六大切分', '后十六大切分', '八分大附点', '八分大后附点', '十六分大附点', '十六分大后附点'];
+
+const EXAM_KEYS = [
+    { value: 'C', name: 'C大调', scale: ['C', 'D', 'E', 'F', 'G', 'A', 'B'] },
+    { value: 'G', name: 'G大调', scale: ['G', 'A', 'B', 'C', 'D', 'E', 'F#'] },
+    { value: 'F', name: 'F大调', scale: ['F', 'G', 'A', 'Bb', 'C', 'D', 'E'] },
+    { value: 'D', name: 'D大调', scale: ['D', 'E', 'F#', 'G', 'A', 'B', 'C#'] },
+    { value: 'a', name: 'a小调', scale: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] },
+    { value: 'e', name: 'e小调', scale: ['E', 'F#', 'G', 'A', 'B', 'C', 'D'] },
+    { value: 'd', name: 'd小调', scale: ['D', 'E', 'F', 'G', 'A', 'Bb', 'C'] }
+];
+
+const examState = {
+    phase: 'setup', questions: [], currentQIndex: 0, currentPlayIndex: 0,
+    isPlaying: false, skipRequested: false, stopRequested: false,
+    countdownTimer: null, elapsedTimer: null, elapsedTime: 0,
+    score: 0, scoreBreakdown: [], testStartTime: null, testEndTime: null, leaderboard: [],
+    answers: null, currentQuestion: 1, selectedMeasure: -1, selectedBeat: -1,
+    jumpToNextQ: false, rhythmTab: '1beat',
+    melodyDuration: 'q', melodyDots: 0, melodyKeySig: 'none',
+    melodyScaleType: 'major', melodyCurrentPitch: null,
+    examPaper: buildDefaultExamPaper()
+};
+
+// --- 初始化 ---
+function initExamPage() {
+    const back = document.getElementById('back-home-exam');
+    if (back) back.onclick = () => pageManager.switchToPage('home-page');
+    const start = document.getElementById('start-exam-btn');
+    if (start) start.onclick = () => startExam();
+    const submit = document.getElementById('submit-exam-btn');
+    if (submit) submit.onclick = () => submitExamAnswers();
+    const replay = document.getElementById('exam-replay-btn');
+    if (replay) replay.onclick = () => { examState.skipRequested = true; };
+    const skip = document.getElementById('exam-skip-btn');
+    if (skip) skip.onclick = () => { examState.jumpToNextQ = true; examState.skipRequested = true; };
+    const stop = document.getElementById('exam-stop-btn');
+    if (stop) stop.onclick = () => { examState.stopRequested = true; };
+    const setupTab = document.getElementById('setup-btn-exam');
+    if (setupTab) setupTab.onclick = () => showExamTab('setup');
+    const lbTab = document.getElementById('leaderboard-btn-exam');
+    if (lbTab) lbTab.onclick = () => showExamTab('leaderboard');
+    renderExamConfig();
+    renderExamLeaderboard();
+}
+
+function showExamTab(tab) {
+    const setupBtn = document.getElementById('setup-btn-exam');
+    const lbBtn = document.getElementById('leaderboard-btn-exam');
+    const setupSec = document.getElementById('exam-setup-section');
+    const lbSec = document.getElementById('leaderboard-content-exam');
+    if (tab === 'setup') {
+        if (setupBtn) setupBtn.classList.add('active');
+        if (lbBtn) lbBtn.classList.remove('active');
+        if (setupSec) setupSec.style.display = 'block';
+        if (lbSec) lbSec.style.display = 'none';
+    } else {
+        if (setupBtn) setupBtn.classList.remove('active');
+        if (lbBtn) lbBtn.classList.add('active');
+        if (setupSec) setupSec.style.display = 'none';
+        if (lbSec) lbSec.style.display = 'block';
+        renderExamLeaderboard();
+    }
+}
+
+function renderExamConfig() {
+    const el = document.getElementById('exam-config-table');
+    if (!el) return;
+    let html = '';
+    const paper = examState.examPaper;
+    paper.forEach((q, idx) => {
+        const meta = getExamTypeMeta(q.type);
+        if (!meta) return;
+        // Type select: 7 options
+        let typeOptions = '';
+        EXAM_QUESTION_TYPES.forEach(t => {
+            typeOptions += `<option value="${t.type}" ${q.type === t.type ? 'selected' : ''}>${t.name}</option>`;
+        });
+        // Difficulty select: based on difficultySource
+        const diffOpts = getDifficultyOptions(meta.difficultySource);
+        let diffOptions = '';
+        diffOpts.forEach(d => {
+            diffOptions += `<option value="${d.value}" ${q.difficulty === d.value ? 'selected' : ''}>${d.label}</option>`;
+        });
+        // Count select
+        let countOptions = '';
+        const countStart = meta.unit === '小节' ? 2 : 5;
+        const countEnd = meta.unit === '小节' ? 16 : 30;
+        const countStep = meta.unit === '小节' ? 2 : 5;
+        for (let c = countStart; c <= countEnd; c += countStep) {
+            countOptions += `<option value="${c}" ${q.count === c ? 'selected' : ''}>${c}</option>`;
+        }
+        // Score select
+        let scoreOptions = '';
+        for (let s = 1; s <= 5; s++) {
+            scoreOptions += `<option value="${s}" ${q.score === s ? 'selected' : ''}>${s}分</option>`;
+        }
+        const itemTotal = getExamItemScore(q);
+        html += `<div class="exam-config-row">
+            <span class="q-name">第${idx + 1}题</span>
+            <select class="q-type-select" onchange="setExamPaperField(${idx}, 'type', this.value)">${typeOptions}</select>
+            <select class="q-difficulty-select" onchange="setExamPaperField(${idx}, 'difficulty', parseInt(this.value))">${diffOptions}</select>
+            <span class="q-unit">${meta.unit}</span>
+            <select class="q-count-select" onchange="setExamPaperField(${idx}, 'count', parseInt(this.value))">${countOptions}</select>
+            <select class="q-score-select" onchange="setExamPaperField(${idx}, 'score', parseInt(this.value))">${scoreOptions}</select>
+            <span class="q-total">${itemTotal}分</span>
+        </div>`;
+    });
+    el.innerHTML = html;
+    updateExamTotalScore();
+}
+
+function setExamPaperField(idx, field, val) {
+    const q = examState.examPaper[idx];
+    if (!q) return;
+    // When changing type, reset count/score/difficulty to defaults
+    if (field === 'type') {
+        const meta = getExamTypeMeta(val);
+        if (meta) {
+            q.count = meta.defaultCount;
+            q.score = meta.defaultScore;
+            q.difficulty = meta.defaultDifficulty;
+        }
+    }
+    q[field] = val;
+    renderExamConfig();
+}
+
+function updateExamTotalScore() {
+    let total = 0;
+    examState.examPaper.forEach(q => { total += getExamItemScore(q); });
+    const el = document.getElementById('exam-total-score');
+    if (el) el.textContent = total;
+}
+
+// --- 题目生成 ---
+function generateExamQuestions() {
+    const paper = examState.examPaper;
+    const questions = [];
+    paper.forEach((q, idx) => {
+        if (q.type === 'single') questions.push({ paperIdx: idx, ...q, data: _genSingle(q.count, q.difficulty) });
+        else if (q.type === 'interval-pitch') questions.push({ paperIdx: idx, ...q, data: _genInterval(q.count, q.difficulty) });
+        else if (q.type === 'interval-quality') questions.push({ paperIdx: idx, ...q, data: _genIntervalQuality(q.count, q.difficulty) });
+        else if (q.type === 'chord-pitch') questions.push({ paperIdx: idx, ...q, data: _genChord(q.count, q.difficulty) });
+        else if (q.type === 'chord-quality') questions.push({ paperIdx: idx, ...q, data: _genChordQuality(q.count, q.difficulty) });
+        else if (q.type === 'rhythm') questions.push({ paperIdx: idx, ...q, data: _genRhythm(null, q.count, q.difficulty) });
+        else if (q.type === 'melody') questions.push({ paperIdx: idx, ...q, data: _genMelody(q.count, q.difficulty) });
+    });
+    return questions;
+}
+
+function _genIntervalQuality(count, difficulty) {
+    // Generate intervals and mark quality name (correct answer)
+    const semisPool = intervalLevelConfig[difficulty] ? intervalLevelConfig[difficulty].intervals : [1, 2, 3, 4];
+    const out = [];
+    const notePool = EXAM_NOTES;
+    for (let i = 0; i < count; i++) {
+        const n1 = notePool[Math.floor(Math.random() * Math.max(1, notePool.length - 8))];
+        const st = semisPool[Math.floor(Math.random() * semisPool.length)];
+        const f1 = getFrequency(n1), f2 = f1 * Math.pow(2, st / 12);
+        let best = null, md = Infinity;
+        for (const n of notePool) { const d = Math.abs(getFrequency(n) - f2); if (d < md) { md = d; best = n; } }
+        const quality = getIntervalName(st);
+        out.push({ note1: n1, note2: best, quality, semitones: st });
+    }
+    return out;
+}
+
+function _genChordQuality(count, difficulty) {
+    const out = [];
+    const chordPool = difficultyConfig[difficulty] ? difficultyConfig[difficulty].chords : EXAM_CHORD_TYPES.slice(0, 4);
+    const roots = EXAM_NOTES.filter(n => { const o = parseInt(n.slice(-1)); return o === 4; });
+    for (let i = 0; i < count; i++) {
+        const type = chordPool[Math.floor(Math.random() * chordPool.length)];
+        const root = roots[Math.floor(Math.random() * roots.length)];
+        const rf = getFrequency(root);
+        const notes = type.intervals.map(iv => {
+            const f = rf * Math.pow(2, iv / 12);
+            let best = null, md = Infinity;
+            for (const n of EXAM_NOTES) { const d = Math.abs(getFrequency(n) - f); if (d < md) { md = d; best = n; } }
+            return best;
+        });
+        out.push({ root, typeName: type.name, notes, quality: type.name });
+    }
+    return out;
+}
+
+function _genSingle(count, difficulty) {
+    const notePool = scaleDifficultyConfig[difficulty] ? scaleDifficultyConfig[difficulty].notes : EXAM_NOTES;
+    const out = [];
+    for (let i = 0; i < count; i++) out.push(notePool[Math.floor(Math.random() * notePool.length)]);
+    return out;
+}
+
+function _genInterval(count, difficulty) {
+    const notePool = scaleDifficultyConfig[difficulty] ? scaleDifficultyConfig[difficulty].notes : EXAM_NOTES;
+    const out = [];
+    const semis = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    for (let i = 0; i < count; i++) {
+        const n1 = notePool[Math.floor(Math.random() * Math.max(1, notePool.length - 7))];
+        const st = semis[Math.floor(Math.random() * semis.length)];
+        const f1 = getFrequency(n1), f2 = f1 * Math.pow(2, st / 12);
+        let best = null, md = Infinity;
+        for (const n of notePool) { const d = Math.abs(getFrequency(n) - f2); if (d < md) { md = d; best = n; } }
+        out.push({ note1: n1, note2: best });
+    }
+    return out;
+}
+
+function _genChord(count, difficulty) {
+    const out = [];
+    const chordPool = difficultyConfig[difficulty] ? difficultyConfig[difficulty].chords : EXAM_CHORD_TYPES.slice(0, 7);
+    const roots = EXAM_NOTES.filter(n => { const o = parseInt(n.slice(-1)); return o === 4; });
+    for (let i = 0; i < count; i++) {
+        const type = chordPool[Math.floor(Math.random() * chordPool.length)];
+        const root = roots[Math.floor(Math.random() * roots.length)];
+        const rf = getFrequency(root);
+        const notes = type.intervals.map(iv => {
+            const f = rf * Math.pow(2, iv / 12);
+            let best = null, md = Infinity;
+            for (const n of EXAM_NOTES) { const d = Math.abs(getFrequency(n) - f); if (d < md) { md = d; best = n; } }
+            return best;
+        });
+        out.push({ root, typeName: type.name, notes });
+    }
+    return out;
+}
+
+function _genRhythm(timeSig, bars, difficulty) {
+    // timeSig=null => random 2/4 or 3/4 (考核项，不固定)
+    const finalTimeSig = timeSig || (Math.random() > 0.5 ? '2/4' : '3/4');
+    const bpb = parseInt(finalTimeSig.split('/')[0]);
+    // Difficulty affects rhythm complexity
+    let easy1 = ['四分', '2个八分'];
+    let easy2 = ['二分'];
+    let med1 = ['四分', '2个八分', '4个十六分', '前十六', '后十六', '小附点'];
+    let med2 = ['二分', '八分大附点', '后十六大切分'];
+    let hard1 = EXAM_RHYTHM_1BEAT;
+    let hard2 = EXAM_RHYTHM_2BEAT;
+    let pool1, pool2;
+    if (difficulty <= 1) { pool1 = easy1; pool2 = easy2; }
+    else if (difficulty === 2) { pool1 = med1; pool2 = med2; }
+    else { pool1 = hard1; pool2 = hard2; }
+    const measures = [];
+    for (let m = 0; m < bars; m++) {
+        const bar = []; let rem = bpb;
+        while (rem > 0) {
+            if (rem >= 2 && Math.random() > 0.6) { bar.push(pool2[Math.floor(Math.random() * pool2.length)]); rem -= 2; }
+            else { bar.push(pool1[Math.floor(Math.random() * pool1.length)]); rem -= 1; }
+        }
+        measures.push(bar);
+    }
+    return { timeSignature: finalTimeSig, bars, measures };
+}
+
+function _genMelody(bars, difficulty) {
+    // Use scale difficulty to determine key
+    const scaleConfig = scaleDifficultyConfig[difficulty] || scaleDifficultyConfig[1];
+    const scaleKeys = Object.keys(scaleConfig.scales);
+    const selectedScale = scaleKeys[Math.floor(Math.random() * scaleKeys.length)];
+    const scaleNotes = scaleConfig.scales[selectedScale];
+    // Find matching EXAM_KEYS entry or create one
+    let key = EXAM_KEYS.find(k => k.name === selectedScale);
+    if (!key) {
+        const match = selectedScale.match(/^([A-G][#b]?)/);
+        const keyValue = match ? match[1] : 'C';
+        key = { value: keyValue, name: selectedScale, scale: scaleNotes };
+    }
+    const timeSig = Math.random() > 0.5 ? '2/4' : '3/4';
+    const bpb = parseInt(timeSig.split('/')[0]);
+    const measures = [];
+    const notes = [];
+
+    // Reverse lookup: duration key → rhythm pattern label
+    const DURATION_TO_RHYTHM = {};
+    Object.keys(RHYTHM_DURATION_MAP).forEach(pat => {
+        const arr = RHYTHM_DURATION_MAP[pat];
+        if (arr.length === 1) {
+            DURATION_TO_RHYTHM[arr[0].duration + (arr[0].dots || 0)] = pat;
+        }
+    });
+    const rhythmForDur = (dur, dots) => {
+        const k = dur + (dots || 0);
+        if (DURATION_TO_RHYTHM[k]) return DURATION_TO_RHYTHM[k];
+        const map = { 'w': '全音', 'h': '二分', 'q': '四分', '8': '八分', '16': '十六分', 'h.': '附点二分', 'q.': '附点四分', '8.': '附点八分', 'triplet': '三连音' };
+        return map[dur] || dur;
+    };
+
+    for (let m = 0; m < bars; m++) {
+        const bar = [];
+        let startBeat = 0;
+        let rem = bpb;
+        while (rem > 0.001) {
+            let pat;
+            let patBeats;
+            if (rem >= 2 - 0.001 && Math.random() > 0.6) {
+                pat = EXAM_RHYTHM_2BEAT[Math.floor(Math.random() * EXAM_RHYTHM_2BEAT.length)];
+                patBeats = 2;
+            } else {
+                pat = EXAM_RHYTHM_1BEAT[Math.floor(Math.random() * EXAM_RHYTHM_1BEAT.length)];
+                patBeats = 1;
+            }
+            const rn = RHYTHM_DURATION_MAP[pat];
+            if (rn && rn.length > 0) {
+                let subStart = 0;
+                rn.forEach(n => {
+                    const pitch = scaleNotes[Math.floor(Math.random() * scaleNotes.length)] + '4';
+                    const nb = getNoteBeatsForDuration(n.duration, n.dots || 0);
+                    const noteObj = {
+                        pitch,
+                        rhythm: rhythmForDur(n.duration, n.dots || 0),
+                        duration: n.duration,
+                        dots: n.dots || 0,
+                        startBeat: startBeat + subStart
+                    };
+                    bar.push(noteObj);
+                    notes.push({ pitch, duration: n.duration, beats: nb, dots: n.dots || 0 });
+                    subStart += nb;
+                });
+            }
+            startBeat += patBeats;
+            rem -= patBeats;
+        }
+        measures.push(bar);
+    }
+    return { key: key.value, keyName: key.name, scale: key.scale, timeSignature: timeSig, bars, measures, notes };
+}
+
+// --- 播放 ---
+function examSleep(ms) {
+    return new Promise(resolve => {
+        if (examState.stopRequested || ms <= 0) return resolve();
+        const start = Date.now();
+        const t = setInterval(() => {
+            if (examState.skipRequested || examState.stopRequested || Date.now() - start >= ms) {
+                clearInterval(t);
+                // Keep skipRequested active when jumping to next question
+                if (examState.skipRequested && !examState.jumpToNextQ) examState.skipRequested = false;
+                resolve();
+            }
+        }, 100);
+        examState._sleepTimer = t;
+    });
+}
+
+function _updateStatus(text) { const el = document.getElementById('exam-status'); if (el) el.textContent = text; }
+function _updateProgress(qIdx, pIdx) {
+    const totalQs = examState.questions.length;
+    const qEl = document.getElementById('exam-current-q'); if (qEl) qEl.textContent = `${qIdx + 1}/${totalQs}`;
+    const pEl = document.getElementById('exam-current-play'); if (pEl) pEl.textContent = `${pIdx + 1}/4`;
+    const nameEl = document.getElementById('exam-question-name');
+    if (nameEl && examState.questions[qIdx]) {
+        const meta = getExamTypeMeta(examState.questions[qIdx].type);
+        nameEl.textContent = meta ? meta.name : `第${qIdx + 1}题`;
+    }
+    const fill = document.getElementById('exam-progress-fill');
+    if (fill) {
+        const total = totalQs * 4; const done = qIdx * 4 + pIdx;
+        fill.style.width = (done / total * 100) + '%';
+    }
+}
+
+function getBpmForType(type) {
+    if (type === 'rhythm') return 60;
+    if (type === 'melody') return 50;
+    return 55; // single, interval-*, chord-*
+}
+
+function buildPlaySequence() {
+    const qs = examState.questions;
+    return qs.map(q => {
+        const meta = getExamTypeMeta(q.type);
+        const name = meta ? meta.name : q.type;
+        const bpm = getBpmForType(q.type);
+        let playFn;
+        switch (q.type) {
+            case 'single':
+                playFn = () => _playSingleOnce(q.data, bpm); break;
+            case 'interval-pitch':
+                playFn = () => _playIntervalOnce(q.data, bpm); break;
+            case 'interval-quality':
+                playFn = () => _playIntervalOnce(q.data, bpm); break;
+            case 'chord-pitch':
+                playFn = () => _playChordOnce(q.data, bpm); break;
+            case 'chord-quality':
+                playFn = () => _playChordOnce(q.data, bpm); break;
+            case 'rhythm':
+                playFn = () => _playRhythmOnce(q.data, bpm); break;
+            case 'melody':
+                playFn = () => _playMelodyOnce(q.data, bpm); break;
+            default:
+                playFn = () => Promise.resolve();
+        }
+        return { name, play: playFn, type: q.type };
+    });
+}
+
+async function startExam() {
+    await ensureAudioReady();
+    try { await Tone.start(); } catch (e) { console.warn('Tone.start failed:', e); }
+    examState.questions = generateExamQuestions();
+    examState.phase = 'playing';
+    examState.stopRequested = false;
+    examState.skipRequested = false;
+    examState.jumpToNextQ = false;
+    examState.testStartTime = new Date();
+    examState.elapsedTime = 0;
+    // Start elapsed timer
+    examState.elapsedTimer = setInterval(() => {
+        examState.elapsedTime++;
+        const el = document.getElementById('exam-elapsed');
+        if (el) {
+            const m = Math.floor(examState.elapsedTime / 60);
+            const s = examState.elapsedTime % 60;
+            el.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+    }, 1000);
+
+    // Show playing section and answer sheet
+    document.getElementById('exam-setup-section').style.display = 'none';
+    document.getElementById('exam-playing-section').style.display = 'block';
+    document.getElementById('exam-answering-section').style.display = 'block';
+    document.getElementById('exam-result-section').style.display = 'none';
+
+    // Initialize answers and show answer sheet alongside playing controls
+    initExamAnswers();
+    showAnswerSheet();
+
+    await playExamSequence();
+
+    if (examState.stopRequested) {
+        _updateStatus('考试已终止');
+        clearInterval(examState.elapsedTimer);
+        return;
+    }
+
+    // Finalize: hide playing controls, keep answer sheet
+    examState.phase = 'answering';
+    const playingSec = document.getElementById('exam-playing-section');
+    if (playingSec) playingSec.style.display = 'none';
+}
+
+async function playExamSequence() {
+    const seq = buildPlaySequence();
+    const totalQs = seq.length;
+
+    for (let qi = 0; qi < totalQs; qi++) {
+        if (examState.stopRequested) return;
+        if (examState.jumpToNextQ) {
+            examState.jumpToNextQ = false;
+            examState.skipRequested = false;
+            await examSleep(500);
+        }
+        examState.currentQIndex = qi;
+        examState.currentQuestion = qi + 1;
+        // Update answer sheet to show current question
+        const navBar = document.getElementById('exam-nav-bar');
+        const inputArea = document.getElementById('exam-input-area');
+        if (navBar && inputArea) {
+            renderExamNavBar();
+            renderExamQuestion(examState.currentQuestion);
+        }
+        for (let pi = 0; pi < 4; pi++) {
+            if (examState.stopRequested) return;
+            if (examState.jumpToNextQ) {
+                examState.jumpToNextQ = false;
+                await examSleep(1000);
+                break; // Exit inner loop to advance to next question
+            }
+            examState.currentPlayIndex = pi;
+            _updateProgress(qi, pi);
+            _updateStatus(`正在播放第${qi + 1}题「${seq[qi].name}」第${pi + 1}遍...`);
+            const cdEl = document.getElementById('exam-countdown');
+            if (cdEl) cdEl.textContent = '播放中';
+
+            await seq[qi].play();
+
+            if (examState.stopRequested) return;
+            if (examState.jumpToNextQ) {
+                examState.jumpToNextQ = false;
+                break; // Skip waiting, go to next question
+            }
+
+            // Wait between plays (30s), skip last play's wait
+            if (pi < 3) {
+                await _examCountdown(30, `第${pi + 2}遍播放`);
+            }
+        }
+        // Wait between questions (2 min), skip last question
+        if (qi < totalQs - 1) {
+            _updateStatus(`第${qi + 1}题播放完毕，准备下一题...`);
+            if (!examState.jumpToNextQ) {
+                await _examCountdown(120, `下一题（第${qi + 2}题）`);
+            }
+        }
+    }
+    _updateStatus('全部题目播放完毕，请答题！');
+    clearInterval(examState.elapsedTimer);
+}
+
+async function _examCountdown(seconds, label) {
+    const cdEl = document.getElementById('exam-countdown');
+    for (let s = seconds; s > 0; s--) {
+        if (examState.skipRequested || examState.stopRequested) {
+            if (!examState.jumpToNextQ) examState.skipRequested = false;
+            break;
+        }
+        _updateStatus(`${label}倒计时：${s}秒`);
+        if (cdEl) cdEl.textContent = s + '秒';
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    if (cdEl) cdEl.textContent = '--';
+}
+
+async function _playNoteDelay(note, dur) {
+    playNoteWithWebAudio(note, dur, 0.8);
+    await examSleep(dur * 1000 + 200);
+}
+
+async function _playSingleOnce(notes, bpm) {
+    const beatDur = 60 / bpm;
+    await _playNoteDelay('A4', 1.5);
+    await examSleep(500);
+    for (const n of notes) { playNoteWithWebAudio(n, 1.0, 0.8); await examSleep(beatDur * 1000); }
+    await examSleep(300);
+    await _playNoteDelay('A4', 1.5);
+}
+
+async function _playIntervalOnce(intervals, bpm) {
+    const beatDur = 60 / bpm;
+    await _playNoteDelay('A4', 1.5);
+    await examSleep(500);
+    for (const iv of intervals) {
+        playNoteWithWebAudio(iv.note1, 1.0, 0.8);
+        await examSleep(beatDur * 1000);
+        playNoteWithWebAudio(iv.note2, 1.0, 0.8);
+        await examSleep(beatDur * 1500);
+    }
+    await examSleep(300);
+    await _playNoteDelay('A4', 1.5);
+}
+
+async function _playChordOnce(chords, bpm) {
+    const beatDur = 60 / bpm;
+    await _playNoteDelay('A4', 1.5);
+    await examSleep(500);
+    for (const c of chords) { playChord(c.notes); await examSleep(beatDur * 2000); }
+    await examSleep(300);
+    await _playNoteDelay('A4', 1.5);
+}
+
+async function _playRhythmOnce(rhythm, bpm) {
+    const beatDur = 60 / bpm;
+    for (let i = 0; i < 4; i++) { playNoteWithWebAudio('A4', 0.3, 0.6); await examSleep(beatDur * 1000); }
+    await examSleep(300);
+    // Play rhythm
+    const notes = [];
+    rhythm.measures.forEach(bar => bar.forEach(pat => {
+        const rn = RHYTHM_DURATION_MAP[pat];
+        if (rn) rn.forEach(n => notes.push(n));
+    }));
+    for (const n of notes) {
+        const dur = beatDur * n.beats;
+        playNoteWithWebAudio('C4', dur, 0.8);
+        await examSleep(dur * 1000);
+    }
+}
+
+async function _playMelodyOnce(melody, bpm) {
+    const beatDur = 60 / bpm;
+    for (let i = 0; i < 4; i++) { playNoteWithWebAudio('A4', 0.3, 0.6); await examSleep(beatDur * 1000); }
+    await examSleep(300);
+    for (const n of melody.notes) {
+        const dur = beatDur * n.beats;
+        playNoteWithWebAudio(n.pitch, dur, 0.8);
+        await examSleep(dur * 1000);
+    }
+    await examSleep(300);
+    await _playNoteDelay('A4', 1.5);
+}
+
+// Helper: get question config at 1-based qIdx
+function getExamQuestionAt(qIdx) {
+    return examState.questions[qIdx - 1];
+}
+
+function getExamAnswerAt(qIdx) {
+    return examState.answers[qIdx - 1];
+}
+
+function getQuestionHint(type) {
+    switch (type) {
+        case 'single': return '点击五线谱小节选中，然后点击钢琴键盘输入答案，连击键盘自动进入下一小节';
+        case 'interval-pitch': return '点击小节选中，然后点击钢琴键盘输入2个音（不自动进下一小节）';
+        case 'interval-quality': return '点击小节选中，然后点击钢琴键盘输入2个音（不自动进下一小节）';
+        case 'chord-pitch': return '点击小节选中，然后点击钢琴键盘输入和弦各音（不自动进下一小节）';
+        case 'chord-quality': return '点击小节选中，然后点击钢琴键盘输入和弦各音（不自动进下一小节）';
+        case 'rhythm': return '选择拍号，点击小节选中后点击节奏按钮填入每拍节奏型';
+        case 'melody': return '选择调和拍号，先选定时值，然后点击钢琴键盘输入旋律';
+        default: return '';
+    }
+}
+
+// --- 答卷 ---
+function initExamAnswers() {
+    examState.answers = examState.questions.map(q => {
+        const meta = getExamTypeMeta(q.type);
+        const count = q.count;
+        switch (q.type) {
+            case 'single':
+                return new Array(count).fill('');
+            case 'interval-pitch':
+            case 'interval-quality':
+                return Array.from({ length: count }, () => []);
+            case 'chord-pitch':
+            case 'chord-quality':
+                return Array.from({ length: count }, () => []);
+            case 'rhythm':
+                return { timeSig: '2/4', bars: Array.from({ length: count }, () => []) };
+            case 'melody':
+                return { key: 'C', timeSig: '2/4', bars: Array.from({ length: count }, () => []) };
+            default:
+                return null;
+        }
+    });
+    examState.currentQuestion = 1;
+    examState.selectedMeasure = -1;
+    examState.selectedBeat = -1;
+    examState.rhythmTab = '1beat';
+    examState.melodyDuration = 'q';
+    examState.melodyDots = 0;
+    examState.melodyKeySig = 'none';
+    examState.melodyScaleType = 'major';
+    examState.melodyCurrentPitch = null;
+}
+
+function showAnswerSheet() {
+    const el = document.getElementById('exam-answer-sheet');
+    if (!el) return;
+    initExamAnswers();
+    el.innerHTML = `
+        <div class="exam-nav-bar" id="exam-nav-bar"></div>
+        <div id="exam-q-info" class="exam-q-info"></div>
+        <div id="exam-staff-area" class="exam-staff-container"></div>
+        <div id="exam-input-area"></div>
+    `;
+    renderExamNavBar();
+    renderExamQuestion(examState.currentQuestion);
+}
+
+function renderExamNavBar() {
+    const el = document.getElementById('exam-nav-bar');
+    if (!el) return;
+    let html = '';
+    const totalQs = examState.questions.length;
+    for (let i = 1; i <= totalQs; i++) {
+        const q = getExamQuestionAt(i);
+        const meta = q ? getExamTypeMeta(q.type) : null;
+        const shortName = meta ? meta.name.replace('听辨', '').substring(0, 4) : `题${i}`;
+        const active = i === examState.currentQuestion ? ' active' : '';
+        html += `<button class="exam-nav-btn${active}" onclick="switchExamQuestion(${i})"><span class="nav-q-num">第${i}题</span>${shortName}</button>`;
+    }
+    el.innerHTML = html;
+}
+
+function switchExamQuestion(qIdx) {
+    examState.currentQuestion = qIdx;
+    examState.selectedMeasure = -1;
+    examState.selectedBeat = -1;
+    renderExamNavBar();
+    renderExamQuestion(qIdx);
+}
+
+function renderExamQuestion(qIdx) {
+    const q = getExamQuestionAt(qIdx);
+    if (!q) return;
+    const meta = getExamTypeMeta(q.type);
+    const qName = meta ? meta.name : '';
+    const qTotal = getExamItemScore(q);
+    const hint = getQuestionHint(q.type);
+    const infoEl = document.getElementById('exam-q-info');
+    if (infoEl) {
+        infoEl.innerHTML = `<div class="eqi-title">第${qIdx}题 ${qName}（${qTotal}分）</div><div class="eqi-hint">${hint}</div>`;
+    }
+    renderExamStaffSVG(qIdx);
+    renderExamInputArea(qIdx);
+}
+
+// --- SVG五线谱渲染 ---
+const STAFF_CFG = { lineSpacing: 10, topY: 40, leftMargin: 20, measureWidth: 72, noteR: 5 };
+
+function _noteToStep(note) {
+    const idx = { 'C': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'A': 5, 'B': 6 };
+    const m = note.match(/^([A-G])(#|b)?(\d)$/);
+    if (!m) return 0;
+    return (parseInt(m[3]) * 7 + idx[m[1]]) - 34;
+}
+
+function _stepToY(step) {
+    return (STAFF_CFG.topY + 2 * STAFF_CFG.lineSpacing) - step * (STAFF_CFG.lineSpacing / 2);
+}
+
+function _ledgerSteps(step) {
+    const lines = [];
+    if (step < -4) { for (let s = -6; s >= step; s -= 2) lines.push(s); }
+    else if (step > 4) { for (let s = 6; s <= step; s += 2) lines.push(s); }
+    return lines;
+}
+
+function _renderNoteSVG(x, step, opts) {
+    const y = _stepToY(step);
+    const r = STAFF_CFG.noteR;
+    let svg = '';
+    for (const ls of _ledgerSteps(step)) {
+        const ly = _stepToY(ls);
+        svg += `<line x1="${x - 7}" y1="${ly}" x2="${x + 7}" y2="${ly}" stroke="#1a1a2e" stroke-width="1.2"/>`;
+    }
+    if (opts.accidental) {
+        svg += `<text x="${x - 11}" y="${y + 4}" font-size="13" fill="#1a1a2e" font-family="serif" font-weight="bold">${opts.accidental}</text>`;
+    }
+    if (opts.filled) {
+        svg += `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r * 0.78}" fill="#1a1a2e" transform="rotate(-20 ${x} ${y})"/>`;
+    } else {
+        svg += `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r * 0.78}" fill="none" stroke="#1a1a2e" stroke-width="1.5" transform="rotate(-20 ${x} ${y})"/>`;
+    }
+    if (opts.stem) {
+        const stemX = x + r + 0.5;
+        const stemDir = opts.stemDown ? 1 : -1;
+        const stemTopY = opts.beamY !== null && opts.beamY !== undefined ? opts.beamY : y + stemDir * 20;
+        svg += `<line x1="${stemX}" y1="${y}" x2="${stemX}" y2="${stemTopY}" stroke="#1a1a2e" stroke-width="1.2"/>`;
+
+        // Add flags for eighth/sixteenth notes (skip if beamed - beam drawn separately)
+        if (opts.duration && !opts.isBeamed) {
+            const dur = opts.duration.replace('.', '');
+            let flagCount = 0;
+            if (dur === '8') flagCount = 1;
+            else if (dur === '16') flagCount = 2;
+
+            if (flagCount > 0) {
+                const flagStartX = stemX;
+                const flagStartY = stemTopY;
+                const flagEndY = stemTopY + (flagCount - 1) * 4 + 8;
+
+                // Draw flags as curved path
+                if (stemDir === -1) {
+                    // Stem up - flags on left
+                    svg += `<path d="M ${flagStartX} ${flagStartY} Q ${flagStartX - 8} ${flagStartY + 4} ${flagStartX - 3} ${flagEndY}" fill="#1a1a2e" stroke="none"/>`;
+                    if (flagCount === 2) {
+                        svg += `<path d="M ${flagStartX} ${flagStartY + 4} Q ${flagStartX - 10} ${flagStartY + 10} ${flagStartX - 3} ${flagEndY + 4}" fill="#1a1a2e" stroke="none"/>`;
+                    }
+                } else {
+                    // Stem down - flags on right
+                    svg += `<path d="M ${flagStartX} ${flagStartY} Q ${flagStartX + 8} ${flagStartY + 4} ${flagStartX + 3} ${flagEndY}" fill="#1a1a2e" stroke="none"/>`;
+                    if (flagCount === 2) {
+                        svg += `<path d="M ${flagStartX} ${flagStartY + 4} Q ${flagStartX + 10} ${flagStartY + 10} ${flagStartX + 3} ${flagEndY + 4}" fill="#1a1a2e" stroke="none"/>`;
+                    }
+                }
+            }
+        }
+    }
+    // Add dots for dotted notes
+    if (opts.dots && opts.dots > 0) {
+        const dotX = x + r + 6;
+        const dotY = y - 3;
+        for (let i = 0; i < opts.dots; i++) {
+            svg += `<circle cx="${dotX + i * 6}" cy="${dotY}" r="2.5" fill="#1a1a2e"/>`;
+        }
+    }
+    return svg;
+}
+
+function _renderStaffLines(x, width) {
+    let svg = '';
+    for (let i = 0; i < 5; i++) {
+        const y = STAFF_CFG.topY + i * STAFF_CFG.lineSpacing;
+        svg += `<line x1="${x}" y1="${y}" x2="${x + width}" y2="${y}" stroke="#333" stroke-width="1"/>`;
+    }
+    return svg;
+}
+
+function _renderTrebleClef(x) {
+    const staffTop = STAFF_CFG.topY;
+    const thirdLineY = staffTop + 2 * STAFF_CFG.lineSpacing;
+    const clefFontSize = 96;
+    return `<text x="${x}" y="${thirdLineY + STAFF_CFG.lineSpacing * 2.8}" font-size="${clefFontSize}" fill="#1a1a2e" font-family="serif">𝄞</text>`;
+}
+
+function _renderTimeSig(x, timeSig) {
+    const staffTop = STAFF_CFG.topY;
+    const thirdLineY = staffTop + 2 * STAFF_CFG.lineSpacing;
+    const fontSize = STAFF_CFG.lineSpacing * 1.6;
+    const parts = timeSig.split('/');
+    const gap = 1;
+    return `<text x="${x}" y="${thirdLineY - fontSize / 2 - gap / 2}" font-size="${fontSize}" fill="#1a1a2e" font-family="serif" font-weight="bold" text-anchor="middle">${parts[0]}</text>
+            <text x="${x}" y="${thirdLineY + fontSize / 2 + gap / 2}" font-size="${fontSize}" fill="#1a1a2e" font-family="serif" font-weight="bold" text-anchor="middle">${parts[1]}</text>`;
+}
+
+function _renderKeySignature(x, key) {
+    if (key === 'C' || key === 'a') return '';
+    const y = STAFF_CFG.topY + 2 * STAFF_CFG.lineSpacing;
+    const sharps = { 'G': 1, 'D': 2, 'e': 1 };
+    const flats = { 'F': 1, 'd': 1 };
+    let svg = '';
+    const stepPositions = { sharp: [2, -1, 3, 0, 2, -1, 3], flat: [-1, 2, -2, 1, -3, 0, -2] };
+    let count = 0;
+    let symbol = '';
+    const fontSize = STAFF_CFG.lineSpacing * 1.4;
+    if (sharps[key] !== undefined) { count = sharps[key]; symbol = '♯'; }
+    else if (flats[key] !== undefined) { count = flats[key]; symbol = '♭'; }
+    for (let i = 0; i < count; i++) {
+        const step = symbol === '♯' ? stepPositions.sharp[i] : stepPositions.flat[i];
+        const sy = _stepToY(step);
+        svg += `<text x="${x + i * (fontSize * 0.45)}" y="${sy + fontSize * 0.35}" font-size="${fontSize}" fill="#1a1a2e" font-family="serif">${symbol}</text>`;
+    }
+    return { svg, width: count * fontSize * 0.5 };
+}
+
+// Calculate beam groups for exam melody (flat notes array)
+function _calcExamBeamGroups(notes) {
+    const noteBeatInfo = notes.map(note => {
+        const dur = note.duration.replace('.', '');
+        const isBeamable = dur === '8' || dur === '16' || dur === 'triplet';
+        const beatNum = Math.floor((note.startBeat || 0) + 0.001);
+        return { isBeamable, beatNum, dur };
+    });
+    const groups = [];
+    let currentGroup = [];
+    for (let i = 0; i < noteBeatInfo.length; i++) {
+        const info = noteBeatInfo[i];
+        if (info.isBeamable) {
+            if (currentGroup.length === 0) {
+                currentGroup.push(i);
+            } else {
+                const prev = noteBeatInfo[currentGroup[currentGroup.length - 1]];
+                if (info.beatNum === prev.beatNum) {
+                    currentGroup.push(i);
+                } else {
+                    if (currentGroup.length >= 2) groups.push([...currentGroup]);
+                    currentGroup = [i];
+                }
+            }
+        } else {
+            if (currentGroup.length >= 2) groups.push([...currentGroup]);
+            currentGroup = [];
+        }
+    }
+    if (currentGroup.length >= 2) groups.push([...currentGroup]);
+    return groups;
+}
+
+function renderExamStaffSVG(qIdx) {
+    const el = document.getElementById('exam-staff-area');
+    if (!el) return;
+    const q = getExamQuestionAt(qIdx);
+    const ans = getExamAnswerAt(qIdx);
+    if (!q || !ans) return;
+    const qType = q.type;
+    const mw = STAFF_CFG.measureWidth;
+    const lineSpace = STAFF_CFG.lineSpacing;
+    const staffTop = STAFF_CFG.topY;
+    const staffHeight = 4 * lineSpace;
+    const staffBottom = staffTop + staffHeight;
+    let measureCount, isRhythm = false, timeSig = '4/4';
+    let keySig = null;
+    let pitchNotes = [];
+    let rhythmData = null;
+    let isPitchQ = false, isMelodyQ = false;
+
+    if (qType === 'single') {
+        isPitchQ = true;
+        measureCount = q.count;
+        pitchNotes = ans.map(n => n ? { notes: [_noteToStep(n)], accidental: n.includes('#') ? '♯' : (n.includes('b') ? '♭' : null), filled: false, stem: false } : null);
+    } else if (qType === 'interval-pitch' || qType === 'interval-quality') {
+        isPitchQ = true;
+        measureCount = q.count;
+        pitchNotes = ans.map(arr => arr.length ? { notes: arr.map(n => _noteToStep(n)), accidentals: arr.map(n => n.includes('#') ? '♯' : (n.includes('b') ? '♭' : null)), filled: false, stem: false } : null);
+    } else if (qType === 'chord-pitch' || qType === 'chord-quality') {
+        isPitchQ = true;
+        measureCount = q.count;
+        pitchNotes = ans.map(arr => arr.length ? { notes: arr.map(n => _noteToStep(n)), accidentals: arr.map(n => n.includes('#') ? '♯' : (n.includes('b') ? '♭' : null)), filled: false, stem: false } : null);
+    } else if (qType === 'rhythm') {
+        isRhythm = true;
+        measureCount = q.count;
+        timeSig = ans.timeSig;
+        rhythmData = { bpb: parseInt(timeSig.split('/')[0]), bars: ans.bars };
+    } else if (qType === 'melody') {
+        isRhythm = true;
+        isMelodyQ = true;
+        measureCount = q.count;
+        timeSig = ans.timeSig;
+        keySig = ans.key;
+        rhythmData = { bpb: parseInt(timeSig.split('/')[0]), bars: ans.bars };
+    } else {
+        measureCount = q.count || 1;
+    }
+
+    // Layout: clef + time signature + key sig all inside staff area
+    const clefX = 8;
+    const clefWidth = lineSpace * 7;
+    const tsWidth = lineSpace * 2;
+    const ksWidth = (keySig && keySig !== 'C' && keySig !== 'a') ? lineSpace * 2 : 0;
+    const preWidth = clefWidth + tsWidth + ksWidth + 8;
+    const staffStartX = preWidth;
+    const staffWidth = measureCount * mw;
+    const totalWidth = staffStartX + staffWidth + 12;
+
+    // Total height: top padding + staff + bottom padding for ledger lines
+    const topPad = staffTop;
+    let bottomPad;
+    if (qIdx === 6) {
+        bottomPad = 60;
+    } else if (isRhythm) {
+        bottomPad = 20;
+    } else {
+        bottomPad = 45;
+    }
+    const totalHeight = topPad + staffHeight + bottomPad;
+
+    let svg = `<svg width="${totalWidth}" height="${totalHeight}" viewBox="0 0 ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg">`;
+
+    // Staff lines - start from clef position so clef/timeSig are inside staff
+    svg += _renderStaffLines(clefX - 2, staffWidth + preWidth + 6);
+
+    // Treble clef - positioned on the staff
+    svg += _renderTrebleClef(clefX);
+
+    // Time signature - positioned on the staff after clef
+    svg += _renderTimeSig(clefX + clefWidth + 2, timeSig);
+
+    // Key signature - positioned on the staff after time sig
+    if (keySig && keySig !== 'C' && keySig !== 'a') {
+        const ksInfo = _renderKeySignature(clefX + clefWidth + tsWidth + 4, keySig);
+        svg += ksInfo.svg;
+    }
+
+    // Measures
+    const totalH = totalHeight;
+    for (let m = 0; m < measureCount; m++) {
+        const mx = staffStartX + m * mw;
+        const isSel = (examState.selectedMeasure === m);
+        const measureBg = isSel ? 'rgba(255,183,77,0.22)' : (m % 2 === 0 ? 'rgba(200,200,200,0.06)' : 'transparent');
+        svg += `<g class="measure-group${isSel ? ' selected' : ''}" onclick="selectExamMeasure(${m})">`;
+        svg += `<rect x="${mx}" y="0" width="${mw}" height="${totalH}" fill="${measureBg}" stroke="none"/>`;
+
+        // Bar line
+        svg += `<line x1="${mx}" y1="${staffTop}" x2="${mx}" y2="${staffBottom}" stroke="#333" stroke-width="${m === 0 ? 1.5 : 1}"/>`;
+
+        // Measure number
+        svg += `<text x="${mx + mw / 2}" y="${staffTop - 5}" class="measure-num">${m + 1}</text>`;
+
+        if (isMelodyQ) {
+            // Melody: flat notes array with beam support
+            const bpb = rhythmData.bpb;
+            const notes = rhythmData.bars[m] || [];
+            const beatW = mw / bpb;
+
+            // Beat selection highlight
+            if (isSel && examState.selectedBeat >= 0) {
+                const selX = mx + examState.selectedBeat * beatW;
+                svg += `<rect class="beat-bg" x="${selX}" y="0" width="${beatW}" height="${totalH}" fill="rgba(255,217,102,0.3)" stroke="none"/>`;
+            }
+
+            // Calculate beam groups
+            const beamGroups = _calcExamBeamGroups(notes);
+            const beamedSet = new Set();
+            beamGroups.forEach(g => g.forEach(idx => beamedSet.add(idx)));
+
+            // Calculate beam Y for each beamed note (uniform stem height)
+            const beamYMap = {};
+            beamGroups.forEach(group => {
+                const stemTops = group.map(idx => {
+                    const note = notes[idx];
+                    const nb = getNoteBeatsForDuration(note.duration, note.dots || 0);
+                    const nx = mx + (note.startBeat + nb / 2) * beatW;
+                    const step = _noteToStep(note.pitch);
+                    return { idx, x: nx, y: _stepToY(step) };
+                });
+                // Find extreme (highest note = smallest Y, stem up)
+                const extremeIdx = stemTops.reduce((best, p, i) => p.y < stemTops[best].y ? i : best, 0);
+                const isSlanted = extremeIdx === 0 || extremeIdx === stemTops.length - 1;
+                const beamBaseOffset = -20;
+                if (!isSlanted) {
+                    const flatY = stemTops[extremeIdx].y + beamBaseOffset;
+                    group.forEach((idx, i) => { beamYMap[idx] = flatY; });
+                } else {
+                    const startP = stemTops[extremeIdx];
+                    const endP = stemTops[extremeIdx === 0 ? stemTops.length - 1 : 0];
+                    group.forEach((idx, i) => {
+                        const t = (stemTops[i].x - startP.x) / (endP.x - startP.x || 1);
+                        beamYMap[idx] = startP.y + beamBaseOffset + (endP.y - startP.y) * t;
+                    });
+                }
+            });
+
+            // Render notes
+            notes.forEach((note, idx) => {
+                const nb = getNoteBeatsForDuration(note.duration, note.dots || 0);
+                const nx = mx + (note.startBeat + nb / 2) * beatW;
+                const step = _noteToStep(note.pitch);
+                const accidental = note.pitch.includes('#') ? '♯' : null;
+                const baseDur = note.duration.replace('.', '');
+                const isFilled = baseDur !== 'h' && baseDur !== 'w';
+                const isBeamed = beamedSet.has(idx);
+                const beamY = beamYMap[idx];
+                svg += _renderNoteSVG(nx, step, { filled: isFilled, stem: true, accidental, dots: note.dots || 0, duration: note.duration, isBeamed, beamY });
+            });
+
+            // Render beams
+            beamGroups.forEach(group => {
+                if (group.length < 2) return;
+                const stemTops = group.map(idx => {
+                    const note = notes[idx];
+                    const nb = getNoteBeatsForDuration(note.duration, note.dots || 0);
+                    const nx = mx + (note.startBeat + nb / 2) * beatW;
+                    const r = STAFF_CFG.noteR;
+                    return { x: nx + r + 0.5, y: beamYMap[idx], level: note.duration.replace('.', '') === '16' ? 2 : 1 };
+                });
+                // Main beam
+                svg += `<line x1="${stemTops[0].x}" y1="${stemTops[0].y}" x2="${stemTops[stemTops.length - 1].x}" y2="${stemTops[stemTops.length - 1].y}" stroke="#1a1a2e" stroke-width="3"/>`;
+                // Second beam for 16th sub-groups
+                let subStart = -1;
+                for (let i = 0; i <= stemTops.length; i++) {
+                    if (i < stemTops.length && stemTops[i].level >= 2) {
+                        if (subStart === -1) subStart = i;
+                    } else {
+                        if (subStart !== -1) {
+                            const sf = stemTops[subStart], sl = stemTops[i - 1];
+                            svg += `<line x1="${sf.x}" y1="${sf.y + 5}" x2="${sl.x}" y2="${sl.y + 5}" stroke="#1a1a2e" stroke-width="3"/>`;
+                            subStart = -1;
+                        }
+                    }
+                }
+                // Triplet "3" mark
+                const hasTriplet = group.some(idx => notes[idx].duration.replace('.', '') === 'triplet');
+                if (hasTriplet) {
+                    const midIdx = group[Math.floor(group.length / 2)];
+                    const mn = notes[midIdx];
+                    const mb = getNoteBeatsForDuration(mn.duration, mn.dots || 0);
+                    const midX = mx + (mn.startBeat + mb / 2) * beatW;
+                    svg += `<text x="${midX}" y="${beamYMap[midIdx] - 6}" font-size="9" fill="#1a1a2e" text-anchor="middle" font-family="serif" font-weight="bold">3</text>`;
+                }
+            });
+        } else if (isRhythm) {
+            const bpb = rhythmData.bpb;
+            const bar = rhythmData.bars[m] || [];
+            const beatW = mw / bpb;
+            for (let beat = 0; beat < bpb; beat++) {
+                const bx = mx + beat * beatW;
+                const beatSel = isSel && examState.selectedBeat === beat;
+                const item = bar[beat];
+                if (beatSel) {
+                    svg += `<rect class="beat-bg" x="${bx + 2}" y="0" width="${beatW - 4}" height="${totalH}" fill="rgba(255,217,102,0.4)" stroke="none"/>`;
+                }
+                if (item) {
+                    if (typeof item === 'object' && item.pitch) {
+                        // Melody note object: {pitch, rhythm, duration, dots}
+                        const nx = bx + beatW / 2;
+                        const step = _noteToStep(item.pitch);
+                        const accidental = item.pitch.includes('#') ? '♯' : null;
+                        const duration = item.duration || 'q';
+                        // Get base duration (remove dot suffix) for filled check
+                        const baseDur = duration.replace('.', '');
+                        const isFilled = baseDur !== 'h' && baseDur !== 'w';
+                        svg += `<text x="${bx + beatW / 2}" y="${staffTop - 7}" font-size="7" fill="#444" text-anchor="middle" font-family="sans-serif">${item.rhythm}</text>`;
+                        const durInfo = RHYTHM_DURATION_MAP[item.rhythm];
+                        const itemDots = item.dots || (durInfo && durInfo[0] && durInfo[0].dots) || 0;
+                        if (durInfo && durInfo.length > 1) {
+                            const noteSpacing = Math.min(8, (beatW - 8) / durInfo.length);
+                            const startX = nx - (durInfo.length - 1) * noteSpacing / 2;
+                            durInfo.forEach((dn, di) => {
+                                const dnBaseDur = dn.duration.replace('.', '');
+                                const isF = dnBaseDur !== 'h' && dnBaseDur !== 'w';
+                                const dots = dn.dots || 0;
+                                svg += _renderNoteSVG(startX + di * noteSpacing, step, { filled: isF, stem: true, accidental: di === 0 ? accidental : null, dots, duration: dn.duration });
+                            });
+                        } else {
+                            svg += _renderNoteSVG(nx, step, { filled: isFilled, stem: true, accidental, dots: itemDots, duration });
+                        }
+                    } else {
+                        // Rhythm pattern string (backward compatible)
+                        const pattern = item;
+                        svg += `<text x="${bx + beatW / 2}" y="${staffTop - 7}" font-size="8" fill="#444" text-anchor="middle" font-family="sans-serif">${pattern}</text>`;
+                        const nx = bx + beatW / 2;
+                        const a4step = _noteToStep('A4');
+                        const durInfo = RHYTHM_DURATION_MAP[pattern];
+                        if (durInfo && durInfo.length > 0) {
+                            const noteSpacing = Math.min(10, (beatW - 8) / Math.max(durInfo.length, 1));
+                            const startX = nx - (durInfo.length - 1) * noteSpacing / 2;
+                            durInfo.forEach((dn, di) => {
+                                const isFilled = dn.duration !== 'h' && dn.duration !== 'w';
+                                svg += _renderNoteSVG(startX + di * noteSpacing, a4step, { filled: isFilled, stem: true, accidental: null, duration: dn.duration });
+                            });
+                        } else {
+                            const isLong = pattern === '二分';
+                            svg += _renderNoteSVG(nx, a4step, { filled: !isLong, stem: true, accidental: null, duration: 'q' });
+                        }
+                    }
+                } else {
+                    svg += `<text x="${bx + beatW / 2}" y="${staffBottom + 12}" font-size="9" fill="#ccc" text-anchor="middle" font-family="sans-serif">·</text>`;
+                }
+            }
+        } else if (isPitchQ) {
+            const pn = pitchNotes[m];
+            if (pn) {
+                if (qType === 'single') {
+                    svg += _renderNoteSVG(mx + mw / 2, pn.notes[0], { filled: false, stem: false, accidental: pn.accidental });
+                } else if (qType === 'interval-pitch' || qType === 'interval-quality') {
+                    const nx = mx + mw / 2;
+                    pn.notes.forEach((step, i) => {
+                        svg += _renderNoteSVG(nx, step, { filled: false, stem: false, accidental: pn.accidentals[i] });
+                    });
+                } else if (qType === 'chord-pitch' || qType === 'chord-quality') {
+                    pn.notes.forEach((step, i) => {
+                        svg += _renderNoteSVG(mx + mw / 2, step, { filled: false, stem: false, accidental: pn.accidentals[i] });
+                    });
+                }
+            }
+        }
+
+        svg += `</g>`;
+    }
+
+    // Final bar line
+    const endX = staffStartX + measureCount * mw;
+    svg += `<line x1="${endX}" y1="${staffTop}" x2="${endX}" y2="${staffBottom}" stroke="#333" stroke-width="1.5"/>`;
+    svg += `<line x1="${endX + 3}" y1="${staffTop}" x2="${endX + 3}" y2="${staffBottom}" stroke="#333" stroke-width="3"/>`;
+
+    svg += `</svg>`;
+    el.innerHTML = svg;
+}
+
+// --- 输入区渲染 ---
+function renderExamInputArea(qIdx) {
+    const el = document.getElementById('exam-input-area');
+    if (!el) return;
+    const q = getExamQuestionAt(qIdx);
+    if (!q) return;
+    const t = q.type;
+    if (t === 'single' || t === 'interval-pitch' || t === 'interval-quality' || t === 'chord-pitch' || t === 'chord-quality') {
+        renderExamPiano(qIdx);
+    } else if (t === 'melody') {
+        renderExamMelodyInput(qIdx);
+    } else if (t === 'rhythm') {
+        renderExamRhythmInput(qIdx);
+    }
+}
+
+function renderExamPiano(qIdx) {
+    const el = document.getElementById('exam-input-area');
+    if (!el) return;
+    const q = getExamQuestionAt(qIdx);
+    const ans = getExamAnswerAt(qIdx);
+    if (!q || !ans) return;
+    const whiteNotes = allNotes.filter(n => n.type === 'white');
+    const blackNotes = allNotes.filter(n => n.type === 'black');
+
+    let selectedNotes = new Set();
+    if (examState.selectedMeasure >= 0) {
+        const m = examState.selectedMeasure;
+        if (q.type === 'single') {
+            const n = ans[m];
+            if (n) selectedNotes.add(n);
+        } else if (q.type === 'interval-pitch' || q.type === 'interval-quality') {
+            (ans[m] || []).forEach(n => { if (n) selectedNotes.add(n); });
+        } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
+            (ans[m] || []).forEach(n => { if (n) selectedNotes.add(n); });
+        }
+    }
+
+    let html = '<div class="exam-piano"><div class="exam-piano-inner" id="exam-piano-inner">';
+    whiteNotes.forEach((note, index) => {
+        const sel = selectedNotes.has(note.note) ? ' selected' : '';
+        html += `<div class="ew-key white${sel}" data-note="${note.note}" data-index="${index}" onclick="handleExamPianoInput('${note.note}')">${note.display}</div>`;
+    });
+    html += '</div></div>';
+    el.innerHTML = html;
+
+    // Use same positioning approach as initChordPiano
+    const inner = document.getElementById('exam-piano-inner');
+    if (!inner) return;
+
+    // Force reflow so offsetLeft/offsetWidth are accurate
+    inner.offsetWidth;
+
+    // Calculate metrics the same way as updatePianoMetrics
+    const whiteEls = inner.querySelectorAll('.ew-key.white');
+    if (!whiteEls.length) return;
+
+    const firstLeft = whiteEls[0].offsetLeft;
+    const whiteWidth = whiteEls[0].offsetWidth;
+    const spacing = whiteEls.length > 1 ? (whiteEls[1].offsetLeft - whiteEls[0].offsetLeft) : whiteWidth + 1;
+
+    // Remove existing black keys
+    inner.querySelectorAll('.ew-key.black').forEach(k => k.remove());
+
+    // Add black keys using calculateBlackKeyLeft formula
+    const blackWidth = 22;
+    blackNotes.forEach(note => {
+        const sel = selectedNotes.has(note.note) ? ' selected' : '';
+        const left = firstLeft + note.position * spacing + whiteWidth / 2 - blackWidth / 2;
+        const key = document.createElement('div');
+        key.className = `ew-key black${sel}`;
+        key.dataset.note = note.note;
+        key.style.left = `${left}px`;
+        key.innerHTML = note.display;
+        key.onclick = () => handleExamPianoInput(note.note);
+        inner.appendChild(key);
+    });
+}
+
+function renderExamRhythmInput(qIdx) {
+    const el = document.getElementById('exam-input-area');
+    if (!el) return;
+    const ans = getExamAnswerAt(qIdx);
+    if (!ans) return;
+    let timeSig = ans.timeSig;
+    let bars = ans.bars;
+
+    let html = '<div class="exam-selector-bar">';
+    // Time signature selector
+    const tsOptions = ['2/4', '3/4', '4/4'];
+    html += '<div class="exam-selector-group"><span class="esg-label">拍号：</span>';
+    tsOptions.forEach(ts => {
+        const active = ts === timeSig ? ' active' : '';
+        html += `<button class="exam-selector-btn${active}" onclick="setExamTimeSig(${qIdx}, '${ts}')">${ts}</button>`;
+    });
+    html += '</div></div>';
+
+    // Rhythm tabs
+    const activeTab = examState.rhythmTab || '1beat';
+    html += '<div class="exam-rhythm-section">';
+    html += '<div class="rhythm-tabs">';
+    html += `<button class="rhythm-tab${activeTab === '1beat' ? ' active' : ''}" onclick="setExamRhythmTab('1beat')">1拍节奏型</button>`;
+    html += `<button class="rhythm-tab${activeTab === '2beat' ? ' active' : ''}" onclick="setExamRhythmTab('2beat')">2拍节奏型</button>`;
+    html += '</div>';
+
+    html += '<div class="exam-rhythm-grid">';
+    const patterns = activeTab === '1beat' ? EXAM_RHYTHM_1BEAT : EXAM_RHYTHM_2BEAT;
+    patterns.forEach(r => {
+        html += `<button class="exam-rhythm-btn" onclick="handleExamRhythmInput('${r}')">${r}</button>`;
+    });
+    html += '</div></div>';
+
+    el.innerHTML = html;
+}
+
+function setExamRhythmTab(tab) {
+    examState.rhythmTab = tab;
+    renderExamInputArea(examState.currentQuestion);
+}
+
+const MELODY_DURATION_BUTTONS = [
+    { duration: 'w', label: '全音', dots: 0 },
+    { duration: 'h', label: '二分', dots: 0 },
+    { duration: 'q', label: '四分', dots: 0 },
+    { duration: '8', label: '八分', dots: 0 },
+    { duration: '16', label: '十六分', dots: 0 },
+    { duration: 'h.', label: '附点二分', dots: 1 },
+    { duration: 'q.', label: '附点四分', dots: 1 },
+    { duration: '8.', label: '附点八分', dots: 1 },
+    { duration: 'triplet', label: '三连音', dots: 0 }
+];
+
+const MELODY_KEY_SIGNATURES = [
+    { value: 'none', name: '无升降' },
+    { value: '1sharp', name: '一升' },
+    { value: '1flat', name: '一降' },
+    { value: '2sharp', name: '二升' },
+    { value: '2flat', name: '二降' },
+    { value: '3sharp', name: '三升' },
+    { value: '3flat', name: '三降' }
+];
+
+const MELODY_SCALE_TYPES = [
+    { value: 'major', name: '大调' },
+    { value: 'minor', name: '小调' },
+    { value: 'gong', name: '宫' },
+    { value: 'shang', name: '商' },
+    { value: 'jue', name: '角' },
+    { value: 'zhi', name: '徵' },
+    { value: 'yu', name: '羽' }
+];
+
+const MELODY_KEY_MAP = {
+    'none_major': 'C', 'none_minor': 'a',
+    '1sharp_major': 'G', '1sharp_minor': 'e',
+    '1flat_major': 'F', '1flat_minor': 'd',
+    '2sharp_major': 'D', '2sharp_minor': 'b',
+    '2flat_major': 'Bb', '2flat_minor': 'g',
+    '3sharp_major': 'A', '3sharp_minor': 'f#',
+    '3flat_major': 'Eb', '3flat_minor': 'c'
+};
+
+function renderExamMelodyInput(qIdx) {
+    const el = document.getElementById('exam-input-area');
+    if (!el) return;
+    const ans = getExamAnswerAt(qIdx);
+    if (!ans || typeof ans !== 'object') return;
+
+    // Initialize melody state
+    if (!examState.melodyDuration) examState.melodyDuration = 'q';
+    if (!examState.melodyKeySig) examState.melodyKeySig = 'none';
+    if (!examState.melodyScaleType) examState.melodyScaleType = 'major';
+    if (!examState.melodyCurrentPitch) examState.melodyCurrentPitch = null;
+
+    // Update key based on dropdowns
+    const keyMapKey = `${examState.melodyKeySig}_${examState.melodyScaleType}`;
+    if (MELODY_KEY_MAP[keyMapKey]) {
+        ans.key = MELODY_KEY_MAP[keyMapKey];
+    }
+
+    const timeSig = ans.timeSig;
+    const bars = ans.bars;
+
+    let html = '<div class="exam-selector-bar">';
+
+    // Key signature dropdown
+    html += '<div class="exam-selector-group">';
+    html += '<span class="esg-label">调号：</span>';
+    html += '<select class="exam-select-select" onchange="setExamMelodyKeySig(this.value)">';
+    MELODY_KEY_SIGNATURES.forEach(k => {
+        const sel = k.value === examState.melodyKeySig ? ' selected' : '';
+        html += `<option value="${k.value}"${sel}>${k.name}</option>`;
+    });
+    html += '</select>';
+    html += '</div>';
+
+    // Scale type dropdown
+    html += '<div class="exam-selector-group">';
+    html += '<span class="esg-label">调式：</span>';
+    html += '<select class="exam-select-select" onchange="setExamMelodyScaleType(this.value)">';
+    MELODY_SCALE_TYPES.forEach(s => {
+        const sel = s.value === examState.melodyScaleType ? ' selected' : '';
+        html += `<option value="${s.value}"${sel}>${s.name}</option>`;
+    });
+    html += '</select>';
+    html += '</div>';
+
+    // Time signature selector
+    html += '<div class="exam-selector-group"><span class="esg-label">拍号：</span>';
+    ['2/4', '3/4'].forEach(ts => {
+        const active = ts === timeSig ? ' active' : '';
+        html += `<button class="exam-selector-btn${active}" onclick="setExamTimeSig(${qIdx}, '${ts}')">${ts}</button>`;
+    });
+    html += '</div></div>';
+
+    // Duration buttons - two rows
+    html += '<div class="exam-rhythm-section">';
+    html += '<div class="ers-subtitle">选择时值后点击钢琴键盘输入</div>';
+    const row1 = MELODY_DURATION_BUTTONS.slice(0, 5);
+    const row2 = MELODY_DURATION_BUTTONS.slice(5);
+    html += '<div class="melody-duration-row">';
+    row1.forEach(b => {
+        const active = examState.melodyDuration === b.duration ? ' active' : '';
+        html += `<button class="melody-duration-btn${active}" onclick="setExamMelodyDuration('${b.duration}', ${b.dots})">${b.label}</button>`;
+    });
+    html += '</div>';
+    html += '<div class="melody-duration-row">';
+    row2.forEach(b => {
+        const active = examState.melodyDuration === b.duration ? ' active' : '';
+        html += `<button class="melody-duration-btn${active}" onclick="setExamMelodyDuration('${b.duration}', ${b.dots})">${b.label}</button>`;
+    });
+    html += '</div></div>';
+
+    // Piano keyboard
+    const whiteNotes = allNotes.filter(n => n.type === 'white');
+    const blackNotes = allNotes.filter(n => n.type === 'black');
+
+    html += '<div class="exam-piano"><div class="exam-piano-inner" id="exam-piano-inner">';
+    whiteNotes.forEach((note, index) => {
+        const sel = examState.melodyCurrentPitch === note.note ? ' selected' : '';
+        html += `<div class="ew-key white${sel}" data-note="${note.note}" data-index="${index}" onclick="handleExamMelodyPiano('${note.note}')">${note.display}</div>`;
+    });
+    html += '</div></div>';
+
+    el.innerHTML = html;
+
+    // Position black keys
+    const inner = document.getElementById('exam-piano-inner');
+    if (inner) {
+        inner.offsetWidth;
+        const whiteEls = inner.querySelectorAll('.ew-key.white');
+        if (whiteEls.length) {
+            const firstLeft = whiteEls[0].offsetLeft;
+            const whiteWidth = whiteEls[0].offsetWidth;
+            const spacing = whiteEls.length > 1 ? (whiteEls[1].offsetLeft - whiteEls[0].offsetLeft) : whiteWidth + 1;
+            inner.querySelectorAll('.ew-key.black').forEach(k => k.remove());
+            const blackWidth = 22;
+            blackNotes.forEach(note => {
+                const sel = examState.melodyCurrentPitch === note.note ? ' selected' : '';
+                const left = firstLeft + note.position * spacing + whiteWidth / 2 - blackWidth / 2;
+                const key = document.createElement('div');
+                key.className = `ew-key black${sel}`;
+                key.dataset.note = note.note;
+                key.style.left = `${left}px`;
+                key.innerHTML = note.display;
+                key.onclick = () => handleExamMelodyPiano(note.note);
+                inner.appendChild(key);
+            });
+        }
+    }
+}
+
+function setExamMelodyDuration(duration, dots) {
+    examState.melodyDuration = duration;
+    examState.melodyDots = dots;
+    renderExamInputArea(examState.currentQuestion);
+}
+
+function setExamMelodyKeySig(value) {
+    examState.melodyKeySig = value;
+    const qIdx = examState.currentQuestion;
+    const ans = getExamAnswerAt(qIdx);
+    const keyMapKey = `${value}_${examState.melodyScaleType}`;
+    if (MELODY_KEY_MAP[keyMapKey] && ans && typeof ans === 'object') {
+        ans.key = MELODY_KEY_MAP[keyMapKey];
+    }
+    renderExamStaffSVG(qIdx);
+    renderExamInputArea(qIdx);
+}
+
+function setExamMelodyScaleType(value) {
+    examState.melodyScaleType = value;
+    const qIdx = examState.currentQuestion;
+    const ans = getExamAnswerAt(qIdx);
+    const keyMapKey = `${examState.melodyKeySig}_${value}`;
+    if (MELODY_KEY_MAP[keyMapKey] && ans && typeof ans === 'object') {
+        ans.key = MELODY_KEY_MAP[keyMapKey];
+    }
+    renderExamStaffSVG(qIdx);
+    renderExamInputArea(qIdx);
+}
+
+function handleExamMelodyPiano(note) {
+    const qIdx = examState.currentQuestion;
+    const ans = getExamAnswerAt(qIdx);
+    if (!ans || typeof ans !== 'object') return;
+    let m = examState.selectedMeasure;
+    if (m < 0) {
+        examState.selectedMeasure = 0;
+        examState.selectedBeat = 0;
+        return handleExamMelodyPiano(note);
+    }
+    m = examState.selectedMeasure;
+
+    examState.melodyCurrentPitch = note;
+
+    const dur = examState.melodyDuration || 'q';
+    const dots = examState.melodyDots || 0;
+    const beats = getNoteBeatsForDuration(dur, dots);
+
+    const rhythmName = dur === 'w' ? '全音' : dur === 'h' ? '二分' : dur === 'q' ? '四分' : dur === '8' ? '八分' : dur === '16' ? '十六分' : dur === 'h.' ? '附点二分' : dur === 'q.' ? '附点四分' : dur === '8.' ? '附点八分' : dur === 'triplet' ? '三连音' : dur;
+    const actualDots = dur.endsWith('.') ? 1 : dots;
+
+    const bars = ans.bars;
+    const bpb = parseInt(ans.timeSig.split('/')[0]);
+    const bar = bars[m] || [];
+    const currentBeat = examState.selectedBeat >= 0 ? examState.selectedBeat : 0;
+
+    // Remove any notes that overlap with the new note's time slot
+    const newBar = bar.filter(n => {
+        const nBeats = getNoteBeatsForDuration(n.duration, n.dots || 0);
+        return (n.startBeat + nBeats <= currentBeat + 0.01 || n.startBeat >= currentBeat + beats - 0.01);
+    });
+
+    // Add the new note with startBeat
+    newBar.push({ pitch: note, rhythm: rhythmName, duration: dur, dots: actualDots, startBeat: currentBeat });
+    newBar.sort((a, b) => a.startBeat - b.startBeat);
+    bars[m] = newBar;
+
+    // Advance beat
+    let nextBeat = currentBeat + beats;
+    if (nextBeat >= bpb - 0.01) {
+        examState.selectedMeasure = (m + 1) % bars.length;
+        examState.selectedBeat = 0;
+    } else {
+        examState.selectedBeat = nextBeat;
+    }
+
+    try { playNoteWithWebAudio(note, 0.5, 0.6); } catch (e) { }
+    renderExamStaffSVG(qIdx);
+    renderExamInputArea(qIdx);
+}
+
+const DURATION_BEAT_MAP = {
+    'w': { beats: 4 },
+    'h': { beats: 2 },
+    'q': { beats: 1 },
+    '8': { beats: 0.5 },
+    '16': { beats: 0.25 },
+    'h.': { beats: 3 },
+    'q.': { beats: 1.5 },
+    '8.': { beats: 0.75 },
+    'triplet': { beats: 1 / 3 }
+};
+
+function setExamMelodyKey(key) {
+    const qIdx = examState.currentQuestion;
+    const ans = getExamAnswerAt(qIdx);
+    if (ans && typeof ans === 'object' && ans.key !== undefined) {
+        ans.key = key;
+    }
+    renderExamInputArea(qIdx);
+}
+
+function setExamTimeSig(qIdx, ts) {
+    const q = getExamQuestionAt(qIdx);
+    const ans = getExamAnswerAt(qIdx);
+    if (!q || !ans || typeof ans !== 'object') return;
+    ans.timeSig = ts;
+    ans.bars = Array.from({ length: q.count }, () => []);
+    examState.selectedMeasure = -1;
+    examState.selectedBeat = -1;
+    renderExamStaffSVG(qIdx);
+    renderExamInputArea(qIdx);
+}
+
+// --- 选中与输入 ---
+function selectExamMeasure(m) {
+    const qIdx = examState.currentQuestion;
+    const q = getExamQuestionAt(qIdx);
+    const ans = getExamAnswerAt(qIdx);
+    if (!q || !ans) return;
+    examState.selectedMeasure = m;
+    if (q.type === 'melody') {
+        // Melody: calculate next empty beat from flat notes array
+        const bar = ans.bars[m] || [];
+        const bpb = parseInt(ans.timeSig.split('/')[0]);
+        let usedBeats = 0;
+        bar.forEach(n => {
+            usedBeats += getNoteBeatsForDuration(n.duration, n.dots || 0);
+        });
+        examState.selectedBeat = usedBeats >= bpb - 0.01 ? 0 : usedBeats;
+    } else if (q.type === 'rhythm') {
+        // Rhythm: auto-select first empty beat
+        const bar = ans.bars[m] || [];
+        examState.selectedBeat = bar.length;
+        const bpb = parseInt(ans.timeSig.split('/')[0]);
+        if (examState.selectedBeat >= bpb) examState.selectedBeat = 0;
+    } else {
+        examState.selectedBeat = -1;
+    }
+    renderExamStaffSVG(qIdx);
+    renderExamInputArea(qIdx);
+}
+
+function handleExamPianoInput(note) {
+    const qIdx = examState.currentQuestion;
+    const q = getExamQuestionAt(qIdx);
+    const ans = getExamAnswerAt(qIdx);
+    if (!q || !ans) return;
+    let m = examState.selectedMeasure;
+    const count = q.count;
+    if (m < 0) {
+        // Auto-select first empty measure
+        for (let i = 0; i < count; i++) {
+            let isEmpty = false;
+            if (q.type === 'single') isEmpty = !ans[i];
+            else isEmpty = (ans[i] || []).length === 0;
+            if (isEmpty) { examState.selectedMeasure = i; return handleExamPianoInput(note); }
+        }
+        examState.selectedMeasure = 0;
+        return handleExamPianoInput(note);
+    }
+    m = examState.selectedMeasure;
+    if (q.type === 'single') {
+        ans[m] = note;
+        // Auto-advance to next measure
+        const next = (m + 1) % count;
+        examState.selectedMeasure = next;
+    } else if (q.type === 'interval-pitch' || q.type === 'interval-quality') {
+        if (!Array.isArray(ans[m])) ans[m] = [];
+        const arr = ans[m];
+        const idx = arr.indexOf(note);
+        if (idx !== -1) { arr.splice(idx, 1); }
+        else { arr.push(note); if (arr.length > 2) arr.shift(); }
+    } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
+        if (!Array.isArray(ans[m])) ans[m] = [];
+        const arr = ans[m];
+        const idx = arr.indexOf(note);
+        if (idx !== -1) { arr.splice(idx, 1); }
+        else { arr.push(note); if (arr.length > 4) arr.shift(); }
+    }
+    // Play the note for feedback
+    try { playNoteWithWebAudio(note, 0.5, 0.6); } catch (e) { }
+    renderExamStaffSVG(qIdx);
+    renderExamInputArea(qIdx);
+}
+
+function handleExamRhythmInput(pattern) {
+    const qIdx = examState.currentQuestion;
+    const q = getExamQuestionAt(qIdx);
+    const ans = getExamAnswerAt(qIdx);
+    if (!q || !ans || typeof ans !== 'object') return;
+    let m = examState.selectedMeasure;
+    if (m < 0) {
+        // Auto-select first measure
+        examState.selectedMeasure = 0;
+        examState.selectedBeat = 0;
+        return handleExamRhythmInput(pattern);
+    }
+    m = examState.selectedMeasure;
+    const bars = ans.bars;
+    const bpb = parseInt(ans.timeSig.split('/')[0]);
+
+    const bar = bars[m];
+    const isTwoBeat = EXAM_RHYTHM_2BEAT.includes(pattern);
+    const beatIdx = examState.selectedBeat >= 0 ? examState.selectedBeat : bar.length;
+    const remaining = bpb - beatIdx;
+    if (isTwoBeat && remaining < 2) {
+        // Not enough space - wrap to next measure or start fresh
+        const next = (m + 1) % bars.length;
+        examState.selectedMeasure = next;
+        examState.selectedBeat = 0;
+        // Clear that bar and fill
+        bars[next] = [pattern];
+        examState.selectedBeat = 2;
+        if (examState.selectedBeat >= bpb) {
+            const nn = (examState.selectedMeasure + 1) % bars.length;
+            examState.selectedMeasure = nn;
+            examState.selectedBeat = 0;
+        }
+        renderExamStaffSVG(q);
+        return;
+    }
+    // Place the pattern at the current beat
+    while (bar.length < beatIdx) bar.push(''); // fill gaps
+    if (isTwoBeat) {
+        // Remove any existing pattern at beatIdx and beatIdx+1
+        if (bar[beatIdx]) bar[beatIdx] = pattern;
+        else bar.push(pattern);
+        // If there was a pattern at beatIdx+1, remove it
+        if (bar.length > beatIdx + 1) bar.splice(beatIdx + 1, 1, '');
+        examState.selectedBeat = beatIdx + 2;
+    } else {
+        if (beatIdx < bar.length) bar[beatIdx] = pattern;
+        else bar.push(pattern);
+        examState.selectedBeat = beatIdx + 1;
+    }
+    // Auto-advance to next beat or measure
+    if (examState.selectedBeat >= bpb) {
+        const next = (m + 1) % bars.length;
+        examState.selectedMeasure = next;
+        examState.selectedBeat = 0;
+    }
+    renderExamStaffSVG(qIdx);
+}
+
+// --- 提交与评分 ---
+function submitExamAnswers() {
+    if (!confirm('确定提交答卷吗？提交后将自动评分。')) return;
+    const qs = examState.questions;
+    const ans = examState.answers;
+    const breakdown = [];
+    let totalScore = 0;
+
+    qs.forEach((q, qi) => {
+        const userAns = ans[qi];
+        const meta = getExamTypeMeta(q.type);
+        const name = meta ? meta.name : q.type;
+        const totalPossible = getExamItemScore(q);
+        const scorePerItem = q.score;
+        let result = null;
+
+        switch (q.type) {
+            case 'single': {
+                const results = [];
+                let score = 0;
+                for (let i = 0; i < q.count; i++) {
+                    const user = userAns[i] || '';
+                    const correct = q.data[i];
+                    const ok = user && areEnharmonic(user, correct);
+                    results.push({ user: user || '未填', correct, ok });
+                    if (ok) score += scorePerItem;
+                }
+                result = { name, score, total: totalPossible, results, type: 'single' };
+                break;
+            }
+            case 'interval-pitch': {
+                const results = [];
+                let score = 0;
+                for (let i = 0; i < q.count; i++) {
+                    const ua = (userAns[i] || [])[0] || '';
+                    const ub = (userAns[i] || [])[1] || '';
+                    const ca = q.data[i].note1, cb = q.data[i].note2;
+                    const ok = ua && ub && ((areEnharmonic(ua, ca) && areEnharmonic(ub, cb)) || (areEnharmonic(ua, cb) && areEnharmonic(ub, ca)));
+                    results.push({ user: ua && ub ? `${ua} + ${ub}` : '未填', correct: `${ca} + ${cb}`, ok });
+                    if (ok) score += scorePerItem;
+                }
+                result = { name, score, total: totalPossible, results, type: 'interval' };
+                break;
+            }
+            case 'interval-quality': {
+                const results = [];
+                let score = 0;
+                for (let i = 0; i < q.count; i++) {
+                    // Grade quality: compare quality name
+                    const ua = (userAns[i] || [])[0] || '';
+                    const ub = (userAns[i] || [])[1] || '';
+                    const correct = q.data[i];
+                    // Compute user's quality from their two notes
+                    let userQuality = '';
+                    if (ua && ub) {
+                        const st = Math.abs(getIntervalSemitones(ua, ub));
+                        userQuality = getIntervalName(st);
+                    }
+                    const correctQuality = correct.quality;
+                    // Also accept correct pitch order as alternative check
+                    const ca = correct.note1, cb = correct.note2;
+                    const pitchOk = ua && ub && ((areEnharmonic(ua, ca) && areEnharmonic(ub, cb)) || (areEnharmonic(ua, cb) && areEnharmonic(ub, ca)));
+                    const qualityOk = userQuality === correctQuality;
+                    const ok = pitchOk || qualityOk;
+                    results.push({
+                        user: ua && ub ? `${ua} + ${ub}（${userQuality || '未识别'}）` : '未填',
+                        correct: `${ca} + ${cb}（${correctQuality}）`,
+                        ok
+                    });
+                    if (ok) score += scorePerItem;
+                }
+                result = { name, score, total: totalPossible, results, type: 'interval' };
+                break;
+            }
+            case 'chord-pitch': {
+                const results = [];
+                let score = 0;
+                for (let i = 0; i < q.count; i++) {
+                    const userNotes = (userAns[i] || []).filter(n => n);
+                    const correctNotes = q.data[i].notes;
+                    let ok = false;
+                    let userStr = '未填';
+                    if (userNotes.length === correctNotes.length && userNotes.length > 0) {
+                        ok = userNotes.every(un => correctNotes.some(cn => areEnharmonic(un, cn))) &&
+                            correctNotes.every(cn => userNotes.some(un => areEnharmonic(un, cn)));
+                        userStr = userNotes.join(' + ');
+                    } else if (userNotes.length > 0) {
+                        userStr = userNotes.join(' + ');
+                    }
+                    results.push({ user: userStr, correct: correctNotes.join(' + '), ok });
+                    if (ok) score += scorePerItem;
+                }
+                result = { name, score, total: totalPossible, results, type: 'chord' };
+                break;
+            }
+            case 'chord-quality': {
+                const results = [];
+                let score = 0;
+                for (let i = 0; i < q.count; i++) {
+                    const userNotes = (userAns[i] || []).filter(n => n);
+                    const correct = q.data[i];
+                    const correctNotes = correct.notes;
+                    // Compare note sets with enharmonic equivalence (pitch) OR compare type name
+                    let pitchOk = false;
+                    if (userNotes.length === correctNotes.length && userNotes.length > 0) {
+                        pitchOk = userNotes.every(un => correctNotes.some(cn => areEnharmonic(un, cn))) &&
+                            correctNotes.every(cn => userNotes.some(un => areEnharmonic(un, cn)));
+                    }
+                    // Compute user's chord quality from their notes (best effort root detection)
+                    let userStr = '未填';
+                    if (userNotes.length > 0) userStr = userNotes.join(' + ');
+                    const ok = pitchOk;
+                    results.push({ user: userStr, correct: `${correctNotes.join(' + ')}（${correct.typeName}）`, ok });
+                    if (ok) score += scorePerItem;
+                }
+                result = { name, score, total: totalPossible, results, type: 'chord' };
+                break;
+            }
+            case 'rhythm': {
+                // perCountPlus1: (count + 1) * score => scoreTimeSig=score, scorePerBar=score
+                const graded = _gradeRhythm(userAns, q.data, scorePerItem, scorePerItem);
+                result = { name, score: graded.score, total: totalPossible, ...graded, type: 'rhythm' };
+                break;
+            }
+            case 'melody': {
+                // perCountPlus2: (count + 2) * score => scoreKey=score, scoreTimeSig=score, scorePerBar=score
+                const graded = _gradeMelody(userAns, q.data, scorePerItem);
+                result = { name, score: graded.score, total: totalPossible, ...graded, type: 'melody' };
+                break;
+            }
+            default:
+                result = { name, score: 0, total: totalPossible, type: 'single', results: [] };
+        }
+        breakdown.push(result);
+        totalScore += result.score;
+    });
+
+    examState.score = totalScore;
+    examState.scoreBreakdown = breakdown;
+    examState.testEndTime = new Date();
+    examState.phase = 'graded';
+
+    document.getElementById('exam-answering-section').style.display = 'none';
+    document.getElementById('exam-result-section').style.display = 'block';
+    showExamResults(breakdown, totalScore);
+    updateExamLeaderboard();
+}
+
+function _gradeRhythm(userAns, correct, scoreTimeSig, scorePerBar) {
+    const userTS = userAns.timeSig;
+    const tsOk = userTS === correct.timeSignature;
+    let score = tsOk ? scoreTimeSig : 0;
+    const barResults = [];
+    for (let b = 0; b < correct.bars; b++) {
+        const correctBar = correct.measures[b];
+        const userBar = userAns.bars[b] || [];
+        let barOk = tsOk && userBar.length === correctBar.length;
+        if (barOk) {
+            for (let j = 0; j < correctBar.length; j++) {
+                if ((userBar[j] || '') !== correctBar[j]) { barOk = false; break; }
+            }
+        }
+        barResults.push({
+            user: userBar.map(v => v || '?').join(' ') || '空',
+            correct: correctBar.join(' '),
+            ok: barOk
+        });
+        if (barOk) score += scorePerBar;
+    }
+    return { score, tsOk, userTS, correctTS: correct.timeSignature, barResults };
+}
+
+function _gradeMelody(userAns, correct, scorePerItem) {
+    const userKey = userAns.key;
+    const userTS = userAns.timeSig;
+    const keyOk = userKey === correct.key;
+    const tsOk = userTS === correct.timeSignature;
+    let score = (keyOk ? scorePerItem : 0) + (tsOk ? scorePerItem : 0);
+    const barResults = [];
+    for (let b = 0; b < correct.bars; b++) {
+        const correctBar = correct.measures[b] || [];
+        const userBar = userAns.bars[b] || [];
+
+        // Normalize to comparable strings: pitch (enharmonic-aware) + duration|dots
+        const normalize = (n) => {
+            if (!n || typeof n !== 'object') return '';
+            const p = n.pitch || '';
+            const d = n.duration || '';
+            const dt = n.dots || 0;
+            return `${p}|${d}|${dt}`;
+        };
+        const userNorm = userBar.map(normalize).filter(s => s);
+        const correctNorm = correctBar.map(normalize).filter(s => s);
+
+        let barOk = tsOk && userNorm.length === correctNorm.length;
+        const perNoteResults = [];
+        if (barOk) {
+            for (let j = 0; j < correctNorm.length; j++) {
+                const [uPitch, uDur, uDots] = userNorm[j].split('|');
+                const [cPitch, cDur, cDots] = correctNorm[j].split('|');
+                const pOk = areEnharmonic(uPitch, cPitch);
+                const dOk = uDur === cDur && uDots === cDots;
+                const noteOk = pOk && dOk;
+                if (!noteOk) barOk = false;
+                perNoteResults.push({ user: userNorm[j], correct: correctNorm[j], ok: noteOk });
+            }
+        } else {
+            // Still build per-note display of what was there
+            const maxLen = Math.max(userNorm.length, correctNorm.length);
+            for (let j = 0; j < maxLen; j++) {
+                const u = userNorm[j] || '—';
+                const c = correctNorm[j] || '—';
+                perNoteResults.push({ user: u, correct: c, ok: false });
+            }
+        }
+
+        const userDisplay = userNorm.map(s => {
+            const [p, d, dt] = s.split('|');
+            return `${p}${d}${parseInt(dt) > 0 ? '.'.repeat(parseInt(dt)) : ''}`;
+        }).join(' ') || '空';
+        const correctDisplay = correctNorm.map(s => {
+            const [p, d, dt] = s.split('|');
+            return `${p}${d}${parseInt(dt) > 0 ? '.'.repeat(parseInt(dt)) : ''}`;
+        }).join(' ');
+
+        barResults.push({
+            user: userDisplay,
+            correct: correctDisplay,
+            ok: barOk
+        });
+        if (barOk) score += scorePerItem;
+    }
+    return { score, keyOk, tsOk, userKey, correctKey: correct.keyName || correct.key, userTS, correctTS: correct.timeSignature, barResults };
+}
+
+// --- 结果展示 ---
+function showExamResults(breakdown, totalScore) {
+    const el = document.getElementById('exam-result-content');
+    if (!el) return;
+    const elapsed = Math.floor((examState.testEndTime - examState.testStartTime) / 1000);
+    const totalPossible = breakdown.reduce((s, b) => s + b.total, 0);
+    const pct = totalPossible > 0 ? totalScore / totalPossible : 0;
+    const grade = pct >= 0.9 ? '优秀' : pct >= 0.75 ? '良好' : pct >= 0.6 ? '及格' : '不及格';
+    let html = `
+    <div class="exam-result-summary">
+        <div class="exam-result-score">${totalScore}<span class="ers-unit"> / ${totalPossible} 分</span></div>
+        <div class="exam-result-grade">${grade}</div>
+        <div class="exam-result-breakdown">`;
+    breakdown.forEach(b => {
+        const cls = b.score === b.total ? 'full' : b.score > 0 ? 'partial' : 'zero';
+        html += `<div class="erb-item"><div class="erb-label">${b.name}</div><div class="erb-value" style="color:${b.score === b.total ? '#81c784' : b.score > 0 ? '#FFB74D' : '#ef9a9a'}">${b.score}/${b.total}</div></div>`;
+    });
+    html += `</div></div>`;
+
+    // Per-question comparison
+    breakdown.forEach((b, idx) => {
+        const cls = b.score === b.total ? 'full' : b.score > 0 ? 'partial' : 'zero';
+        html += `<div class="exam-comparison-card" id="ec-${idx}">
+            <div class="exam-comparison-header" onclick="document.getElementById('ec-${idx}').classList.toggle('expanded')">
+                <span class="ec-title">第${idx + 1}题 ${b.name}</span>
+                <span class="ec-score ${cls}">${b.score}/${b.total}分</span>
+            </div><div class="exam-comparison-body">`;
+
+        if (b.type === 'single' || b.type === 'interval' || b.type === 'chord') {
+            html += `<table class="compare-table"><tr><th>题号</th><th>你的答案</th><th>正确答案</th><th>结果</th></tr>`;
+            b.results.forEach((r, i) => {
+                html += `<tr><td>${i + 1}</td><td class="${r.ok ? 'correct' : 'mismatch'}">${r.user || '未填'}</td><td class="correct">${r.correct}</td><td>${r.ok ? '✓' : '✗'}</td></tr>`;
+            });
+            html += `</table>`;
+        } else if (b.type === 'rhythm') {
+            html += `<p style="margin-bottom:6px"><strong>拍号：</strong>你的答案 <span class="${b.tsOk ? 'correct' : 'mismatch'}">${b.userTS}</span> | 正确答案 <span class="correct">${b.correctTS}</span> ${b.tsOk ? '✓' : '✗'}</p>`;
+            html += `<table class="compare-table"><tr><th>小节</th><th>你的答案</th><th>正确答案</th><th>结果</th></tr>`;
+            b.barResults.forEach((r, i) => {
+                html += `<tr><td>${i + 1}</td><td class="${r.ok ? 'correct' : 'mismatch'}">${r.user}</td><td class="correct">${r.correct}</td><td>${r.ok ? '✓' : '✗'}</td></tr>`;
+            });
+            html += `</table>`;
+        } else if (b.type === 'melody') {
+            html += `<p style="margin-bottom:4px"><strong>调：</strong>你的答案 <span class="${b.keyOk ? 'correct' : 'mismatch'}">${b.userKey}</span> | 正确答案 <span class="correct">${b.correctKey}</span> ${b.keyOk ? '✓' : '✗'}</p>`;
+            html += `<p style="margin-bottom:6px"><strong>拍号：</strong>你的答案 <span class="${b.tsOk ? 'correct' : 'mismatch'}">${b.userTS}</span> | 正确答案 <span class="correct">${b.correctTS}</span> ${b.tsOk ? '✓' : '✗'}</p>`;
+            html += `<table class="compare-table"><tr><th>小节</th><th>你的答案</th><th>正确答案</th><th>结果</th></tr>`;
+            b.barResults.forEach((r, i) => {
+                html += `<tr><td>${i + 1}</td><td class="${r.ok ? 'correct' : 'mismatch'}">${r.user}</td><td class="correct">${r.correct}</td><td>${r.ok ? '✓' : '✗'}</td></tr>`;
+            });
+            html += `</table>`;
+        }
+        html += `</div></div>`;
+    });
+
+    // Analysis
+    const weak = breakdown.filter(b => b.total > 0 && b.score / b.total < 0.6);
+    html += `<div class="exam-analysis-section"><h4>📊 简要分析</h4>`;
+    html += `<p>总分 ${totalScore}/${totalPossible}，用时 ${Math.floor(elapsed / 60)}分${elapsed % 60}秒。`;
+    if (weak.length > 0) {
+        html += `以下题型需要加强练习：`;
+        weak.forEach(w => html += `<span class="weak-tag">${w.name} (${w.score}/${w.total})</span>`);
+    } else {
+        html += `各题型表现均衡，继续保持！`;
+    }
+    html += `</p></div>`;
+
+    el.innerHTML = html;
+    el.scrollIntoView({ behavior: 'smooth' });
+}
+
+// --- 风云榜单 ---
+function updateExamLeaderboard() {
+    const userInfo = chordAppState.userInfo;
+    if (!userInfo || !userInfo.name) return;
+    const key = 'comprehensiveExamLeaderboard';
+    let lb = localStorage.getItem(key);
+    lb = lb ? JSON.parse(lb) : [];
+    const elapsed = Math.floor((examState.testEndTime - examState.testStartTime) / 1000);
+    lb.push({
+        name: userInfo.name,
+        school: userInfo.school || '未填写',
+        majorClass: userInfo.majorClass || '未填写',
+        score: examState.score,
+        time: elapsed,
+        date: new Date().toLocaleString('zh-CN')
+    });
+    lb.sort((a, b) => b.score - a.score || a.time - b.time);
+    lb = lb.slice(0, 10);
+    localStorage.setItem(key, JSON.stringify(lb));
+    examState.leaderboard = lb;
+    console.log('综合考试榜单已更新', lb);
+}
+
+function renderExamLeaderboard() {
+    const list = document.getElementById('leaderboard-list-exam');
+    const info = document.getElementById('exam-leaderboard-info');
+    if (!list) return;
+    const key = 'comprehensiveExamLeaderboard';
+    let lb = localStorage.getItem(key);
+    lb = lb ? JSON.parse(lb) : [];
+    if (lb.length === 0) {
+        list.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.5)">暂无榜单数据</div>';
+        if (info) info.textContent = '完成综合考试后成绩将自动记入榜单';
+        return;
+    }
+    let html = '';
+    lb.forEach((r, i) => {
+        const rank = i + 1;
+        const rc = rank <= 3 ? `lb-rank-${rank}` : '';
+        const m = Math.floor(r.time / 60), s = r.time % 60;
+        html += `<div class="leaderboard-row ${rc}"><div class="lb-rank-value">${rank}</div><div class="lb-name-value">${r.name}</div><div class="lb-score-value">${r.score}</div><div class="lb-time-value">${m}:${String(s).padStart(2, '0')}</div></div>`;
+    });
+    list.innerHTML = html;
+    if (info) info.textContent = `共 ${lb.length} 条记录`;
 }
 
 // ==================== 确保DOM加载后初始化 ====================

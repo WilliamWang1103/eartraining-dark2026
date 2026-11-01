@@ -4019,3 +4019,910 @@ body {
         font-size: 12px;
     }
 }
+
+/* ============================================
+   综合考试样式
+   ============================================ */
+
+/* 题型配置卡片 */
+.exam-config-card {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 16px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.exam-config-card h4 {
+    color: #ffd966;
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.exam-config-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.82rem;
+}
+
+.exam-config-row:last-child {
+    border-bottom: none;
+}
+
+.exam-config-row .q-name {
+    color: rgba(255, 255, 255, 0.9);
+    flex: 1;
+    min-width: 0;
+}
+
+.exam-config-row .q-difficulty-select,
+.exam-config-row .q-score-select {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    max-width: 140px;
+}
+
+.exam-config-row .q-difficulty-select:focus,
+.exam-config-row .q-score-select:focus {
+    border-color: #FFB74D;
+    outline: none;
+}
+
+.exam-config-row .q-score-select {
+    max-width: 60px;
+    color: #FFB74D;
+    font-weight: 600;
+}
+
+.exam-total-score {
+    text-align: right;
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: #ffd966;
+    font-weight: 700;
+}
+
+/* 考试说明 */
+.exam-instructions {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 16px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.exam-instructions h4 {
+    color: #ffd966;
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+}
+
+.exam-instructions ul {
+    list-style: none;
+    padding: 0;
+}
+
+.exam-instructions li {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.78rem;
+    padding: 4px 0;
+    line-height: 1.5;
+}
+
+.exam-instructions li strong {
+    color: #FFB74D;
+}
+
+/* 考试进度面板 */
+.exam-progress-panel {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 16px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.exam-question-name {
+    text-align: center;
+    font-size: 1.1rem;
+    color: #ffd966;
+    font-weight: 700;
+    margin: 12px 0 8px;
+}
+
+.exam-status {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+}
+
+.exam-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.exam-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #FF9800, #FFC97A);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+/* 考试控制按钮 */
+.exam-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.exam-controls .btn {
+    flex: 1;
+    padding: 10px 8px;
+    font-size: 0.8rem;
+    border-radius: 20px;
+    background: rgba(230, 126, 34, 0.3);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.exam-controls .btn:active {
+    background: #e67e22;
+}
+
+.exam-controls .btn.warning {
+    background: rgba(198, 40, 40, 0.35);
+}
+
+/* 答卷区域 */
+.exam-answer-header {
+    margin-bottom: 15px;
+}
+
+.exam-answer-header h4 {
+    color: #ffd966;
+    font-size: 1rem;
+    margin-bottom: 5px;
+}
+
+.exam-answer-tip {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.75rem;
+}
+
+/* 答题卡片（可折叠） */
+.answer-card {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 14px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.answer-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.answer-card-header .ac-title {
+    color: #FFB74D;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.answer-card-header .ac-score {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.75rem;
+}
+
+.answer-card-header .ac-arrow {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.8rem;
+    transition: transform 0.3s;
+}
+
+.answer-card.expanded .ac-arrow {
+    transform: rotate(180deg);
+}
+
+.answer-card-body {
+    display: none;
+    padding: 10px 15px 15px;
+}
+
+.answer-card.expanded .answer-card-body {
+    display: block;
+}
+
+/* 答题行 */
+.answer-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.answer-row .ar-num {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.75rem;
+    min-width: 24px;
+    text-align: right;
+}
+
+.answer-row select,
+.answer-row input {
+    background: #2c3e4e;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 0.78rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.answer-row select:focus,
+.answer-row input:focus {
+    outline: none;
+    border-color: #FFB74D;
+}
+
+/* 节奏答题网格 */
+.rhythm-grid {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.rhythm-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.rhythm-bar .rb-label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.72rem;
+    min-width: 36px;
+}
+
+.rhythm-bar select {
+    background: #2c3e4e;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 5px 6px;
+    font-size: 0.72rem;
+    flex: 1;
+    min-width: 0;
+}
+
+/* 结果区域 */
+.exam-result-summary {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.exam-result-score {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #FFB74D;
+    text-shadow: 0 0 20px rgba(255, 183, 77, 0.4);
+}
+
+.exam-result-score .ers-unit {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.exam-result-grade {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 5px;
+}
+
+.exam-result-breakdown {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 15px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.exam-result-breakdown .erb-item {
+    text-align: center;
+    min-width: 80px;
+}
+
+.exam-result-breakdown .erb-label {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.72rem;
+}
+
+.exam-result-breakdown .erb-value {
+    color: #FFB74D;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+/* 逐题对比 */
+.exam-comparison-card {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 14px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.exam-comparison-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    cursor: pointer;
+}
+
+.exam-comparison-header .ec-title {
+    color: #FFB74D;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.exam-comparison-header .ec-score {
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.exam-comparison-header .ec-score.full {
+    color: #81c784;
+}
+
+.exam-comparison-header .ec-score.partial {
+    color: #FFB74D;
+}
+
+.exam-comparison-header .ec-score.zero {
+    color: #ef9a9a;
+}
+
+.exam-comparison-body {
+    display: none;
+    padding: 10px 15px 15px;
+}
+
+.exam-comparison-card.expanded .exam-comparison-body {
+    display: block;
+}
+
+/* 对比表 */
+.compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+}
+
+.compare-table th {
+    color: rgba(255, 255, 255, 0.5);
+    padding: 6px 4px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-weight: 500;
+}
+
+.compare-table td {
+    padding: 6px 4px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.compare-table td.user-answer {
+    color: #ef9a9a;
+}
+
+.compare-table td.correct {
+    color: #81c784;
+}
+
+.compare-table td.mismatch {
+    color: #ef5350;
+    font-weight: 600;
+}
+
+/* 分析报告 */
+.exam-analysis-section {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 14px;
+    padding: 15px;
+    margin-bottom: 10px;
+}
+
+.exam-analysis-section h4 {
+    color: #ffd966;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.exam-analysis-section p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8rem;
+    line-height: 1.6;
+    margin-bottom: 5px;
+}
+
+.exam-analysis-section .weak-tag {
+    display: inline-block;
+    background: rgba(239, 83, 80, 0.2);
+    color: #ef9a9a;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    margin: 2px;
+}
+
+/* 时间面板（综合考试用） */
+#exam-playing-section .stats-panel {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 12px;
+}
+
+#exam-playing-section .stat-value {
+    color: #FFB74D;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+#exam-playing-section .stat-label {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.72rem;
+}
+
+/* ===== 综合考试 - 交互式答题界面 ===== */
+
+/* 题目导航栏 */
+.exam-nav-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.exam-nav-btn {
+    flex: 1;
+    min-width: 70px;
+    padding: 10px 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.exam-nav-btn:hover {
+    background: rgba(255, 183, 77, 0.15);
+    border-color: rgba(255, 183, 77, 0.4);
+    color: #FFB74D;
+}
+
+.exam-nav-btn.active {
+    background: rgba(255, 183, 77, 0.25);
+    border-color: #FFB74D;
+    color: #FFB74D;
+    box-shadow: 0 0 12px rgba(255, 183, 77, 0.3);
+}
+
+.exam-nav-btn .nav-q-num {
+    display: block;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 2px;
+}
+
+.exam-nav-btn.active .nav-q-num {
+    color: rgba(255, 183, 77, 0.8);
+}
+
+/* 题目信息条 */
+.exam-q-info {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    border-left: 3px solid #FFB74D;
+}
+
+.exam-q-info .eqi-title {
+    color: #FFB74D;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.exam-q-info .eqi-hint {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.75rem;
+    margin-top: 3px;
+}
+
+/* 五线谱答题区 */
+.exam-staff-container {
+    background: #fffef7;
+    border-radius: 10px;
+    padding: 10px 8px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.exam-staff-container svg {
+    display: block;
+    margin: 0 auto;
+}
+
+/* SVG五线谱中的小节 */
+.exam-staff-container .measure-group {
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.exam-staff-container .measure-group:hover {
+    opacity: 0.85;
+}
+
+.exam-staff-container .measure-group.selected rect {
+    fill: rgba(255, 183, 77, 0.25);
+}
+
+.exam-staff-container .measure-group.beat-selected rect.beat-bg {
+    fill: rgba(255, 217, 102, 0.35);
+}
+
+.exam-staff-container .measure-num {
+    fill: #888;
+    font-size: 10px;
+    font-family: sans-serif;
+    text-anchor: middle;
+}
+
+/* 选择器栏（拍号/调性） */
+.exam-selector-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.exam-selector-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.exam-selector-group .esg-label {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.75rem;
+    margin-right: 2px;
+}
+
+.exam-selector-btn {
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.exam-selector-btn:hover {
+    background: rgba(255, 217, 102, 0.15);
+    border-color: rgba(255, 217, 102, 0.4);
+}
+
+.exam-selector-btn.active {
+    background: rgba(255, 217, 102, 0.25);
+    border-color: #ffd966;
+    color: #ffd966;
+}
+
+/* 考试专用钢琴键盘 */
+.exam-piano {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+    padding: 10px;
+    overflow-x: auto;
+}
+
+.exam-piano-inner {
+    position: relative;
+    display: inline-flex;
+    height: 160px;
+    overflow: visible;
+}
+
+.exam-piano .ew-key {
+    cursor: pointer;
+    transition: all 0.08s;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 4px;
+    font-size: 9px;
+    font-weight: 600;
+    border-radius: 0 0 6px 6px;
+    box-sizing: border-box;
+}
+
+.exam-piano .ew-key.white {
+    position: relative;
+    background: linear-gradient(180deg, #fef9ef 0%, #f5f0e0 100%);
+    border: 1px solid #bbb9ae;
+    width: 32px;
+    height: 160px;
+    margin-right: 1px;
+    color: #2c3e4e;
+    z-index: 1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.exam-piano .ew-key.black {
+    position: absolute;
+    background: linear-gradient(145deg, #1f2a30, #0f171f);
+    width: 22px;
+    height: 100px;
+    top: 0;
+    z-index: 10;
+    color: #e0e0e0;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    justify-content: flex-start;
+    padding-top: 4px;
+    padding-bottom: 0;
+}
+
+.exam-piano .ew-key:hover {
+    filter: brightness(1.1);
+}
+
+.exam-piano .ew-key.selected {
+    background: linear-gradient(145deg, #ffcd94, #ffb347) !important;
+    color: #2c3e4e !important;
+    transform: translateY(2px);
+    box-shadow: 0 0 10px rgba(255, 183, 77, 0.6);
+}
+
+.exam-piano .ew-key.black.selected {
+    background: linear-gradient(145deg, #ffaa55, #ff884d) !important;
+    color: #fff !important;
+}
+
+/* 考试节奏按钮网格 */
+.exam-rhythm-section {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+    padding: 10px;
+}
+
+/* 节奏选项卡 */
+.rhythm-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.rhythm-tab {
+    flex: 1;
+    padding: 6px 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.rhythm-tab:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.rhythm-tab.active {
+    color: #FFB74D;
+    border-bottom-color: #FFB74D;
+}
+
+/* 旋律时值按钮行 */
+.melody-duration-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+    margin-bottom: 4px;
+}
+
+.melody-duration-btn {
+    padding: 6px 10px;
+    border: 2px solid rgba(255, 217, 102, 0.25);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.melody-duration-btn:hover {
+    background: rgba(255, 217, 102, 0.2);
+    border-color: #ffd966;
+}
+
+.melody-duration-btn.active {
+    background: rgba(255, 183, 77, 0.4);
+    border-color: #FFB74D;
+    color: #FFB74D;
+}
+
+/* 选择下拉框 */
+.exam-select-select {
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.8rem;
+    cursor: pointer;
+    outline: none;
+}
+
+.exam-select-select option {
+    background: #1a1a2e;
+    color: #fff;
+}
+
+.exam-rhythm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.exam-rhythm-btn {
+    padding: 8px 4px;
+    border: 2px solid rgba(255, 217, 102, 0.25);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    text-align: center;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.exam-rhythm-btn:hover {
+    background: rgba(255, 217, 102, 0.2);
+    border-color: #ffd966;
+    transform: translateY(-1px);
+}
+
+.exam-rhythm-btn.disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.exam-rhythm-btn.active {
+    background: rgba(255, 183, 77, 0.3);
+    border-color: #FFB74D;
+    color: #FFB74D;
+}
+
+.exam-rhythm-section .ers-subtitle {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.72rem;
+    margin-bottom: 4px;
+}
+
+/* 移动端适配 */
+@media (max-width: 600px) {
+    .exam-nav-btn {
+        min-width: 50px;
+        padding: 8px 4px;
+        font-size: 0.72rem;
+    }
+
+    .exam-piano .ew-key.white {
+        width: 26px;
+    }
+
+    .exam-piano .ew-key.black {
+        width: 18px;
+    }
+
+    .exam-rhythm-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* 练习说明折叠/展开（移动端优先：大触控区 + 平滑高度过渡） */
+.practice-instructions h4 {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 8px 4px;
+    margin-bottom: 0;
+    transition: color 0.2s ease;
+}
+
+.practice-instructions h4:active {
+    color: #ffb347;
+}
+
+.practice-instructions h4::after {
+    content: '▾';
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: 0.8em;
+    transition: transform 0.25s ease;
+}
+
+.practice-instructions.collapsed h4::after {
+    content: '▸';
+}
+
+/* 内容包裹层：用 max-height + opacity 实现平滑展开/收起 */
+.practice-instructions .pi-content {
+    overflow: hidden;
+    max-height: 500px;
+    opacity: 1;
+    transition: max-height 0.3s ease, opacity 0.25s ease;
+}
+
+.practice-instructions.collapsed .pi-content {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    margin-top: 0;
+}
