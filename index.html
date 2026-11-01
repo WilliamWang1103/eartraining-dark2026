@@ -11,6 +11,7 @@
     <!-- VexFlow已移除，改用Canvas渲染 -->
     <!-- OSMD - OpenSheetMusicDisplay (本地，用于正确答案五线谱渲染) -->
     <script src="lib/osmd.js"></script>
+    <script src="lib/html2canvas.min.js"></script>
     <script>
         (function () {
             function loadLocal() {
@@ -26,7 +27,7 @@
         })();
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=20260815a">
 
 </head>
 
@@ -1562,6 +1563,118 @@
             </div>
         </div>
 
+        <!-- 综合考试页面 -->
+        <div id="comprehensive-exam-page" class="page">
+            <div class="container">
+                <div class="exercise-page">
+                    <div class="exercise-header">
+                        <h2 class="exercise-title"><i class="fas fa-trophy"></i> 综合考试</h2>
+                        <button id="back-home-exam" class="back-btn" title="返回首页">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                    </div>
+
+                    <div class="mode-tabs">
+                        <button id="setup-btn-exam" class="tab-btn active">考试设置</button>
+                        <button id="leaderboard-btn-exam" class="tab-btn exam">风云榜单</button>
+                    </div>
+
+                    <!-- ===== 考试设置区域 ===== -->
+                    <div id="exam-setup-section">
+                        <div class="exam-config-card">
+                            <h4>📋 题型、分值与难度设置</h4>
+                            <div id="exam-config-table"></div>
+                            <div class="exam-total-score">总分：<span id="exam-total-score">100</span> 分</div>
+                        </div>
+                        <div class="exam-instructions">
+                            <h4>📖 考试流程</h4>
+                            <ul>
+                                <li><strong>第一题</strong>：单音听辨，10个音，每音1分，共10分</li>
+                                <li><strong>第二题</strong>：音程听辨，10个音程，每音程2分，共20分</li>
+                                <li><strong>第三题</strong>：和弦听辨，10个和弦，每和弦3分，共30分</li>
+                                <li><strong>第四题</strong>：节奏听辨(2/4拍)，4小节，共10分</li>
+                                <li><strong>第五题</strong>：节奏听辨(3/4拍)，4小节，共10分</li>
+                                <li><strong>第六题</strong>：旋律听辨，8小节，共20分</li>
+                                <li>每题弹奏4遍，每遍间隔30秒，题间间隔2分钟</li>
+                                <li>第一~三题：速度55，标准音A + 题目 + 标准音A</li>
+                                <li>第四~五题：速度60，标准音A×4 + 节奏</li>
+                                <li>第六题：速度50，标准音A×4 + 旋律 + 标准音A</li>
+                            </ul>
+                        </div>
+                        <button id="start-exam-btn" class="btn save">开始考试</button>
+                    </div>
+
+                    <!-- ===== 考试进行区域 ===== -->
+                    <div id="exam-playing-section" style="display:none;">
+                        <div class="exam-progress-panel">
+                            <div class="stats-panel" style="display:flex;">
+                                <div class="stat-item">
+                                    <div class="stat-label">题号</div>
+                                    <div class="stat-value" id="exam-current-q">1/6</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">遍数</div>
+                                    <div class="stat-value" id="exam-current-play">1/4</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">倒计时</div>
+                                    <div class="stat-value" id="exam-countdown">--</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">用时</div>
+                                    <div class="stat-value" id="exam-elapsed">00:00</div>
+                                </div>
+                            </div>
+                            <div class="exam-question-name" id="exam-question-name">单音听辨</div>
+                            <div class="exam-status" id="exam-status">准备播放...</div>
+                            <div class="exam-progress-bar">
+                                <div class="exam-progress-fill" id="exam-progress-fill"></div>
+                            </div>
+                        </div>
+                        <div class="exam-controls">
+                            <button id="exam-replay-btn" class="btn">重播当前遍</button>
+                            <button id="exam-skip-btn" class="btn">跳进到下一题</button>
+                            <button id="exam-stop-btn" class="btn warning">终止考试</button>
+                        </div>
+                    </div>
+
+                    <!-- ===== 答卷区域（播放时也可答题） ===== -->
+                    <div id="exam-answering-section" style="display:none;">
+                        <div class="exam-answer-header">
+                            <h4>✍️ 请填写答卷</h4>
+                            <p class="exam-answer-tip">点击导航按钮切换题目，点击五线谱小节选中后用钢琴键盘/节奏按钮输入答案</p>
+                        </div>
+                        <div id="exam-answer-sheet"></div>
+                        <button id="submit-exam-btn" class="btn save">提交答卷</button>
+                    </div>
+
+                    <!-- ===== 考试结果区域 ===== -->
+                    <div id="exam-result-section" style="display:none;">
+                        <div id="exam-result-content"></div>
+                    </div>
+
+                    <!-- ===== 风云榜单区域 ===== -->
+                    <div id="leaderboard-content-exam" style="display:none;">
+                        <div class="leaderboard-panel">
+                            <h3>🏆 综合考试风云榜</h3>
+                            <div class="leaderboard-table">
+                                <div class="leaderboard-header">
+                                    <div class="lb-col lb-rank">排名</div>
+                                    <div class="lb-col lb-name">姓名</div>
+                                    <div class="lb-col lb-score">分数</div>
+                                    <div class="lb-col lb-time">用时</div>
+                                </div>
+                                <div class="leaderboard-list" id="leaderboard-list-exam"></div>
+                            </div>
+                            <div class="leaderboard-footer">
+                                <p id="exam-leaderboard-info">暂无数据</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 数据管理对话框 -->
         <div id="data-modal" class="modal" style="display: none;">
             <div class="modal-content" style="max-width: 400px;">
@@ -1751,7 +1864,7 @@
         </div>
 
         <!-- 所有 JavaScript 逻辑已移至 app.js -->
-        <script src="app.js?v=20260730b"></script>
+        <script src="app.js?v=20260815a"></script>
     </div>
 
     <script>

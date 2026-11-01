@@ -1727,10 +1727,9 @@ function checkPitchAnswer() {
         (sortedUserNotes[2] === sortedCorrectNotes[2] || areEnharmonic(sortedUserNotes[2], sortedCorrectNotes[2]))
     );
 
-    // 高亮+出声用户提交的答案
+    // 仅高亮用户提交的答案，不播放答案声音
     lastThreeNotes.forEach(note => {
         highlightKey(note);
-        playSingleNote(note);
     });
 
     // 记录学习数据（练习模式和测试模式都记录）
@@ -3869,9 +3868,7 @@ function submitIntervalPitchAnswer() {
         (userNotes[1] === correctNotes[1] || areEnharmonic(userNotes[1], correctNotes[1]))
     );
 
-    // 提交答案后出声+高亮（练习和测试模式都适用）
-    playNoteWithWebAudio(correctNotes[0], 3.0);
-    playNoteWithWebAudio(correctNotes[1], 3.0);
+    // 提交答案后仅高亮，不播放答案声音
     highlightKey(userNotes[0]);
     highlightKey(userNotes[1]);
 
@@ -3956,10 +3953,7 @@ function submitIntervalQualityAnswer() {
     // 比较用户选择的答案
     const isCorrect = intervalAppState.selectedIntervalQuality === correctQuality;
 
-    // 播放答案声音（练习和测试模式都适用）
-    intervalAppState.lastQuestion.forEach(note => {
-        playNoteWithWebAudio(note, 3.0);
-    });
+    // 提交性质答案时不播放答案声音，保持所选性质按钮高亮即可
 
     // 记录学习数据（练习模式和测试模式都记录）
     learningManager.recordResult('interval', {
@@ -5511,8 +5505,7 @@ function handleSingleSubmitAnswer() {
         console.log('是否匹配:', isCorrect);
     }
 
-    // 提交答案后出声+高亮（练习和测试模式都适用）
-    playNoteWithWebAudio(singleAppState.pianoSelection, 3.0);
+    // 提交答案后仅高亮琴键，不播放用户答案声音
     highlightKey(singleAppState.pianoSelection);
 
     // 记录学习数据（练习模式和测试模式都记录）
@@ -6208,17 +6201,9 @@ function initMelodyPage() {
         }
     });
 
-    // 截屏按钮
+    // 截屏按钮（导出旋律听辨页面为图片）
     const resetBtn = document.getElementById('reset-test-btn-melody');
-    if (resetBtn) resetBtn.addEventListener('click', () => {
-        const page = document.getElementById('melody-page');
-        if (page) html2canvas?.(page).then(canvas => {
-            const link = document.createElement('a');
-            link.download = 'melody-test.png';
-            link.href = canvas.toDataURL();
-            link.click();
-        }).catch(() => alert('截屏功能需要html2canvas库'));
-    });
+    if (resetBtn) resetBtn.addEventListener('click', captureMelodyPageScreenshot);
 
     // 曲目选择
     const melodySelector = document.getElementById('melody-selector');
@@ -6385,7 +6370,10 @@ function handlePianoNoteOnMelody(note) {
 
 function handlePianoNoteOffMelody(note) {
     stopNoteWithWebAudio(note.note);
-    removeHighlightKey(note.note);
+    // 测试模式下保持高亮，直到提交答案或下一题
+    if (melodyAppState.currentMode !== 'test') {
+        removeHighlightKey(note.note);
+    }
 }
 
 // 初始化时值按钮
@@ -10012,8 +10000,9 @@ function handlePianoNoteOnSingle(note) {
         return;
     }
 
-    // 测试模式下点击琴键不出声，但高亮（让用户知道点上了）
+    // 测试模式下点击琴键不出声，仅高亮并记住最后点击的琴键
     if (singleAppState.currentMode === 'test') {
+        clearAllHighlights();
         highlightKey(note.note);
         singleAppState.pianoSelection = note.note;
         return;
@@ -10204,7 +10193,10 @@ function handlePianoNoteOnChord(noteObj) {
 // 钢琴键盘点击处理函数 - Note Off（释放时）
 function handlePianoNoteOffSingle(note) {
     stopNoteWithWebAudio(note.note);
-    removeHighlightKey(note.note);
+    // 测试模式下保持高亮，直到提交答案或下一音播放
+    if (singleAppState.currentMode !== 'test') {
+        removeHighlightKey(note.note);
+    }
 }
 
 function handlePianoNoteOffInterval(note) {
@@ -10509,224 +10501,90 @@ function initIntervalPiano() {
     positionBlackKeys('piano-interval');
 }
 
-// 截屏功能 - 单音听辨页面
+// ==================== 截屏 / 导出图片功能 ====================
+// 使用本地打包的 html2canvas（见 index.html 中的 lib/html2canvas.min.js），
+// 不依赖外部 CDN，避免无外网 / 外网不稳定时“截屏”按钮失效。
 let isScreenshotting = false; // 防止重复截屏
 
-function captureSinglePageScreenshot() {
-    // 如果正在截屏，直接返回
+// 通用导出：把指定 DOM 元素渲染为 PNG 图片并自动下载
+function captureElementAsImage(elementSelector, fileNamePrefix, onSuccess, onError) {
     if (isScreenshotting) {
         console.log('正在截屏中，请勿重复点击');
         return;
     }
 
-    isScreenshotting = true;
-    console.log('开始截屏...');
+    const element = typeof elementSelector === 'string'
+        ? document.querySelector(elementSelector)
+        : elementSelector;
 
-    // 使用 html2canvas 库进行截屏
+    if (!element) {
+        console.error('截屏失败：未找到目标元素', elementSelector);
+        alert('截屏失败：未找到要导出的页面区域');
+        return;
+    }
+
     if (typeof html2canvas === 'undefined') {
-        // 动态加载 html2canvas 库
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-        script.onload = () => {
-            performScreenshot();
-        };
-        script.onerror = () => {
-            alert('截屏功能加载失败，请检查网络连接');
-            isScreenshotting = false;
-        };
-        document.head.appendChild(script);
-    } else {
-        performScreenshot();
+        console.error('html2canvas 库未加载');
+        alert('图片导出组件未加载，请刷新页面后重试');
+        return;
     }
 
-    function performScreenshot() {
-        // 获取整个页面容器
-        const element = document.querySelector('.container') || document.body;
+    isScreenshotting = true;
+    console.log('开始导出图片...');
 
-        html2canvas(element, {
-            scale: 2, // 提高清晰度
-            useCORS: true,
-            backgroundColor: '#1a1a1a',
-            logging: false
-        }).then(canvas => {
-            // 创建下载链接
-            const link = document.createElement('a');
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            link.download = `单音听辨测试_${timestamp}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+    html2canvas(element, {
+        scale: 2,              // 提高清晰度
+        useCORS: true,         // 允许跨域图片
+        backgroundColor: '#1a1a1a',
+        logging: false
+    }).then(canvas => {
+        const link = document.createElement('a');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        link.download = `${fileNamePrefix}_${timestamp}.png`;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
-            console.log('截屏成功！');
-            updateSingleStatus('截屏已保存！');
-            isScreenshotting = false;
-        }).catch(err => {
-            console.error('截屏失败:', err);
-            alert('截屏失败：' + err.message);
-            isScreenshotting = false;
-        });
-    }
+        console.log('图片导出成功！');
+        if (typeof onSuccess === 'function') onSuccess();
+        isScreenshotting = false;
+    }).catch(err => {
+        console.error('图片导出失败:', err);
+        if (typeof onError === 'function') onError(err);
+        else alert('图片导出失败：' + (err && err.message ? err.message : err));
+        isScreenshotting = false;
+    });
+}
+
+// 截屏功能 - 单音听辨页面
+function captureSinglePageScreenshot() {
+    captureElementAsImage('#single-page .exercise-page', '单音听辨测试',
+        () => updateSingleStatus('截屏已保存！'));
 }
 
 // 截屏功能 - 音程听辨页面
 function captureIntervalPageScreenshot() {
-    // 如果正在截屏，直接返回
-    if (isScreenshotting) {
-        console.log('正在截屏中，请勿重复点击');
-        return;
-    }
-
-    isScreenshotting = true;
-    console.log('开始截屏...');
-
-    // 使用 html2canvas 库进行截屏
-    if (typeof html2canvas === 'undefined') {
-        // 动态加载 html2canvas 库
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-        script.onload = () => {
-            performIntervalScreenshot();
-        };
-        script.onerror = () => {
-            alert('截屏功能加载失败，请检查网络连接');
-            isScreenshotting = false;
-        };
-        document.head.appendChild(script);
-    } else {
-        performIntervalScreenshot();
-    }
-
-    function performIntervalScreenshot() {
-        // 获取整个页面容器
-        const element = document.querySelector('.container') || document.body;
-
-        html2canvas(element, {
-            scale: 2, // 提高清晰度
-            useCORS: true,
-            backgroundColor: '#1a1a1a',
-            logging: false
-        }).then(canvas => {
-            // 创建下载链接
-            const link = document.createElement('a');
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            link.download = `音程听辨测试_${timestamp}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-
-            console.log('截屏成功！');
-            updateIntervalStatus('截屏已保存！');
-            isScreenshotting = false;
-        }).catch(err => {
-            console.error('截屏失败:', err);
-            alert('截屏失败：' + err.message);
-            isScreenshotting = false;
-        });
-    }
+    captureElementAsImage('#interval-page .exercise-page', '音程听辨测试',
+        () => updateIntervalStatus('截屏已保存！'));
 }
 
 // 截屏功能 - 节奏听辨页面
 function captureRhythmPageScreenshot() {
-    if (isScreenshotting) {
-        console.log('正在截屏中，请勿重复点击');
-        return;
-    }
-
-    isScreenshotting = true;
-    console.log('开始截屏...');
-
-    if (typeof html2canvas === 'undefined') {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-        script.onload = () => {
-            performRhythmScreenshot();
-        };
-        script.onerror = () => {
-            alert('截屏功能加载失败，请检查网络连接');
-            isScreenshotting = false;
-        };
-        document.head.appendChild(script);
-    } else {
-        performRhythmScreenshot();
-    }
-
-    function performRhythmScreenshot() {
-        const element = document.querySelector('#rhythm-page .exercise-page') || document.querySelector('.container') || document.body;
-        html2canvas(element, {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: '#1a1a1a',
-            logging: false
-        }).then(canvas => {
-            const link = document.createElement('a');
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            link.download = `节奏听辨_${timestamp}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-
-            console.log('截屏成功！');
-            updateRhythmStatus('截屏已保存！');
-            isScreenshotting = false;
-        }).catch(err => {
-            console.error('截屏失败:', err);
-            alert('截屏失败：' + err.message);
-            isScreenshotting = false;
-        });
-    }
+    captureElementAsImage('#rhythm-page .exercise-page', '节奏听辨',
+        () => updateRhythmStatus('截屏已保存！'));
 }
 
 // 和弦听辨截屏功能
 function captureChordPageScreenshot() {
-    // 如果正在截屏，直接返回
-    if (isScreenshotting) {
-        console.log('正在截屏中，请勿重复点击');
-        return;
-    }
+    captureElementAsImage('#chord-page .exercise-page', '和弦听辨测试',
+        () => updateChordStatus('截屏已保存！'));
+}
 
-    isScreenshotting = true;
-    console.log('开始截屏...');
-
-    // 使用 html2canvas 库进行截屏
-    if (typeof html2canvas === 'undefined') {
-        // 动态加载 html2canvas 库
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-        script.onload = () => {
-            performChordScreenshot();
-        };
-        script.onerror = () => {
-            alert('截屏功能加载失败，请检查网络连接');
-            isScreenshotting = false;
-        };
-        document.head.appendChild(script);
-    } else {
-        performChordScreenshot();
-    }
-
-    function performChordScreenshot() {
-        // 获取整个页面容器
-        const element = document.querySelector('.container') || document.body;
-
-        html2canvas(element, {
-            scale: 2, // 提高清晰度
-            useCORS: true,
-            backgroundColor: '#1a1a1a',
-            logging: false
-        }).then(canvas => {
-            // 创建下载链接
-            const link = document.createElement('a');
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            link.download = `和弦听辨测试_${timestamp}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-
-            console.log('截屏成功！');
-            updateChordStatus('截屏已保存！');
-            isScreenshotting = false;
-        }).catch(err => {
-            console.error('截屏失败:', err);
-            alert('截屏失败：' + err.message);
-            isScreenshotting = false;
-        });
-    }
+// 截屏功能 - 旋律听辨页面
+function captureMelodyPageScreenshot() {
+    captureElementAsImage('#melody-page .exercise-page', '旋律听辨测试',
+        () => updateMelodyStatus('截屏已保存！'));
 }
 
 // ==================== 智能学习数据管理系统 ====================
