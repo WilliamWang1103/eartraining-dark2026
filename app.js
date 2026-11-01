@@ -10502,8 +10502,8 @@ function initIntervalPiano() {
 }
 
 // ==================== 截屏 / 导出图片功能 ====================
-// 使用本地打包的 html2canvas（见 index.html 中的 lib/html2canvas.min.js），
-// 不依赖外部 CDN，避免无外网 / 外网不稳定时“截屏”按钮失效。
+// 优先使用本地打包的 html-to-image（浏览器原生渲染，flexbox/文字与屏幕一致），
+// 失败时回退到 html2canvas。两者均从本地 lib/ 加载，不依赖外部 CDN。
 let isScreenshotting = false; // 防止重复截屏
 
 // 通用导出：把指定 DOM 元素渲染为 PNG 图片并自动下载
@@ -10523,25 +10523,14 @@ function captureElementAsImage(elementSelector, fileNamePrefix, onSuccess, onErr
         return;
     }
 
-    if (typeof html2canvas === 'undefined') {
-        console.error('html2canvas 库未加载');
-        alert('图片导出组件未加载，请刷新页面后重试');
-        return;
-    }
-
     isScreenshotting = true;
     console.log('开始导出图片...');
 
-    html2canvas(element, {
-        scale: 2,              // 提高清晰度
-        useCORS: true,         // 允许跨域图片
-        backgroundColor: '#1a1a1a',
-        logging: false
-    }).then(canvas => {
+    const download = (dataUrl) => {
         const link = document.createElement('a');
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         link.download = `${fileNamePrefix}_${timestamp}.png`;
-        link.href = canvas.toDataURL('image/png');
+        link.href = dataUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -10549,12 +10538,42 @@ function captureElementAsImage(elementSelector, fileNamePrefix, onSuccess, onErr
         console.log('图片导出成功！');
         if (typeof onSuccess === 'function') onSuccess();
         isScreenshotting = false;
-    }).catch(err => {
+    };
+
+    const fail = (err) => {
         console.error('图片导出失败:', err);
         if (typeof onError === 'function') onError(err);
         else alert('图片导出失败：' + (err && err.message ? err.message : err));
         isScreenshotting = false;
-    });
+    };
+
+    // 优先使用 html-to-image（浏览器原生 SVG 渲染，flexbox / 文字排版与屏幕完全一致，避免挤压）。
+    // 若不可用或渲染失败，则回退到 html2canvas。
+    if (typeof htmlToImage !== 'undefined' && typeof htmlToImage.toPng === 'function') {
+        htmlToImage.toPng(element, {
+            pixelRatio: 2,           // 提高清晰度
+            backgroundColor: '#1a1a1a',
+            cacheBust: true
+        }).then(download).catch(err => {
+            console.warn('html-to-image 导出失败，回退到 html2canvas:', err);
+            captureWithHtml2canvas();
+        });
+    } else {
+        captureWithHtml2canvas();
+    }
+
+    function captureWithHtml2canvas() {
+        if (typeof html2canvas === 'undefined') {
+            fail(new Error('图片导出组件未加载，请刷新页面后重试'));
+            return;
+        }
+        html2canvas(element, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#1a1a1a',
+            logging: false
+        }).then(canvas => download(canvas.toDataURL('image/png'))).catch(fail);
+    }
 }
 
 // 截屏功能 - 单音听辨页面
