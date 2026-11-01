@@ -8512,7 +8512,9 @@ function renderRhythmStaff() {
     renderer.resize(width, height);
     const ctx = renderer.getContext();
 
-    const stave = new VF.Stave(10, 30, width - 20);
+    // 注意：此版本 VexFlow 的 Stave.y 是“谱表内容区顶部”，真正顶线在 y + 40（space_above_staff_ln×行距）。
+    // 画布高 100，五线谱 5 线共 40px，居中则顶线应在 30，故 Stave.y = 30 - 40 = -10。
+    const stave = new VF.Stave(10, -10, width - 20);
     stave.addClef('treble').addTimeSignature(timeSig);
     stave.setEndBarType(VF.Barline.type.END);
     stave.setContext(ctx).draw();
