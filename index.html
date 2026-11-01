@@ -1089,6 +1089,18 @@
                             </div>
                         </div>
 
+                        <!-- 节拍听辨：音符时值 + 休止开关（仅节拍模式显示） -->
+                        <div id="rhythm-meter-input-section" class="rhythm-meter-input-section" style="display: none;">
+                            <div class="melody-duration-tabs">
+                                <button class="melody-duration-btn rhythm-note-btn" data-duration="h">二分</button>
+                                <button class="melody-duration-btn rhythm-note-btn active" data-duration="q">四分</button>
+                                <button class="melody-duration-btn rhythm-note-btn" data-duration="8">八分</button>
+                                <button class="melody-duration-btn rhythm-note-btn" data-duration="16">十六分</button>
+                                <button id="rest-toggle-btn" class="rest-toggle-btn" title="点亮后输入休止符"><i
+                                        class="fas fa-pause"></i> 休止</button>
+                            </div>
+                        </div>
+
                         <!-- 节奏选项按钮区域 -->
 
                         <div id="test-result-rhythm" class="test-result"></div>
