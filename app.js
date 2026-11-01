@@ -9571,10 +9571,8 @@ async function playRandomRhythm() {
         // 初始化答案区（清空之前的答案）
         initRhythmAnswerArea();
 
-        // 节奏型听辨：自动点亮第1个节奏选择槽位
-        if (rhythmAppState.currentFunction === 'rhythm') {
-            activateSlot(0);
-        }
+        // 自动点亮第1个答题槽位（节奏型/节拍听辨通用）
+        activateSlot(0);
 
         // （已移除五线谱渲染，保持界面简洁）
 
