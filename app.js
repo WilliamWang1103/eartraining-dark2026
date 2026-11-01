@@ -8453,8 +8453,8 @@ async function selectMeterUnit(duration) {
     const rest = rhythmAppState.restModeOn;
     const unit = makeMeterUnit(duration, rest);
 
-    // 练习模式：播放该单元音响（休止符只等待、不发声）
-    if (rhythmAppState.currentMode === 'practice') {
+    // 练习模式：播放该单元音响（题目播放中不叠加播放，避免混响）
+    if (rhythmAppState.currentMode === 'practice' && !rhythmAppState.isPlaying) {
         try {
             await Tone.start();
             await playRhythmSequence({ notes: [{ duration: unit.duration, beats: unit.beats, dots: unit.dots, rest: unit.rest }] });
@@ -9398,8 +9398,8 @@ async function selectRhythm(rhythm, btn) {
         }, 300); // 300ms后移除高亮
     }
 
-    // 练习模式：播放节奏声音
-    if (rhythmAppState.currentMode === 'practice') {
+    // 练习模式：播放节奏声音（题目播放中不叠加播放，避免混响）
+    if (rhythmAppState.currentMode === 'practice' && !rhythmAppState.isPlaying) {
         try {
             await Tone.start();
 
@@ -9975,9 +9975,17 @@ async function repeatRhythm() {
         updateRhythmStatus('请先点击“随机播放”生成题目');
         return;
     }
+    if (rhythmAppState.isPlaying) return;
 
-    await playRhythmSequence(rhythmAppState.currentRhythm);
-    updateRhythmStatus('节奏已重复播放');
+    try {
+        rhythmAppState.isPlaying = true;
+        await playRhythmSequence(rhythmAppState.currentRhythm);
+        updateRhythmStatus('节奏已重复播放');
+    } catch (e) {
+        console.error('重复播放失败:', e);
+    } finally {
+        rhythmAppState.isPlaying = false;
+    }
 }
 
 // 提交节奏答案
