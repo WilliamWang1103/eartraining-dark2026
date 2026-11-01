@@ -2119,6 +2119,20 @@ body {
     opacity: 0.8;
 }
 
+/* 节奏五线谱（空白谱表 + 上屏） */
+.rhythm-staff-container {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 8px;
+    margin: 10px 0;
+    min-height: 150px;
+    -webkit-overflow-scrolling: touch;
+}
+
 .rhythm-answer-slot {
     padding: 15px 10px;
     background: rgba(255, 255, 255, 0.05);

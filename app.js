@@ -8222,6 +8222,9 @@ function initRhythmPage() {
     // 设置初始状态
     updateRhythmButtonStates();
 
+    // 渲染空白五线谱
+    renderRhythmStaff();
+
     // 初始化答案区（参考项目方案：在播放题目时创建槽位）
     // 注意：这里不直接创建槽位，而是等待用户点击“随机播放”或“播放题目”时再创建
 }
@@ -8407,6 +8410,117 @@ function initRhythmAnswerArea() {
 
     rhythmAppState.selectedRhythms = new Array(count).fill(null);
     rhythmAppState.activeSlotIndex = -1; // 重置激活状态
+
+    // 同步渲染五线谱
+    renderRhythmStaff();
+}
+
+// ==================== 节奏五线谱（VexFlow）渲染 ====================
+
+// 收集当前已选的节奏型（按顺序）
+function getCurrentRhythmSelections() {
+    const isMeter = rhythmAppState.currentFunction === 'meter';
+    const patterns = [];
+    if (isMeter) {
+        (rhythmAppState.measureRhythms || []).forEach(measure => {
+            (measure || []).forEach(r => { if (r) patterns.push(r); });
+        });
+    } else {
+        (rhythmAppState.selectedRhythms || []).forEach(r => { if (r) patterns.push(r); });
+    }
+    return patterns;
+}
+
+// 把已选节奏型序列转成 VexFlow 音符（含横梁 / 附点 / 三连音）
+function buildVexRhythmNotes(patterns) {
+    const VF = Vex.Flow;
+    const notes = [];
+    let totalBeats = 0;
+
+    patterns.forEach(name => {
+        const pattern = RHYTHM_DURATION_MAP[name];
+        if (!pattern || !pattern.length) return;
+
+        const items = pattern.map(n => {
+            const isTriplet = n.duration === 'triplet';
+            const dur = isTriplet ? '8' : n.duration;
+            const note = new VF.StaveNote({ keys: ['b/4'], duration: dur, clef: 'treble' });
+            if (n.dots) {
+                VF.Dot.buildAndAttach([note], { all: true });
+            }
+            totalBeats += (n.beats || 0);
+            return { note, dur, isTriplet };
+        });
+
+        // 横梁：连续八分/十六分（含三连音）连成一组
+        let beamRun = [];
+        const flushBeam = () => {
+            if (beamRun.length > 1) new VF.Beam(beamRun);
+            beamRun = [];
+        };
+        items.forEach(it => {
+            if (it.dur === '8' || it.dur === '16') beamRun.push(it.note);
+            else flushBeam();
+        });
+        flushBeam();
+
+        // 三连音：连续 triplet 组成 Tuplet(3:2)
+        let tripRun = [];
+        const flushTriplet = () => {
+            if (tripRun.length === 3) new VF.Tuplet(tripRun, { num_notes: 3, notes_occupied: 2 });
+            tripRun = [];
+        };
+        items.forEach(it => {
+            if (it.isTriplet) tripRun.push(it.note);
+            else flushTriplet();
+        });
+        flushTriplet();
+
+        items.forEach(it => notes.push(it.note));
+    });
+
+    return { notes, totalBeats: Math.max(1, Math.round(totalBeats * 1000) / 1000) };
+}
+
+// 渲染节奏五线谱（空白谱表 + 已选节奏上屏）
+function renderRhythmStaff() {
+    const container = document.getElementById('rhythm-staff-container');
+    if (!container) return;
+    if (typeof Vex === 'undefined' || !Vex.Flow) {
+        container.innerHTML = '<div style="color:#999;padding:12px;text-align:center;">五线谱组件未加载</div>';
+        return;
+    }
+
+    container.innerHTML = '';
+    const VF = Vex.Flow;
+
+    const beatTypeSelect = document.getElementById('beat-type-rhythm');
+    const timeSig = beatTypeSelect && beatTypeSelect.value === '2' ? '2/4' : '4/4';
+
+    const selections = getCurrentRhythmSelections();
+    const noteCount = selections.reduce((n, name) => n + ((RHYTHM_DURATION_MAP[name] || []).length), 0);
+    const baseWidth = container.clientWidth > 0 ? container.clientWidth : 700;
+    const width = Math.max(baseWidth - 24, Math.min(260 + noteCount * 72, 2400));
+    const height = 200;
+
+    const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+    renderer.resize(width, height);
+    const ctx = renderer.getContext();
+
+    const stave = new VF.Stave(10, 40, width - 20);
+    stave.addClef('treble').addTimeSignature(timeSig);
+    stave.setEndBarType(VF.Barline.type.END);
+    stave.setContext(ctx).draw();
+
+    if (!selections.length) return;
+
+    const built = buildVexRhythmNotes(selections);
+    if (!built.notes.length) return;
+
+    const voice = new VF.Voice({ num_beats: built.totalBeats, beat_value: 4 });
+    voice.addTickables(built.notes);
+    new VF.Formatter().joinVoices([voice]).format([voice], width - 60);
+    voice.draw(ctx, stave);
 }
 
 // 激活槽位
@@ -8468,6 +8582,8 @@ function resetSlot(index) {
     } else {
         rhythmAppState.selectedRhythms[index] = null;
     }
+
+    renderRhythmStaff();
 }
 
 // 清空答案区
@@ -8495,6 +8611,8 @@ function clearRhythmAnswer() {
         rhythmAppState.measureRhythms = new Array(count).fill(null).map(() => []);
         rhythmAppState.measureBeatsFilled = new Array(count).fill(0);
     }
+
+    renderRhythmStaff();
 }
 
 
@@ -9209,6 +9327,8 @@ async function selectRhythm(rhythm, btn) {
     } else {
         updateRhythmStatus('请先点击一个答案槽位以激活上屏记录');
     }
+
+    renderRhythmStaff();
 }
 
 // 更新节奏听辨统计

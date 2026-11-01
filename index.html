@@ -11,6 +11,7 @@
     <!-- VexFlow已移除，改用Canvas渲染 -->
     <!-- OSMD - OpenSheetMusicDisplay (本地，用于正确答案五线谱渲染) -->
     <script src="lib/osmd.js"></script>
+    <script src="lib/vexflow.js"></script>
     <script src="lib/html2canvas.min.js"></script>
     <script src="lib/html-to-image.min.js"></script>
     <script>
@@ -1041,6 +1042,9 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- 五线谱（空白谱表，点节奏型按钮上屏） -->
+                        <div id="rhythm-staff-container" class="rhythm-staff-container"></div>
 
                         <!-- 答案选择区域（答题槽位） -->
                         <div id="rhythm-answer-area" class="rhythm-answer-area">
