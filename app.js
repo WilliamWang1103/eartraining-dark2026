@@ -8432,54 +8432,58 @@ function getCurrentRhythmSelections() {
 }
 
 // 把已选节奏型序列转成 VexFlow 音符（含横梁 / 附点 / 三连音）
+// 使用旧版 VexFlow（vexflow-min.js，与和声学 App 一致）的经典 API
 function buildVexRhythmNotes(patterns) {
     const VF = Vex.Flow;
     const notes = [];
+    const beams = [];
+    const tuplets = [];
     let totalBeats = 0;
 
     patterns.forEach(name => {
         const pattern = RHYTHM_DURATION_MAP[name];
         if (!pattern || !pattern.length) return;
 
+        // 1) 创建音符（附点用 '8d' / 'qd' / 'hd' 时值字符串）
         const items = pattern.map(n => {
             const isTriplet = n.duration === 'triplet';
-            const dur = isTriplet ? '8' : n.duration;
-            const note = new VF.StaveNote({ keys: ['b/4'], duration: dur, clef: 'treble' });
-            if (n.dots) {
-                VF.Dot.buildAndAttach([note], { all: true });
-            }
+            let dur = isTriplet ? '8' : n.duration;
+            if (n.dots && !isTriplet) dur = dur + 'd';
+            const note = new VF.StaveNote({ keys: ['b/4'], duration: dur });
+            note.setStemDirection(VF.Stem.UP);
             totalBeats += (n.beats || 0);
-            return { note, dur, isTriplet };
+            return { note, isTriplet, baseDur: isTriplet ? '8' : n.duration };
         });
 
-        // 横梁：连续八分/十六分（含三连音）连成一组
+        // 2) 三连音分组（3 音占 2 个单位时值）
+        let tripRun = [];
+        const flushTriplet = () => {
+            if (tripRun.length === 3) {
+                tuplets.push(new VF.Tuplet(tripRun, { ratioed: true, num_notes: 3, notes_occupied: 2 }));
+            }
+            tripRun = [];
+        };
+        items.forEach(it => { if (it.isTriplet) tripRun.push(it.note); else flushTriplet(); });
+        flushTriplet();
+
+        // 3) 横梁：连续八分/十六分（含三连音）各自成组
         let beamRun = [];
         const flushBeam = () => {
-            if (beamRun.length > 1) new VF.Beam(beamRun);
+            if (beamRun.length > 1) {
+                beams.push(...VF.Beam.generateBeams(beamRun, { stem_direction: VF.Stem.UP }));
+            }
             beamRun = [];
         };
         items.forEach(it => {
-            if (it.dur === '8' || it.dur === '16') beamRun.push(it.note);
+            if (it.baseDur === '8' || it.baseDur === '16') beamRun.push(it.note);
             else flushBeam();
         });
         flushBeam();
 
-        // 三连音：连续 triplet 组成 Tuplet(3:2)
-        let tripRun = [];
-        const flushTriplet = () => {
-            if (tripRun.length === 3) new VF.Tuplet(tripRun, { num_notes: 3, notes_occupied: 2 });
-            tripRun = [];
-        };
-        items.forEach(it => {
-            if (it.isTriplet) tripRun.push(it.note);
-            else flushTriplet();
-        });
-        flushTriplet();
-
         items.forEach(it => notes.push(it.note));
     });
 
-    return { notes, totalBeats: Math.max(1, Math.round(totalBeats * 1000) / 1000) };
+    return { notes, beams, tuplets, totalBeats: Math.max(1, Math.round(totalBeats * 1000) / 1000) };
 }
 
 // 渲染节奏五线谱（空白谱表 + 已选节奏上屏）
@@ -8521,6 +8525,10 @@ function renderRhythmStaff() {
     voice.addTickables(built.notes);
     new VF.Formatter().joinVoices([voice]).format([voice], width - 60);
     voice.draw(ctx, stave);
+
+    // 符杠 / 三连音在 voice 绘制后再单独绘制
+    built.beams.forEach(b => b.setContext(ctx).draw());
+    built.tuplets.forEach(t => t.setContext(ctx).draw());
 }
 
 // 激活槽位
