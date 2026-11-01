@@ -9640,7 +9640,9 @@ function generateRandomRhythm() {
                     remaining -= 1;
                 } else {
                     const beats = METER_DURATION_UNITS[dur].beats;
-                    const rest = totalRests < 2 && Math.random() < 0.35; // 每题最多2个休止符
+                    // 每小节第1拍（强拍）不能出休止符
+                    const isDownbeat = Math.abs(remaining - beatsPerMeasure) < 0.001;
+                    const rest = !isDownbeat && totalRests < 2 && Math.random() < 0.35;
                     if (rest) totalRests++;
                     const unit = makeMeterUnit(dur, rest);
                     measureUnits.push(unit);
