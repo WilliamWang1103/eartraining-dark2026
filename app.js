@@ -8506,13 +8506,13 @@ function renderRhythmStaff() {
     const noteCount = selections.reduce((n, name) => n + ((RHYTHM_DURATION_MAP[name] || []).length), 0);
     const baseWidth = container.clientWidth > 0 ? container.clientWidth : 700;
     const width = Math.max(baseWidth - 24, Math.min(260 + noteCount * 72, 2400));
-    const height = 200;
+    const height = 100;
 
     const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
     renderer.resize(width, height);
     const ctx = renderer.getContext();
 
-    const stave = new VF.Stave(10, 40, width - 20);
+    const stave = new VF.Stave(10, 30, width - 20);
     stave.addClef('treble').addTimeSignature(timeSig);
     stave.setEndBarType(VF.Barline.type.END);
     stave.setContext(ctx).draw();
