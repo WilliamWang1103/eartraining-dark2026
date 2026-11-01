@@ -10506,7 +10506,7 @@ function initIntervalPiano() {
 // 失败时回退到 html2canvas。两者均从本地 lib/ 加载，不依赖外部 CDN。
 let isScreenshotting = false; // 防止重复截屏
 
-// 通用导出：把指定 DOM 元素渲染为 PNG 图片并自动下载
+// 通用导出：把指定 DOM 元素渲染为 PNG 图片，弹出预览供长按保存 / 下载
 function captureElementAsImage(elementSelector, fileNamePrefix, onSuccess, onError) {
     if (isScreenshotting) {
         console.log('正在截屏中，请勿重复点击');
@@ -10526,16 +10526,41 @@ function captureElementAsImage(elementSelector, fileNamePrefix, onSuccess, onErr
     isScreenshotting = true;
     console.log('开始导出图片...');
 
-    const download = (dataUrl) => {
-        const link = document.createElement('a');
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        link.download = `${fileNamePrefix}_${timestamp}.png`;
-        link.href = dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    // 文件名（含时间戳）
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `${fileNamePrefix}_${timestamp}.png`;
 
-        console.log('图片导出成功！');
+    // 展示预览弹窗：手机可长按图片“保存到相册”，桌面可点“下载图片”
+    const showPreview = (dataUrl) => {
+        const modal = document.getElementById('screenshot-modal');
+        const img = document.getElementById('screenshot-preview-img');
+        const downloadBtn = document.getElementById('screenshot-download-btn');
+
+        if (modal && img) {
+            img.src = dataUrl;
+            modal.style.display = 'flex';
+
+            if (downloadBtn) {
+                downloadBtn.onclick = () => {
+                    const link = document.createElement('a');
+                    link.download = fileName;
+                    link.href = dataUrl;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                };
+            }
+        } else {
+            // 兜底：预览弹窗不存在时，直接触发下载
+            const link = document.createElement('a');
+            link.download = fileName;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        console.log('图片生成成功！');
         if (typeof onSuccess === 'function') onSuccess();
         isScreenshotting = false;
     };
@@ -10554,7 +10579,7 @@ function captureElementAsImage(elementSelector, fileNamePrefix, onSuccess, onErr
             pixelRatio: 2,           // 提高清晰度
             backgroundColor: '#1a1a1a',
             cacheBust: true
-        }).then(download).catch(err => {
+        }).then(showPreview).catch(err => {
             console.warn('html-to-image 导出失败，回退到 html2canvas:', err);
             captureWithHtml2canvas();
         });
@@ -10572,7 +10597,7 @@ function captureElementAsImage(elementSelector, fileNamePrefix, onSuccess, onErr
             useCORS: true,
             backgroundColor: '#1a1a1a',
             logging: false
-        }).then(canvas => download(canvas.toDataURL('image/png'))).catch(fail);
+        }).then(canvas => showPreview(canvas.toDataURL('image/png'))).catch(fail);
     }
 }
 
@@ -10592,31 +10617,31 @@ function getSingleScreenshotPrefix() {
 
 function captureSinglePageScreenshot() {
     captureElementAsImage('#single-page .exercise-page', getSingleScreenshotPrefix(),
-        () => updateSingleStatus('截屏已保存！'));
+        () => updateSingleStatus('图片已生成，请保存到相册'));
 }
 
 // 截屏功能 - 音程听辨页面
 function captureIntervalPageScreenshot() {
     captureElementAsImage('#interval-page .exercise-page', '音程听辨测试',
-        () => updateIntervalStatus('截屏已保存！'));
+        () => updateIntervalStatus('图片已生成，请保存到相册'));
 }
 
 // 截屏功能 - 节奏听辨页面
 function captureRhythmPageScreenshot() {
     captureElementAsImage('#rhythm-page .exercise-page', '节奏听辨',
-        () => updateRhythmStatus('截屏已保存！'));
+        () => updateRhythmStatus('图片已生成，请保存到相册'));
 }
 
 // 和弦听辨截屏功能
 function captureChordPageScreenshot() {
     captureElementAsImage('#chord-page .exercise-page', '和弦听辨测试',
-        () => updateChordStatus('截屏已保存！'));
+        () => updateChordStatus('图片已生成，请保存到相册'));
 }
 
 // 截屏功能 - 旋律听辨页面
 function captureMelodyPageScreenshot() {
     captureElementAsImage('#melody-page .exercise-page', '旋律听辨测试',
-        () => updateMelodyStatus('截屏已保存！'));
+        () => updateMelodyStatus('图片已生成，请保存到相册'));
 }
 
 // ==================== 智能学习数据管理系统 ====================

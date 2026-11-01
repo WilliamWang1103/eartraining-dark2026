@@ -3136,6 +3136,22 @@ body {
     background: rgba(255, 255, 255, 0.15);
 }
 
+/* 截屏/导出图片预览 */
+.screenshot-preview-img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    margin-bottom: 12px;
+}
+
+.screenshot-hint {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin: 0;
+}
+
 /* 学习路径推荐内容 */
 .path-item {
     padding: 16px;

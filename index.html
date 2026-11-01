@@ -1691,6 +1691,25 @@
             </div>
         </div>
 
+        <!-- 截屏/导出图片预览弹窗 -->
+        <div id="screenshot-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 520px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-image"></i> 图片已生成</h3>
+                    <button class="modal-close" onclick="closeModal('screenshot-modal')"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <img id="screenshot-preview-img" class="screenshot-preview-img" alt="导出结果" />
+                    <p class="screenshot-hint">📱 手机：长按图片，选择「保存到相册」<br>💻 电脑：点击下方「下载图片」</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="closeModal('screenshot-modal')">关闭</button>
+                    <button class="modal-btn primary" id="screenshot-download-btn">下载图片</button>
+                </div>
+            </div>
+        </div>
+
         <!-- 学习路径推荐弹窗 -->
         <div id="report-modal" class="modal" style="display: none;">
             <div class="modal-content smart-modal" style="max-width: 500px;">
