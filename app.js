@@ -9481,10 +9481,14 @@ async function selectRhythm(rhythm, btn) {
             rhythmAppState.selectedRhythms[targetIndex] = rhythm;
             updateRhythmStatus(`已选择：${rhythm}`);
 
-            // 重置激活状态
-            rhythmAppState.activeSlotIndex = -1;
-            // 移除所有槽位的激活样式
-            slots.forEach(slot => slot.classList.remove('slot-active'));
+            // 自动点亮下一个节奏选择槽位
+            if (targetIndex + 1 < slots.length) {
+                setTimeout(() => activateSlot(targetIndex + 1), 200);
+            } else {
+                rhythmAppState.activeSlotIndex = -1;
+                slots.forEach(slot => slot.classList.remove('slot-active'));
+                updateRhythmStatus('🎉 所有节奏已选择完毕，请提交答案！');
+            }
         }
     } else {
         updateRhythmStatus('请先点击一个答案槽位以激活上屏记录');
@@ -9566,6 +9570,11 @@ async function playRandomRhythm() {
 
         // 初始化答案区（清空之前的答案）
         initRhythmAnswerArea();
+
+        // 节奏型听辨：自动点亮第1个节奏选择槽位
+        if (rhythmAppState.currentFunction === 'rhythm') {
+            activateSlot(0);
+        }
 
         // （已移除五线谱渲染，保持界面简洁）
 
