@@ -8695,12 +8695,13 @@ function renderRhythmStaff() {
 
     const renderCount = Math.max(measureCount, measures.length);
 
-    // 每小节宽度（空小节给基础宽度，音符多则加宽）
-    const staveGap = 6;
+    // 每小节宽度按「拍数」计算（小节线随内容灵活移动），空小节按每小节拍数给基础宽度
+    const staveGap = 0;
     const widths = [];
     for (let i = 0; i < renderCount; i++) {
-        const n = (measures[i] || []).length;
-        widths.push(Math.max(130, 70 + n * 40));
+        const beats = (measures[i] || []).reduce((s, d) => s + (d.beats || 0), 0) || beatsPerMeasure;
+        const extraFirst = i === 0 ? 80 : 0; // 第一小节额外留谱号/拍号空间
+        widths.push(Math.max(90, 40 + extraFirst + beats * 55));
     }
     const totalWidth = widths.reduce((s, w) => s + w, 0) + staveGap * (renderCount - 1) + 40;
     const baseWidth = container.clientWidth > 0 ? container.clientWidth : 700;
@@ -8730,7 +8731,8 @@ function renderRhythmStaff() {
             if (built.notes.length) {
                 const voice = new VF.Voice({ num_beats: built.totalBeats, beat_value: 4 });
                 voice.addTickables(built.notes);
-                new VF.Formatter().joinVoices([voice]).format([voice], widths[i] - 20);
+                const noteArea = stave.getNoteEndX() - stave.getNoteStartX();
+                new VF.Formatter().joinVoices([voice]).format([voice], noteArea);
                 voice.draw(ctx, stave);
                 built.beams.forEach(b => b.setContext(ctx).draw());
                 built.tuplets.forEach(t => t.setContext(ctx).draw());
