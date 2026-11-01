@@ -7495,12 +7495,16 @@ async function playRandomMelody() {
 async function playMelodySequence(melody) {
     const bpm = melodyAppState.bpm || 90;
     const beatDuration = 60 / bpm;
+    const beatsPerMeasure = parseInt((melody.timeSignature || '4/4').split('/')[0]) || 4;
+    let currentBeat = 0; // 当前累计拍
     melodyAppState.stopRequested = false;
     for (const note of melody.notes) {
         if (melodyAppState.stopRequested) return;
         const noteBeats = getNoteBeats(note.duration, note.dots);
         const noteDuration = beatDuration * noteBeats;
-        playNoteWithWebAudio(note.pitch, noteDuration, 0.8);
+        const volume = getRhythmAccentVolume(currentBeat, beatsPerMeasure, noteBeats);
+        playNoteWithWebAudio(note.pitch, noteDuration, volume);
+        currentBeat += noteBeats;
         await new Promise(resolve => setTimeout(resolve, noteDuration * 1000));
     }
     if (melodyAppState.stopRequested) return;
@@ -8405,7 +8409,8 @@ const METER_DURATION_UNITS = {
     '16': { base: '16', beats: 0.25, dots: 0, label: '十六分' },
     'h.': { base: 'h', beats: 3, dots: 1, label: '附点二分' },
     'q.': { base: 'q', beats: 1.5, dots: 1, label: '附点四分' },
-    '8.': { base: '8', beats: 0.75, dots: 1, label: '附点八分' }
+    '8.': { base: '8', beats: 0.75, dots: 1, label: '附点八分' },
+    'triplet': { base: 'triplet', beats: 1 / 3, dots: 0, label: '三连音' }
 };
 
 // 生成节拍单元对象（音符或休止符）
@@ -8596,8 +8601,8 @@ function buildVexRhythmNotes(descriptors) {
         const isRest = !!d.rest;
         let dur;
         if (isRest) {
-            // 休止符：时值 + (附点)d + r 后缀（qr/8r/16r/hr/qdr/8dr）
-            dur = (isTriplet ? 'q' : d.duration) + (d.dots ? 'd' : '') + 'r';
+            // 休止符：时值 + (附点)d + r 后缀（qr/8r/16r/hr/qdr/8dr；三连音用 8r）
+            dur = (isTriplet ? '8' : d.duration) + (d.dots ? 'd' : '') + 'r';
         } else {
             dur = isTriplet ? '8' : d.duration;
             if (d.dots && !isTriplet) dur = dur + 'd';
@@ -9607,8 +9612,8 @@ function generateRandomRhythm() {
         const beatsPerMeasure = parseInt(beatType); // 2或3
         const measureCount = quantity; // 2或4
 
-        // 加权候选（四分/八分更常见，二分/十六分/附点次之）
-        const pool = ['q', 'q', '8', '8', '16', 'h', 'q.', '8.', 'h.'];
+        // 加权候选（四分/八分更常见，二分/十六分/附点/三连音次之）
+        const pool = ['q', 'q', '8', '8', '16', 'h', 'q.', '8.', 'h.', 'triplet'];
 
         const measures = [];
         const allNotes = [];
@@ -9618,16 +9623,30 @@ function generateRandomRhythm() {
             let remaining = beatsPerMeasure;
             let safety = 0;
             while (remaining > 0.001 && safety++ < 20) {
-                const candidates = pool.filter(d => METER_DURATION_UNITS[d].beats <= remaining + 0.001);
+                const candidates = pool.filter(d => {
+                    const b = d === 'triplet' ? 1 : METER_DURATION_UNITS[d].beats;
+                    return b <= remaining + 0.001;
+                });
                 const chosen = candidates.length ? candidates : ['q'];
                 const dur = chosen[Math.floor(Math.random() * chosen.length)];
-                const beats = METER_DURATION_UNITS[dur].beats;
-                const rest = totalRests < 2 && Math.random() < 0.35; // 每题最多2个休止符
-                if (rest) totalRests++;
-                const unit = makeMeterUnit(dur, rest);
-                measureUnits.push(unit);
-                allNotes.push({ duration: unit.duration, beats: unit.beats, dots: unit.dots, rest: unit.rest });
-                remaining -= beats;
+
+                if (dur === 'triplet') {
+                    // 三连音：3个八分三连音 = 1拍（生成时不含休止，保持简单）
+                    for (let k = 0; k < 3; k++) {
+                        const unit = makeMeterUnit('triplet', false);
+                        measureUnits.push(unit);
+                        allNotes.push({ duration: 'triplet', beats: 1 / 3, dots: 0, rest: false });
+                    }
+                    remaining -= 1;
+                } else {
+                    const beats = METER_DURATION_UNITS[dur].beats;
+                    const rest = totalRests < 2 && Math.random() < 0.35; // 每题最多2个休止符
+                    if (rest) totalRests++;
+                    const unit = makeMeterUnit(dur, rest);
+                    measureUnits.push(unit);
+                    allNotes.push({ duration: unit.duration, beats: unit.beats, dots: unit.dots, rest: unit.rest });
+                    remaining -= beats;
+                }
             }
             measures.push(measureUnits);
         }
@@ -9873,21 +9892,41 @@ function getRhythmNotesByName(rhythmName) {
     }));
 }
 
+// 计算节奏重音音量：强拍最响、切分音次之、正拍中等、后半拍最轻
+function getRhythmAccentVolume(beatPos, beatsPerMeasure, noteBeats) {
+    const posInMeasure = ((beatPos % beatsPerMeasure) + beatsPerMeasure) % beatsPerMeasure;
+    const onDownbeat = posInMeasure < 0.001;
+    const onBeat = Math.abs(posInMeasure - Math.round(posInMeasure)) < 0.001;
+    const isSyncopated = !onBeat && noteBeats >= 0.5; // 后半拍起且时值不短 → 切分音
+
+    if (onDownbeat) return 0.92;   // 强拍（每小节第1拍）
+    if (isSyncopated) return 0.82; // 切分音（强调）
+    if (onBeat) return 0.66;       // 其他正拍
+    return 0.5;                    // 后半拍（弱）
+}
+
 // 播放节奏序列
 async function playRhythmSequence(rhythm) {
     const bpm = rhythmAppState.bpm || 90;
     const beatDuration = 60 / bpm; // 每拍的时长（秒）
 
-    // 计算总时长
-    let currentTime = 0;
+    // 每小节拍数（用于强弱拍重音）
+    let beatsPerMeasure = 4;
+    if (rhythm.timeSignature) {
+        beatsPerMeasure = parseInt(rhythm.timeSignature.split('/')[0]) || 4;
+    } else if (rhythmAppState.currentFunction === 'meter') {
+        beatsPerMeasure = rhythmAppState.meterBeatsPerMeasure || 4;
+    }
+
+    let currentBeat = 0; // 当前累计拍（四分音符=1拍）
 
     // 播放每个音符
     for (const note of rhythm.notes) {
-        let noteDuration;
+        let noteBeats;
 
         // 优先使用 beats 属性（如果存在）
         if (note.beats !== undefined) {
-            noteDuration = beatDuration * note.beats;
+            noteBeats = note.beats;
         } else {
             // 否则使用 duration 解析
             let durationMultiplier = 1;
@@ -9906,16 +9945,19 @@ async function playRhythmSequence(rhythm) {
                 durationMultiplier *= 1.5;
             }
 
-            noteDuration = beatDuration * durationMultiplier;
+            noteBeats = durationMultiplier;
         }
 
-        // 休止符不发声，只等待；其余用钢琴音色播放
+        const noteDuration = beatDuration * noteBeats;
+
+        // 休止符不发声，只等待；其余按强弱拍重音播放
         if (!note.rest) {
-            playNoteWithWebAudio('C4', noteDuration, 0.8);
+            const volume = getRhythmAccentVolume(currentBeat, beatsPerMeasure, noteBeats);
+            playNoteWithWebAudio('C4', noteDuration, volume);
         }
 
-        // 更新当前时间
-        currentTime += noteDuration;
+        // 更新当前拍
+        currentBeat += noteBeats;
 
         // 等待音符播放完成
         await new Promise(resolve => setTimeout(resolve, noteDuration * 1000));
