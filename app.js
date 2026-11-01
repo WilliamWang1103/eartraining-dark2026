@@ -8645,7 +8645,7 @@ function buildVexRhythmNotes(descriptors) {
     return { notes, beams, tuplets, totalBeats: Math.max(1, Math.round(totalBeats * 1000) / 1000) };
 }
 
-// 渲染节奏五线谱（空白谱表 + 已选节奏上屏）
+// 渲染节奏五线谱（按小节分段，显示小节线）
 function renderRhythmStaff() {
     const container = document.getElementById('rhythm-staff-container');
     if (!container) return;
@@ -8657,39 +8657,88 @@ function renderRhythmStaff() {
     container.innerHTML = '';
     const VF = Vex.Flow;
 
+    // 计算每小节拍数、拍号与小节数
+    const isMeter = rhythmAppState.currentFunction === 'meter';
     const beatTypeSelect = document.getElementById('beat-type-rhythm');
-    const timeSig = beatTypeSelect && beatTypeSelect.value === '2' ? '2/4' : '4/4';
+    const quantitySelect = document.getElementById('quantity-rhythm');
+    const quantity = quantitySelect ? parseInt(quantitySelect.value) || 4 : 4;
 
+    let beatsPerMeasure, timeSig, measureCount;
+    if (isMeter) {
+        beatsPerMeasure = rhythmAppState.meterBeatsPerMeasure || getMeterBeatsPerMeasure();
+        timeSig = `${beatsPerMeasure}/4`;
+        measureCount = quantity;
+    } else {
+        const beatType = beatTypeSelect ? beatTypeSelect.value : '1';
+        const beatsPerRhythm = beatType === '2' ? 2 : 1;
+        timeSig = beatType === '2' ? '2/4' : '4/4';
+        beatsPerMeasure = parseInt(timeSig.split('/')[0]);
+        const totalBeats = beatsPerRhythm * quantity;
+        measureCount = Math.max(1, Math.ceil(totalBeats / beatsPerMeasure));
+    }
+
+    // 已选音符描述符按小节分组
     const selections = getCurrentRhythmSelections();
-    const noteCount = selections.length;
+    const measures = [];
+    let cur = [];
+    let curBeats = 0;
+    selections.forEach(d => {
+        cur.push(d);
+        curBeats += (d.beats || 0);
+        if (curBeats >= beatsPerMeasure - 0.001) {
+            measures.push(cur);
+            cur = [];
+            curBeats = 0;
+        }
+    });
+    if (cur.length) measures.push(cur);
+
+    const renderCount = Math.max(measureCount, measures.length);
+
+    // 每小节宽度（空小节给基础宽度，音符多则加宽）
+    const staveGap = 6;
+    const widths = [];
+    for (let i = 0; i < renderCount; i++) {
+        const n = (measures[i] || []).length;
+        widths.push(Math.max(130, 70 + n * 40));
+    }
+    const totalWidth = widths.reduce((s, w) => s + w, 0) + staveGap * (renderCount - 1) + 40;
     const baseWidth = container.clientWidth > 0 ? container.clientWidth : 700;
-    const width = Math.max(baseWidth - 24, Math.min(260 + noteCount * 72, 2400));
+    const width = Math.max(baseWidth - 24, totalWidth);
     const height = 100;
 
     const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
     renderer.resize(width, height);
     const ctx = renderer.getContext();
 
-    // 注意：此版本 VexFlow 的 Stave.y 是“谱表内容区顶部”，真正顶线在 y + 40（space_above_staff_ln×行距）。
-    // 画布高 100，五线谱 5 线共 40px，居中则顶线应在 30，故 Stave.y = 30 - 40 = -10。
-    const stave = new VF.Stave(10, -10, width - 20);
-    stave.addClef('treble').addTimeSignature(timeSig);
-    stave.setEndBarType(VF.Barline.type.END);
-    stave.setContext(ctx).draw();
+    // 逐小节绘制（第一个小节显示谱号/拍号与左竖线，末小节用终止线）
+    let x = 10;
+    for (let i = 0; i < renderCount; i++) {
+        const stave = new VF.Stave(x, -10, widths[i]);
+        if (i === 0) {
+            stave.addClef('treble').addTimeSignature(timeSig);
+            stave.setBegBarType(VF.Barline.type.SINGLE);
+        } else {
+            stave.setBegBarType(VF.Barline.type.NONE);
+        }
+        stave.setEndBarType(i === renderCount - 1 ? VF.Barline.type.END : VF.Barline.type.SINGLE);
+        stave.setContext(ctx).draw();
 
-    if (!selections.length) return;
+        const measureNotes = measures[i] || [];
+        if (measureNotes.length) {
+            const built = buildVexRhythmNotes(measureNotes);
+            if (built.notes.length) {
+                const voice = new VF.Voice({ num_beats: built.totalBeats, beat_value: 4 });
+                voice.addTickables(built.notes);
+                new VF.Formatter().joinVoices([voice]).format([voice], widths[i] - 20);
+                voice.draw(ctx, stave);
+                built.beams.forEach(b => b.setContext(ctx).draw());
+                built.tuplets.forEach(t => t.setContext(ctx).draw());
+            }
+        }
 
-    const built = buildVexRhythmNotes(selections);
-    if (!built.notes.length) return;
-
-    const voice = new VF.Voice({ num_beats: built.totalBeats, beat_value: 4 });
-    voice.addTickables(built.notes);
-    new VF.Formatter().joinVoices([voice]).format([voice], width - 60);
-    voice.draw(ctx, stave);
-
-    // 符杠 / 三连音在 voice 绘制后再单独绘制
-    built.beams.forEach(b => b.setContext(ctx).draw());
-    built.tuplets.forEach(t => t.setContext(ctx).draw());
+        x += widths[i] + staveGap;
+    }
 }
 
 // 激活槽位
