@@ -2318,6 +2318,18 @@ body {
     .rhythm-answer-slot {
         min-width: 0;
     }
+
+    /* 进一步省空间：整体缩小、去圆角边框、选项卡字号更小 */
+    .app-wrapper {
+        zoom: 0.8;
+        border-radius: 0;
+        border: none;
+    }
+
+    .rhythm-tab-btn {
+        font-size: 11px;
+        padding: 8px 12px;
+    }
 }
 
 #rhythm-staff-container {
