@@ -10876,12 +10876,26 @@ function captureElementAsImage(elementSelector, fileNamePrefix, onSuccess, onErr
     isScreenshotting = true;
     console.log('开始导出图片...');
 
+    // 解除高度/滚动限制，导出完整长图（内容多时不截断）
+    const prevHeight = element.style.height;
+    const prevOverflow = element.style.overflow;
+    const prevOverflowY = element.style.overflowY;
+    element.style.height = 'auto';
+    element.style.overflow = 'visible';
+    element.style.overflowY = 'visible';
+    const restoreStyles = () => {
+        element.style.height = prevHeight;
+        element.style.overflow = prevOverflow;
+        element.style.overflowY = prevOverflowY;
+    };
+
     // 文件名（含时间戳）
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `${fileNamePrefix}_${timestamp}.png`;
 
     // 展示预览弹窗：手机可长按图片“保存到相册”，桌面可点“下载图片”
     const showPreview = (dataUrl) => {
+        restoreStyles();
         const modal = document.getElementById('screenshot-modal');
         const img = document.getElementById('screenshot-preview-img');
         const downloadBtn = document.getElementById('screenshot-download-btn');
@@ -10916,6 +10930,7 @@ function captureElementAsImage(elementSelector, fileNamePrefix, onSuccess, onErr
     };
 
     const fail = (err) => {
+        restoreStyles();
         console.error('图片导出失败:', err);
         if (typeof onError === 'function') onError(err);
         else alert('图片导出失败：' + (err && err.message ? err.message : err));
