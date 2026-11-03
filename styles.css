@@ -311,7 +311,7 @@ body {
 .exercise-page {
     background: transparent;
     border-radius: 0;
-    padding: 15px;
+    padding: 10px;
     box-shadow: none;
     margin-top: 0;
     height: 100%;
@@ -2237,22 +2237,22 @@ body {
 
 .rhythm-buttons-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 6px;
 }
 
 .rhythm-btn {
-    padding: 10px;
+    padding: 6px 4px;
     border: 2px solid rgba(255, 217, 102, 0.3);
     background: rgba(255, 255, 255, 0.05);
     color: rgba(255, 255, 255, 0.8);
     border-radius: 8px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     transition: all 0.2s;
     text-align: center;
-    min-height: 60px;
+    min-height: 46px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2309,10 +2309,6 @@ body {
 
     .param-group {
         min-width: 0;
-    }
-
-    .rhythm-buttons-grid {
-        grid-template-columns: repeat(2, 1fr);
     }
 
     .rhythm-answer-area {
