@@ -175,6 +175,7 @@ const melodyAppState = {
     currentPitch: null, // 当前选中的音高（钢琴键）
     currentDuration: 'q', // 当前选中的时值
     currentDots: 0, // 当前附点数
+    restModeOn: false, // 休止符开关
     isPlaying: false,
     stopRequested: false, // 请求停止播放的标志
     bpm: 72,
@@ -5933,7 +5934,7 @@ const MELODY_DURATION_DESC = {
 
 // 时值对应的拍数（以四分音符为1拍）
 const MELODY_DURATION_BEATS = {
-    'w': 4, 'h': 2, 'q': 1, '8': 0.5, '16': 0.25
+    'w': 4, 'h': 2, 'q': 1, '8': 0.5, '16': 0.25, 'triplet': 1 / 3
 };
 
 // 调性对应的fifths（MusicXML用）
@@ -6091,14 +6092,14 @@ function parseMusicXML(xmlText) {
                 const alter = alterEl ? parseInt(alterEl.textContent) : 0;
                 pitch = step + (alter === 1 ? '#' : alter === -1 ? 'b' : '') + octave;
             }
-            if (pitch === 'rest') return; // 跳过休止符
             let duration = 'q';
             if (typeEl) {
                 const typeMap = { 'whole': 'w', 'half': 'h', 'quarter': 'q', 'eighth': '8', '16th': '16' };
                 duration = typeMap[typeEl.textContent] || 'q';
             }
             const dots = dotEl ? 1 : 0;
-            notes.push({ pitch, duration, dots });
+            // 保留休止符（pitch 为 'rest'），用于评分与五线谱上屏
+            notes.push({ pitch, duration, dots, rest: pitch === 'rest' });
         });
 
         return {
@@ -6172,6 +6173,10 @@ function initMelodyPage() {
     if (addNoteBtn) addNoteBtn.addEventListener('click', addMelodyNote);
     if (deleteNoteBtn) deleteNoteBtn.addEventListener('click', deleteLastMelodyNote);
     if (clearNotesBtn) clearNotesBtn.addEventListener('click', clearMelodyNotes);
+
+    // 休止开关
+    const restToggleBtn = document.getElementById('rest-toggle-btn-melody');
+    if (restToggleBtn) restToggleBtn.addEventListener('click', toggleMelodyRestMode);
 
     // BPM滑块
     const bpmSlider = document.getElementById('melody-bpm');
@@ -6488,15 +6493,17 @@ function buildMelodyVexNotes(notes) {
     let totalBeats = 0;
 
     const created = notes.map(n => {
+        const isRest = n.rest || n.pitch === 'rest';
         const isTriplet = n.duration === 'triplet';
         const baseDur = isTriplet ? '8' : String(n.duration).replace('.', '');
         const dots = n.dots || (String(n.duration).includes('.') ? 1 : 0);
         let dur = baseDur;
         if (dots && !isTriplet) dur += 'd';
-        const vfNote = new VF.StaveNote({ keys: [pitchToVexKey(n.pitch)], duration: dur });
+        if (isRest) dur += 'r';
+        const vfNote = new VF.StaveNote({ keys: isRest ? ['b/4'] : [pitchToVexKey(n.pitch)], duration: dur });
         if (dots && !isTriplet) vfNote.addDot(0);
         totalBeats += getNoteBeatsForDuration(n.duration, dots);
-        return { vfNote, baseDur, isTriplet };
+        return { vfNote, baseDur, isTriplet, isRest };
     });
 
     // 三连音分组（每 3 个连续三连音一个 Tuplet）
@@ -6515,7 +6522,7 @@ function buildMelodyVexNotes(notes) {
         beamRun = [];
     };
     created.forEach(it => {
-        const beamable = !it.isTriplet && (it.baseDur === '8' || it.baseDur === '16');
+        const beamable = !it.isRest && !it.isTriplet && (it.baseDur === '8' || it.baseDur === '16');
         if (beamable) beamRun.push(it.vfNote);
         else flushBeam();
     });
@@ -6526,7 +6533,7 @@ function buildMelodyVexNotes(notes) {
 }
 
 // 用 VexFlow 渲染旋律五线谱（谱号 + 拍号 + 调号 + 按小节分段 + 小节线）
-function renderMelodyStaffVexflow(container, notes, timeSig, key) {
+function renderMelodyStaffVexflow(container, notes, timeSig, key, showCursor) {
     if (!container) return;
     if (typeof Vex === 'undefined' || !Vex.Flow) {
         container.innerHTML = '<div style="color:#999;padding:12px;text-align:center;">五线谱组件未加载</div>';
@@ -6559,44 +6566,96 @@ function renderMelodyStaffVexflow(container, notes, timeSig, key) {
     const measureCount = measures.length;
     const staveGap = 12;
     const widths = measures.map(m => Math.max(130, 70 + m.length * 45));
-    const totalWidth = widths.reduce((s, w) => s + w, 0) + staveGap * (measureCount - 1) + 20;
-    const baseWidth = container.clientWidth > 0 ? container.clientWidth - 20 : 700;
-    const width = Math.max(baseWidth, totalWidth);
-    const height = 150;
+
+    // 多行换行：按容器宽度自动分行（每行放尽可能多的小节）
+    const maxLineWidth = Math.max(280, (container.clientWidth > 0 ? container.clientWidth - 20 : 700));
+    const lines = [];
+    let curLine = [];
+    let curLineWidth = 0;
+    measures.forEach((m, i) => {
+        const w = widths[i];
+        if (curLine.length && curLineWidth + w + staveGap > maxLineWidth) {
+            lines.push(curLine);
+            curLine = [];
+            curLineWidth = 0;
+        }
+        curLine.push(i);
+        curLineWidth += w + (curLine.length > 1 ? staveGap : 0);
+    });
+    if (curLine.length) lines.push(curLine);
+
+    const lineCount = lines.length;
+    const lineHeight = 150;
+    const lineWidths = lines.map(line => line.reduce((s, mi) => s + widths[mi], 0) + staveGap * Math.max(0, line.length - 1));
+    const width = Math.max(maxLineWidth, ...lineWidths) + 20;
+    const height = lineCount * lineHeight + 20;
 
     const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
     renderer.resize(width, height);
     const ctx = renderer.getContext();
     const vexKey = keyToVexKeySignature(key);
 
-    let x = 10;
-    measures.forEach((m, i) => {
-        const stave = new VF.Stave(x, -10, widths[i]);
-        if (i === 0) {
-            stave.addClef('treble');
-            if (vexKey !== 'C') stave.addKeySignature(vexKey);
-            stave.addTimeSignature(ts);
-            stave.setBegBarType(VF.Barline.type.SINGLE);
-        } else {
-            stave.setBegBarType(VF.Barline.type.NONE);
-        }
-        stave.setEndBarType(i === measureCount - 1 ? VF.Barline.type.END : VF.Barline.type.SINGLE);
-        stave.setContext(ctx).draw();
-
-        if (m.length) {
-            const built = buildMelodyVexNotes(m);
-            if (built.notes.length) {
-                const voice = new VF.Voice({ num_beats: built.totalBeats, beat_value: beatValue });
-                voice.addTickables(built.notes);
-                const noteArea = stave.getNoteEndX() - stave.getNoteStartX();
-                new VF.Formatter().joinVoices([voice]).format([voice], noteArea);
-                voice.draw(ctx, stave);
-                built.beams.forEach(b => b.setContext(ctx).draw());
-                built.tuplets.forEach(t => t.setContext(ctx).draw());
+    let lastNoteX = null;
+    let lastLineY = 0;
+    lines.forEach((lineMeasures, lineIdx) => {
+        const lineY = lineIdx * lineHeight; // 本行 stave.y
+        let x = 10;
+        lineMeasures.forEach((mi, posInLine) => {
+            const m = measures[mi];
+            const stave = new VF.Stave(x, lineY - 10, widths[mi]);
+            if (lineIdx === 0 && posInLine === 0) {
+                stave.addClef('treble');
+                if (vexKey !== 'C') stave.addKeySignature(vexKey);
+                stave.addTimeSignature(ts);
+                stave.setBegBarType(VF.Barline.type.SINGLE);
+            } else {
+                stave.setBegBarType(VF.Barline.type.NONE);
             }
-        }
-        x += widths[i] + staveGap;
+            const isLast = (lineIdx === lines.length - 1 && posInLine === lineMeasures.length - 1);
+            stave.setEndBarType(isLast ? VF.Barline.type.END : VF.Barline.type.SINGLE);
+            stave.setContext(ctx).draw();
+
+            if (m.length) {
+                const built = buildMelodyVexNotes(m);
+                if (built.notes.length) {
+                    const voice = new VF.Voice({ num_beats: built.totalBeats, beat_value: beatValue });
+                    voice.addTickables(built.notes);
+                    const noteArea = stave.getNoteEndX() - stave.getNoteStartX();
+                    new VF.Formatter().joinVoices([voice]).format([voice], noteArea);
+                    voice.draw(ctx, stave);
+                    built.beams.forEach(b => b.setContext(ctx).draw());
+                    built.tuplets.forEach(t => t.setContext(ctx).draw());
+                    lastNoteX = built.notes[built.notes.length - 1].getAbsoluteX();
+                    lastLineY = lineY;
+                }
+            }
+            x += widths[mi] + staveGap;
+        });
     });
+
+    // 虚线光标 + 居中跟随（仅用户输入时显示）
+    if (showCursor) {
+        const cursorX = lastNoteX != null ? lastNoteX + 45 : 130;
+        const cursorTopY = (lastNoteX != null ? lastLineY + 30 : 30); // 最后音符所在行顶线
+        const svg = container.querySelector('svg');
+        if (svg) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', cursorX);
+            line.setAttribute('y1', cursorTopY);
+            line.setAttribute('x2', cursorX);
+            line.setAttribute('y2', cursorTopY + 40);
+            line.setAttribute('stroke', '#ff9800');
+            line.setAttribute('stroke-width', '2');
+            line.setAttribute('stroke-dasharray', '5,4');
+            svg.appendChild(line);
+        }
+        if (container.scrollWidth > container.clientWidth) {
+            container.scrollLeft = Math.max(0, cursorX - container.clientWidth / 2);
+        }
+        if (container.scrollHeight > container.clientHeight) {
+            container.scrollTop = Math.max(0, lastLineY + lineHeight / 2 - container.clientHeight / 2);
+        }
+    }
 }
 
 // 渲染用户输入的音符（VexFlow 版）
@@ -6610,7 +6669,7 @@ function renderMelodyInput() {
         container.innerHTML = '<div style="color:#999;padding:16px;text-align:center;font-size:14px;">请选择音高和时值后点击「添加音符」</div>';
         return;
     }
-    renderMelodyStaffVexflow(container, notes, timeSig, key);
+    renderMelodyStaffVexflow(container, notes, timeSig, key, true);
 }
 
 // 渲染用户输入的音符（旧 Canvas 版，已废弃，保留备用）
@@ -7352,19 +7411,37 @@ function renderMelodyAnswerCanvas(melody, container) {
 }
 
 // 添加音符
+// 设置旋律休止开关
+function setMelodyRestMode(on) {
+    melodyAppState.restModeOn = on;
+    const btn = document.getElementById('rest-toggle-btn-melody');
+    if (btn) btn.classList.toggle('active', on);
+}
+
+// 点击「休止」按钮切换开关
+function toggleMelodyRestMode() {
+    setMelodyRestMode(!melodyAppState.restModeOn);
+    updateMelodyStatus(melodyAppState.restModeOn ? '休止模式已开启：点「添加音符」输入休止符' : '休止模式已关闭：点「添加音符」输入音符');
+}
+
 function addMelodyNote() {
-    if (!melodyAppState.currentPitch) {
+    const isRest = melodyAppState.restModeOn;
+    if (!isRest && !melodyAppState.currentPitch) {
         updateMelodyStatus('请先在钢琴键盘上选择音高');
         return;
     }
     const note = {
-        pitch: melodyAppState.currentPitch,
+        pitch: isRest ? 'rest' : melodyAppState.currentPitch,
         duration: melodyAppState.currentDuration,
-        dots: melodyAppState.currentDots
+        dots: melodyAppState.currentDots,
+        rest: isRest
     };
     melodyAppState.inputNotes.push(note);
+    // 输入休止符后自动关闭休止开关，避免连续误输
+    if (isRest) setMelodyRestMode(false);
     renderMelodyInput();
-    updateMelodyStatus(`已添加音符: ${note.pitch} (${MELODY_DURATION_DESC[note.duration] || note.duration})，共${melodyAppState.inputNotes.length}个音符`);
+    const label = isRest ? '休止符' : (MELODY_DURATION_DESC[note.duration] || note.duration);
+    updateMelodyStatus(`已添加${label}，共${melodyAppState.inputNotes.length}个音符`);
 }
 
 // 删除末音
