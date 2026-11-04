@@ -2237,7 +2237,8 @@ body {
 
 .rhythm-buttons-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    /* 固定 5 列：9 个节奏型按钮 = 5+4 两行，窄屏宽屏一致，避免 auto-fit 在窄屏塌缩成多行 */
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
 }
 

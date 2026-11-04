@@ -8513,6 +8513,7 @@ async function selectMeterUnit(duration) {
     }
 
     renderRhythmStaff();
+    scrollRhythmStaffIntoView();
 }
 
 // 初始化答案区
@@ -8743,6 +8744,18 @@ function renderRhythmStaff() {
     }
 }
 
+// 滚动五线谱进入视野（点选节奏型后让用户看到上屏结果）
+function scrollRhythmStaffIntoView() {
+    const staffContainer = document.getElementById('rhythm-staff-container');
+    if (staffContainer && typeof staffContainer.scrollIntoView === 'function') {
+        try {
+            staffContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (e) {
+            staffContainer.scrollIntoView();
+        }
+    }
+}
+
 // 激活槽位
 function activateSlot(index) {
     const slots = document.querySelectorAll('.rhythm-answer-slot');
@@ -8857,6 +8870,12 @@ function startRhythmPracticeMode() {
     // 显示练习控制元素
     const practiceContent = document.getElementById('practice-test-content-rhythm');
     if (practiceContent) practiceContent.style.display = 'block';
+
+    // 恢复五线谱与音符时值输入显示
+    const staffContainer = document.getElementById('rhythm-staff-container');
+    if (staffContainer) staffContainer.style.display = '';
+    const meterInput = document.getElementById('rhythm-meter-input-section');
+    if (meterInput) meterInput.style.display = rhythmAppState.currentFunction === 'meter' ? '' : 'none';
 
     // 显示练习说明
     const practiceInstructions = document.getElementById('practice-instructions-rhythm');
@@ -9122,6 +9141,12 @@ function startRhythmTestMode() {
     const testEndContent = document.getElementById('rhythm-test-end-content');
     if (testEndContent) testEndContent.style.display = 'none';
 
+    // 恢复五线谱与音符时值输入显示
+    const staffContainer = document.getElementById('rhythm-staff-container');
+    if (staffContainer) staffContainer.style.display = '';
+    const meterInput = document.getElementById('rhythm-meter-input-section');
+    if (meterInput) meterInput.style.display = rhythmAppState.currentFunction === 'meter' ? '' : 'none';
+
     // 显示结束测试按钮
     const endTestBtn = document.getElementById('end-test-btn-rhythm');
     if (endTestBtn) endTestBtn.style.display = 'block';
@@ -9288,6 +9313,14 @@ function showRhythmTestEndPage() {
     // 隐藏答案槽位区域
     const answerArea = document.getElementById('rhythm-answer-area');
     if (answerArea) answerArea.style.display = 'none';
+
+    // 隐藏五线谱（测试结束页不需要五线谱答案）
+    const staffContainer = document.getElementById('rhythm-staff-container');
+    if (staffContainer) staffContainer.style.display = 'none';
+
+    // 隐藏音符时值输入区（节拍模式）
+    const meterInput = document.getElementById('rhythm-meter-input-section');
+    if (meterInput) meterInput.style.display = 'none';
 
     // 显示测试结束内容
     const testEndContent = document.getElementById('rhythm-test-end-content');
@@ -9553,6 +9586,7 @@ async function selectRhythm(rhythm, btn) {
     }
 
     renderRhythmStaff();
+    scrollRhythmStaffIntoView();
 }
 
 // 更新节奏听辨统计
@@ -10940,10 +10974,14 @@ function captureElementAsImage(elementSelector, fileNamePrefix, onSuccess, onErr
     // 优先使用 html-to-image（浏览器原生 SVG 渲染，flexbox / 文字排版与屏幕完全一致，避免挤压）。
     // 若不可用或渲染失败，则回退到 html2canvas。
     if (typeof htmlToImage !== 'undefined' && typeof htmlToImage.toPng === 'function') {
+        // 用完整内容高度导出长图，避免内容被截断
+        const fullHeight = element.scrollHeight || element.clientHeight || element.offsetHeight;
         htmlToImage.toPng(element, {
             pixelRatio: 2,           // 提高清晰度
             backgroundColor: '#1a1a1a',
-            cacheBust: true
+            cacheBust: true,
+            height: fullHeight,
+            canvasHeight: fullHeight
         }).then(showPreview).catch(err => {
             console.warn('html-to-image 导出失败，回退到 html2canvas:', err);
             captureWithHtml2canvas();
