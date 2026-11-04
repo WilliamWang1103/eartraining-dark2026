@@ -6430,9 +6430,7 @@ const DURATION_INFO = {
 function initVexFlowMelody() {
     const container = document.getElementById('vexflow-container-melody');
     if (!container) return;
-    // 确保Canvas已创建
-    ensureMelodyCanvas();
-    // 延迟渲染确保容器可见
+    // 延迟渲染确保容器可见（VexFlow 渲染）
     setTimeout(() => { renderMelodyInput(); }, 100);
 }
 
@@ -6456,8 +6454,167 @@ function ensureMelodyCanvas() {
     melodyAppState.vexflowCanvas = canvas;
 }
 
-// 渲染用户输入的音符（Canvas版本）
+// ===== VexFlow 旋律五线谱渲染（替换 Canvas 自制渲染器）=====
+
+// 音高 'C4' / 'G#3' / 'Bb3' → VexFlow key 'c/4' / 'g#/3' / 'bb/3'
+function pitchToVexKey(pitch) {
+    if (!pitch) return 'c/4';
+    const m = String(pitch).match(/^([A-G])([#b]?)(\d)$/);
+    if (!m) return 'c/4';
+    const letter = m[1].toLowerCase();
+    const accidental = m[2] === '#' ? '#' : (m[2] === 'b' ? 'bb' : '');
+    return letter + accidental + '/' + m[3];
+}
+
+// 调性 key（'C'/'G'/'Bb'/'a' 等）→ VexFlow 调号字符串
+function keyToVexKeySignature(key) {
+    const map = {
+        'C': 'C', 'a': 'C',
+        'G': 'G', 'e': 'G',
+        'D': 'D', 'b': 'D',
+        'A': 'A', 'E': 'E',
+        'F': 'F', 'd': 'F', 'g': 'F',
+        'Bb': 'Bb', 'Eb': 'Eb'
+    };
+    return map[key] || 'C';
+}
+
+// 旋律音符 [{pitch, duration, dots}] → VexFlow 音符 / 符杠 / 三连音
+function buildMelodyVexNotes(notes) {
+    const VF = Vex.Flow;
+    const vfNotes = [];
+    const beams = [];
+    const tuplets = [];
+    let totalBeats = 0;
+
+    const created = notes.map(n => {
+        const isTriplet = n.duration === 'triplet';
+        const baseDur = isTriplet ? '8' : String(n.duration).replace('.', '');
+        const dots = n.dots || (String(n.duration).includes('.') ? 1 : 0);
+        let dur = baseDur;
+        if (dots && !isTriplet) dur += 'd';
+        const vfNote = new VF.StaveNote({ keys: [pitchToVexKey(n.pitch)], duration: dur });
+        if (dots && !isTriplet) vfNote.addDot(0);
+        totalBeats += getNoteBeatsForDuration(n.duration, dots);
+        return { vfNote, baseDur, isTriplet };
+    });
+
+    // 三连音分组（每 3 个连续三连音一个 Tuplet）
+    let tripRun = [];
+    const flushTriplet = () => {
+        if (tripRun.length === 3) tuplets.push(new VF.Tuplet(tripRun, { num_notes: 3, notes_occupied: 2, ratioed: false }));
+        tripRun = [];
+    };
+    created.forEach(it => { if (it.isTriplet) tripRun.push(it.vfNote); else flushTriplet(); });
+    flushTriplet();
+
+    // 符杠：连续八分/十六分音符（三连音不参与）
+    let beamRun = [];
+    const flushBeam = () => {
+        if (beamRun.length > 1) beams.push(...VF.Beam.generateBeams(beamRun, { stem_direction: VF.Stem.UP }));
+        beamRun = [];
+    };
+    created.forEach(it => {
+        const beamable = !it.isTriplet && (it.baseDur === '8' || it.baseDur === '16');
+        if (beamable) beamRun.push(it.vfNote);
+        else flushBeam();
+    });
+    flushBeam();
+
+    created.forEach(it => vfNotes.push(it.vfNote));
+    return { notes: vfNotes, beams, tuplets, totalBeats: Math.max(1, Math.round(totalBeats * 1000) / 1000) };
+}
+
+// 用 VexFlow 渲染旋律五线谱（谱号 + 拍号 + 调号 + 按小节分段 + 小节线）
+function renderMelodyStaffVexflow(container, notes, timeSig, key) {
+    if (!container) return;
+    if (typeof Vex === 'undefined' || !Vex.Flow) {
+        container.innerHTML = '<div style="color:#999;padding:12px;text-align:center;">五线谱组件未加载</div>';
+        return;
+    }
+    const VF = Vex.Flow;
+    container.innerHTML = '';
+
+    const ts = timeSig || '4/4';
+    const beatsPerMeasure = parseInt(ts.split('/')[0]) || 4;
+    const beatValue = parseInt(ts.split('/')[1]) || 4;
+
+    // 按小节分组
+    const measures = [];
+    let cur = [];
+    let curBeats = 0;
+    (notes || []).forEach(n => {
+        const beats = getNoteBeatsForDuration(n.duration, n.dots || (String(n.duration).includes('.') ? 1 : 0));
+        if (curBeats + beats > beatsPerMeasure + 0.001 && cur.length > 0) {
+            measures.push(cur);
+            cur = [];
+            curBeats = 0;
+        }
+        cur.push(n);
+        curBeats += beats;
+    });
+    if (cur.length) measures.push(cur);
+    if (!measures.length) measures.push([]);
+
+    const measureCount = measures.length;
+    const staveGap = 12;
+    const widths = measures.map(m => Math.max(130, 70 + m.length * 45));
+    const totalWidth = widths.reduce((s, w) => s + w, 0) + staveGap * (measureCount - 1) + 20;
+    const baseWidth = container.clientWidth > 0 ? container.clientWidth - 20 : 700;
+    const width = Math.max(baseWidth, totalWidth);
+    const height = 150;
+
+    const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+    renderer.resize(width, height);
+    const ctx = renderer.getContext();
+    const vexKey = keyToVexKeySignature(key);
+
+    let x = 10;
+    measures.forEach((m, i) => {
+        const stave = new VF.Stave(x, -10, widths[i]);
+        if (i === 0) {
+            stave.addClef('treble');
+            if (vexKey !== 'C') stave.addKeySignature(vexKey);
+            stave.addTimeSignature(ts);
+            stave.setBegBarType(VF.Barline.type.SINGLE);
+        } else {
+            stave.setBegBarType(VF.Barline.type.NONE);
+        }
+        stave.setEndBarType(i === measureCount - 1 ? VF.Barline.type.END : VF.Barline.type.SINGLE);
+        stave.setContext(ctx).draw();
+
+        if (m.length) {
+            const built = buildMelodyVexNotes(m);
+            if (built.notes.length) {
+                const voice = new VF.Voice({ num_beats: built.totalBeats, beat_value: beatValue });
+                voice.addTickables(built.notes);
+                const noteArea = stave.getNoteEndX() - stave.getNoteStartX();
+                new VF.Formatter().joinVoices([voice]).format([voice], noteArea);
+                voice.draw(ctx, stave);
+                built.beams.forEach(b => b.setContext(ctx).draw());
+                built.tuplets.forEach(t => t.setContext(ctx).draw());
+            }
+        }
+        x += widths[i] + staveGap;
+    });
+}
+
+// 渲染用户输入的音符（VexFlow 版）
 function renderMelodyInput() {
+    const container = document.getElementById('vexflow-container-melody');
+    if (!container) return;
+    const notes = melodyAppState.inputNotes || [];
+    const timeSig = melodyAppState.selectedTimeSignature || (melodyAppState.currentMelody && melodyAppState.currentMelody.timeSignature) || '4/4';
+    const key = melodyAppState.selectedKey || (melodyAppState.currentMelody && melodyAppState.currentMelody.key) || 'C';
+    if (!notes.length) {
+        container.innerHTML = '<div style="color:#999;padding:16px;text-align:center;font-size:14px;">请选择音高和时值后点击「添加音符」</div>';
+        return;
+    }
+    renderMelodyStaffVexflow(container, notes, timeSig, key);
+}
+
+// 渲染用户输入的音符（旧 Canvas 版，已废弃，保留备用）
+function renderMelodyInputCanvas() {
     const container = document.getElementById('vexflow-container-melody');
     if (!container) return;
     ensureMelodyCanvas();
@@ -7722,7 +7879,7 @@ function arraysEqual(a, b) {
     return true;
 }
 
-// 显示答案（OSMD渲染）
+// 显示答案（VexFlow 渲染）
 function showAnswerMelody() {
     if (!melodyAppState.currentMelody) {
         updateMelodyStatus('请先点击"随机播放"听题');
@@ -7732,34 +7889,10 @@ function showAnswerMelody() {
     const osmdContainer = document.getElementById('osmd-container-melody');
     if (!answerDisplay || !osmdContainer) return;
     answerDisplay.style.display = 'block';
-    osmdContainer.innerHTML = '';
 
     const melody = melodyAppState.currentMelody;
-
-    // 优先尝试OSMD，失败则使用Canvas兜底
-    try {
-        if (typeof opensheetmusicdisplay === 'undefined') {
-            // OSMD不可用，直接用Canvas渲染正确答案
-            renderMelodyAnswerCanvas(melody, osmdContainer);
-            return;
-        }
-        const osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay(osmdContainer, {
-            autoResize: true,
-            backend: 'svg',
-            drawTitle: true
-        });
-        const xml = generateMusicXML(melody);
-        osmd.load(xml).then(() => {
-            osmd.render();
-            melodyAppState.osmd = osmd;
-        }).catch(e => {
-            console.warn('OSMD渲染失败，使用Canvas兜底:', e);
-            renderMelodyAnswerCanvas(melody, osmdContainer);
-        });
-    } catch (e) {
-        console.warn('OSMD初始化失败，使用Canvas兜底:', e);
-        renderMelodyAnswerCanvas(melody, osmdContainer);
-    }
+    // 用 VexFlow 渲染正确答案（与用户输入五线谱一致）
+    renderMelodyStaffVexflow(osmdContainer, melody.notes, melody.timeSignature, melody.key);
     updateMelodyStatus('已显示正确答案');
 }
 
