@@ -8287,10 +8287,12 @@ function switchToRhythmFunction(func) {
         // 更新练习说明
         if (instructionsList) {
             instructionsList.innerHTML = `
-                <li><strong>随机播放：</strong>根据所选拍型和数量随机出题，播放节奏音响</li>
-                <li><strong>选择答案：</strong>点击下方的节奏型按钮，答案会自动填入上方的答案槽位</li>
-                <li><strong>提交验证：</strong>填写完所有答案后，点击"提交答案"验证正确性</li>
-                <li><strong>重播题目：</strong>如需再次听题，点击"重复播放"按钮</li>
+                <li><strong>随机播放：</strong>根据所选拍型和数量随机出题，播放节奏音响（含强弱拍与切分音重音）</li>
+                <li><strong>选择答案：</strong>点击下方「1拍 / 2拍节奏型」按钮，节奏会自动填入答案槽位并显示在五线谱上</li>
+                <li><strong>自动跳格：</strong>随机播放后自动点亮第 1 格，选完自动跳到下一格</li>
+                <li><strong>修改答案：</strong>点击已填写的答案槽位可重置，重新选择</li>
+                <li><strong>提交验证：</strong>填写完所有答案后，点击「提交答案」验证正确性</li>
+                <li><strong>重播题目：</strong>如需再次听题，点击「重复播放」按钮</li>
             `;
         }
 
@@ -8328,9 +8330,10 @@ function switchToRhythmFunction(func) {
         // 更新练习说明
         if (instructionsList) {
             instructionsList.innerHTML = `
-                <li><strong>随机播放：</strong>根据所选节拍和小节数随机出题，播放含休止符的节奏</li>
-                <li><strong>输入音符：</strong>点击「二分/四分/八分/十六分」输入对应时值的音符</li>
+                <li><strong>随机播放：</strong>根据所选节拍和小节数随机出题，播放含休止符的节奏（含强弱拍重音）</li>
+                <li><strong>输入音符：</strong>点击「二分 / 四分 / 八分 / 十六分 / 附点 / 三连音」输入对应时值的音符</li>
                 <li><strong>输入休止符：</strong>点亮「休止」后再点时值按钮，输入对应时值的休止符</li>
+                <li><strong>出题规则：</strong>每小节第 1 拍不出休止符，每题最多 2 个休止符</li>
                 <li><strong>小节填满：</strong>当小节总拍数达到节拍要求时自动跳到下一小节</li>
                 <li><strong>提交验证：</strong>填写完所有小节后点击「提交答案」验证正确性</li>
                 <li><strong>修改答案：</strong>点击已填写的小节可重置，重新输入</li>
