@@ -1,0 +1,10 @@
+# Netlify 构建配置（纯静态站点，无需构建命令）
+[build]
+  # 发布目录 = 仓库根目录（index.html 就在这里）
+  publish = "."
+  # 无需构建命令
+  command = ""
+
+# 环境 / 处理规则（可选）
+[build.environment]
+  NODE_VERSION = "18"
