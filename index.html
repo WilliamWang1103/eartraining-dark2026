@@ -1378,6 +1378,14 @@
                             <div id="piano-melody" class="piano"></div>
                         </div>
 
+                        <!-- 用户答题五线谱区（紧挨键盘，便于监控输入） -->
+                        <div class="melody-input-section">
+                            <h4 style="color:#4FC3F7;margin:0 0 8px 0;">🎼 您的答案</h4>
+                            <div id="vexflow-container-melody"
+                                style="background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;overflow:auto;min-height:120px;">
+                            </div>
+                        </div>
+
                         <!-- 时值选择按钮：第一行按时值长短排列 -->
                         <div class="melody-duration-section">
                             <div class="melody-duration-tabs">
@@ -1406,14 +1414,6 @@
                         </div>
 
                         <div id="test-result-melody" class="test-result"></div>
-
-                        <!-- 用户答题五线谱区（Canvas渲染） -->
-                        <div class="melody-input-section">
-                            <h4 style="color:#4FC3F7;margin:0 0 8px 0;">🎼 您的答案</h4>
-                            <div id="vexflow-container-melody"
-                                style="background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;overflow:auto;min-height:120px;">
-                            </div>
-                        </div>
 
                         <!-- 正确答案显示区（提交答案后显示） -->
                         <div id="melody-answer-display" class="melody-answer-display"

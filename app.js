@@ -6365,6 +6365,7 @@ function handlePianoNoteOnMelody(note) {
     if (melodyAppState.currentMode === 'test') {
         highlightKey(note.note);
         melodyAppState.currentPitch = note.note;
+        addMelodyNote(); // 点琴键直接上屏
         return;
     }
     // 练习模式下正常发声
@@ -6372,6 +6373,7 @@ function handlePianoNoteOnMelody(note) {
     startNoteWithWebAudio(note.note);
     highlightKey(note.note);
     melodyAppState.currentPitch = note.note;
+    addMelodyNote(); // 点琴键直接上屏
 }
 
 function handlePianoNoteOffMelody(note) {
@@ -6567,27 +6569,19 @@ function renderMelodyStaffVexflow(container, notes, timeSig, key, showCursor) {
     const staveGap = 12;
     const widths = measures.map(m => Math.max(130, 70 + m.length * 45));
 
-    // 多行换行：按容器宽度自动分行（每行放尽可能多的小节）
-    const maxLineWidth = Math.max(280, (container.clientWidth > 0 ? container.clientWidth - 20 : 700));
+    // 多行换行：每行固定 4 小节，超过自动换行
+    const measuresPerLine = 4;
     const lines = [];
-    let curLine = [];
-    let curLineWidth = 0;
-    measures.forEach((m, i) => {
-        const w = widths[i];
-        if (curLine.length && curLineWidth + w + staveGap > maxLineWidth) {
-            lines.push(curLine);
-            curLine = [];
-            curLineWidth = 0;
-        }
-        curLine.push(i);
-        curLineWidth += w + (curLine.length > 1 ? staveGap : 0);
-    });
-    if (curLine.length) lines.push(curLine);
+    for (let i = 0; i < measures.length; i += measuresPerLine) {
+        const row = [];
+        for (let j = i; j < Math.min(i + measuresPerLine, measures.length); j++) row.push(j);
+        lines.push(row);
+    }
 
     const lineCount = lines.length;
     const lineHeight = 150;
     const lineWidths = lines.map(line => line.reduce((s, mi) => s + widths[mi], 0) + staveGap * Math.max(0, line.length - 1));
-    const width = Math.max(maxLineWidth, ...lineWidths) + 20;
+    const width = Math.max(...lineWidths) + 20;
     const height = lineCount * lineHeight + 20;
 
     const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
