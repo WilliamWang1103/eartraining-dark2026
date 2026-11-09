@@ -6335,6 +6335,14 @@ function initMelodyPage() {
     const restToggleBtn = document.getElementById('rest-toggle-btn-melody');
     if (restToggleBtn) restToggleBtn.addEventListener('click', toggleMelodyRestMode);
 
+    // 上传 MusicXML 曲目
+    const uploadBtn = document.getElementById('upload-melody-btn');
+    const fileInput = document.getElementById('melody-file-input');
+    if (uploadBtn && fileInput) {
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleMelodyFileUpload(e.target.files[0]));
+    }
+
     // BPM滑块
     const bpmSlider = document.getElementById('melody-bpm');
     const bpmDisplay = document.getElementById('bpm-display-melody');
@@ -6744,7 +6752,7 @@ function renderMelodyStaffVexflow(container, notes, timeSig, key, showCursor) {
     const lineWidths = lines.map((line, lineIdx) => {
         let w = 0;
         line.forEach((mi, posInLine) => {
-            const extra = posInLine === 0 ? (lineIdx === 0 ? 80 : 40) : 0;
+            const extra = posInLine === 0 ? lineStartExtra(lineIdx) : 0;
             w += baseWidths[mi] + extra + (posInLine > 0 ? staveGap : 0);
         });
         return w;
@@ -6756,6 +6764,13 @@ function renderMelodyStaffVexflow(container, notes, timeSig, key, showCursor) {
     renderer.resize(width, height);
     const ctx = renderer.getContext();
     const vexKey = keyToVexKeySignature(key);
+    // 调号升降号数量（用于每行第一个小节的额外宽度）
+    const keySigCount = (() => {
+        const sharps = { 'G': 1, 'D': 2, 'A': 3, 'E': 4, 'B': 5, 'F#': 6 };
+        const flats = { 'F': 1, 'Bb': 2, 'Eb': 3, 'Ab': 4, 'Db': 5, 'Gb': 6 };
+        return sharps[vexKey] || flats[vexKey] || 0;
+    })();
+    const lineStartExtra = (lineIdx) => 40 + keySigCount * 10 + (lineIdx === 0 ? 40 : 0);
 
     let lastNoteX = null;
     let lastLineY = 0;
@@ -6765,14 +6780,12 @@ function renderMelodyStaffVexflow(container, notes, timeSig, key, showCursor) {
         lineMeasures.forEach((mi, posInLine) => {
             const m = measures[mi];
             const isLineStart = posInLine === 0;
-            const extra = isLineStart ? (lineIdx === 0 ? 80 : 40) : 0;
+            const extra = isLineStart ? lineStartExtra(lineIdx) : 0;
             const stave = new VF.Stave(x, lineY - 10, baseWidths[mi] + extra);
             if (isLineStart) {
                 stave.addClef('treble'); // 每行左首都加谱号
-                if (lineIdx === 0) {
-                    if (vexKey !== 'C') stave.addKeySignature(vexKey);
-                    stave.addTimeSignature(ts);
-                }
+                if (vexKey !== 'C') stave.addKeySignature(vexKey); // 每行都有调号
+                if (lineIdx === 0) stave.addTimeSignature(ts); // 拍号仅第一行
                 stave.setBegBarType(VF.Barline.type.SINGLE);
             } else {
                 stave.setBegBarType(VF.Barline.type.NONE);
@@ -6830,7 +6843,13 @@ function renderMelodyInput() {
     if (!container) return;
     const notes = melodyAppState.inputNotes || [];
     const timeSig = melodyAppState.selectedTimeSignature || (melodyAppState.currentMelody && melodyAppState.currentMelody.timeSignature) || '4/4';
-    const key = melodyAppState.selectedKey || (melodyAppState.currentMelody && melodyAppState.currentMelody.key) || 'C';
+    // key：selectedKey 是级别（1-8），转成 drawKey 调性名用于调号
+    let key = 'C';
+    if (melodyAppState.selectedKey && KEY_LEVEL_MAP[melodyAppState.selectedKey]) {
+        key = KEY_LEVEL_MAP[melodyAppState.selectedKey].drawKey || 'C';
+    } else if (melodyAppState.currentMelody && melodyAppState.currentMelody.key) {
+        key = melodyAppState.currentMelody.key;
+    }
     if (!notes.length) {
         container.innerHTML = '<div style="color:#999;padding:16px;text-align:center;font-size:14px;">请选择音高和时值后点击「添加音符」</div>';
         return;
@@ -7626,6 +7645,46 @@ function clearMelodyNotes() {
     melodyAppState.inputNotes = [];
     renderMelodyInput();
     updateMelodyStatus('已清空所有音符');
+}
+
+// 上传 MusicXML 文件添加曲目（Sibelius 等制谱软件导出）
+function handleMelodyFileUpload(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const xmlText = e.target.result;
+            const melody = parseMusicXML(xmlText, file.name);
+            if (!melody || !melody.notes || melody.notes.length === 0) {
+                updateMelodyStatus('MusicXML 解析失败，请检查文件格式');
+                return;
+            }
+            melody.filePath = 'upload_' + file.name;
+            melody.title = file.name.replace(/\.[^.]+$/, '');
+            melodyAppState.loadedMelodies.push(melody);
+            // 添加到曲目下拉并选中
+            const selector = document.getElementById('melody-selector');
+            if (selector) {
+                const opt = document.createElement('option');
+                opt.value = 'file_' + melody.filePath;
+                opt.textContent = melody.title;
+                selector.appendChild(opt);
+                selector.value = opt.value;
+            }
+            // 更新已加载信息
+            const fileInfo = document.getElementById('melody-file-info');
+            const fileInfoText = document.getElementById('melody-file-info-text');
+            if (fileInfo && fileInfoText) {
+                fileInfo.style.display = 'block';
+                fileInfoText.textContent = `${melodyAppState.loadedMelodies.length}首曲目`;
+            }
+            updateMelodyStatus(`已添加曲目：${melody.title}（${melody.timeSignature}，${melody.notes.length}个音符）`);
+        } catch (err) {
+            console.error('上传曲目解析失败:', err);
+            updateMelodyStatus('上传曲目解析失败，请检查文件');
+        }
+    };
+    reader.readAsText(file);
 }
 
 // 预置曲目文件列表（放在melodies/文件夹下，同时嵌入XML数据作为file://协议的兜底）

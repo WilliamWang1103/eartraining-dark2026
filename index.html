@@ -1299,6 +1299,13 @@
                                     <option value="3">test01</option>
                                 </select>
                             </div>
+                            <div style="display:flex;align-items:flex-end;padding-bottom:4px;flex-shrink:0;">
+                                <button id="upload-melody-btn" class="btn" style="font-size:12px;padding:4px 8px;"
+                                    title="上传 MusicXML 文件添加曲目（Sibelius 等制谱软件导出）"><i
+                                        class="fas fa-upload"></i> 添加曲目</button>
+                                <input type="file" id="melody-file-input"
+                                    accept=".xml,.musicxml,application/xml,text/xml" style="display:none;">
+                            </div>
                             <div class="param-group" id="melody-file-info"
                                 style="display:none;flex:0 0 auto;min-width:60px;">
                                 <label style="font-size:12px;margin-bottom:4px;">已加载</label>
