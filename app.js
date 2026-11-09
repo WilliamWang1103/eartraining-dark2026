@@ -19,6 +19,7 @@ const chordAppState = {
     selectedNotes: [], // 存储用户点击的音符
     selectedChordType: null,
     currentChord: null,
+    chordOccurrences: {}, // 本次练习/测试中每个和弦的出现次数（避免重复）
     userInfo: {
         school: '',
         majorClass: '',
@@ -84,6 +85,7 @@ const intervalAppState = {
     previousQuestion: null, // 上一题的音程（避免重复）
     selectedIntervalQuality: null, // 用户选择的音程性质
     pianoSelection: [], // 琴键上选择的音符（最多2个）
+    intervalOccurrences: {}, // 本次练习/测试中每个音程对的出现次数（避免重复）
 
     // 用户信息（与其他模式共享）
     userInfo: {
@@ -140,6 +142,7 @@ const rhythmAppState = {
     difficulty: 1, // 难度级别
     scaleDifficulty: 1, // 拍型难度
     paramType: 'rhythm', // 当前参数类型：'rhythm'(节奏型) 或 'meter'(节拍)
+    rhythmOccurrences: {}, // 本次练习/测试中每个节奏型的出现次数（避免重复）
     // 节拍听辨专用状态
     meterBeatsPerMeasure: 2, // 每小节拍数（从节拍参数获取）
     measureRhythms: [], // 每个小节已选择的节奏型数组（二维数组）
@@ -1667,7 +1670,12 @@ function generateRandomChord() {
         }
     }
     if (candidates.length === 0) { showAdjustmentOptions('无法根据所选调式与转位生成和弦，请调整设置或使用下列自动调整选项：'); return null; }
-    const chosen = candidates[Math.floor(Math.random() * candidates.length)]; const rootNote = allNotes[chosen.rootIndex]; const sortedNotes = chosen.notes.sort((a, b) => allNotes.findIndex(n => n.note === a.note) - allNotes.findIndex(n => n.note === b.note));
+    // 优先选出现次数最少的和弦（避免重复）
+    const minCount = Math.min(...candidates.map(c => chordAppState.chordOccurrences[chord.name + '|' + allNotes[c.rootIndex].note] || 0));
+    const leastUsed = candidates.filter(c => (chordAppState.chordOccurrences[chord.name + '|' + allNotes[c.rootIndex].note] || 0) === minCount);
+    const chosen = leastUsed[Math.floor(Math.random() * leastUsed.length)];
+    const rootNote = allNotes[chosen.rootIndex];
+    const sortedNotes = chosen.notes.sort((a, b) => allNotes.findIndex(n => n.note === a.note) - allNotes.findIndex(n => n.note === b.note));
     return { chord: chord, rootNote: rootNote, notes: sortedNotes };
 }
 
@@ -1683,6 +1691,8 @@ function playRandomChord() {
     console.log('chordData.type:', chordData.type);
 
     chordAppState.currentChord = chordData;
+    const chordKey = chordData.chord.name + '|' + chordData.rootNote.note;
+    chordAppState.chordOccurrences[chordKey] = (chordAppState.chordOccurrences[chordKey] || 0) + 1;
     resetNoteSelectionState();
     chordAppState.selectedChordType = null;
     document.querySelectorAll('.chord-btn').forEach(btn => btn.classList.remove('active'));
@@ -2171,6 +2181,7 @@ function startChordTestMode() {
     chordAppState.pitchCorrect = 0;
     chordAppState.qualityCorrect = 0;
     chordAppState.errorChords = [];
+    chordAppState.chordOccurrences = {}; // 重置重复计数
     resetNoteSelectionState();
     chordAppState.selectedChordType = null;
     chordAppState.testStartTime = new Date();
@@ -3755,8 +3766,11 @@ function handleIntervalRandomPlay() {
         if (closestNote && closestNote !== firstNote) {
             questionNotes = [firstNote, closestNote];
 
-            // 检查是否与上一题重复
-            if (intervalAppState.lastQuestion && intervalAppState.lastQuestion.length === 2) {
+            // 计算音程对键（无序），检查是否本次已出过
+            const intervalKey = [...questionNotes].sort().join('+');
+            if ((intervalAppState.intervalOccurrences[intervalKey] || 0) > 0) {
+                isDuplicate = true; // 本次已出过，重试
+            } else if (intervalAppState.lastQuestion && intervalAppState.lastQuestion.length === 2) {
                 const isSame = (
                     (intervalAppState.lastQuestion[0] === questionNotes[0] &&
                         intervalAppState.lastQuestion[1] === questionNotes[1]) ||
@@ -3784,6 +3798,8 @@ function handleIntervalRandomPlay() {
 
     // 保存题目
     intervalAppState.lastQuestion = questionNotes;
+    const intervalKey = [...questionNotes].sort().join('+');
+    intervalAppState.intervalOccurrences[intervalKey] = (intervalAppState.intervalOccurrences[intervalKey] || 0) + 1;
     intervalAppState.pianoSelection = [];
     intervalAppState.selectedIntervalQuality = null;
 
@@ -4444,6 +4460,7 @@ function startIntervalTestMode() {
     intervalAppState.wrong = 0;
     intervalAppState.totalQuestions = 0;
     intervalAppState.errorQuestions = [];
+    intervalAppState.intervalOccurrences = {}; // 重置重复计数
     intervalAppState.testStartTime = new Date();
     intervalAppState.elapsedTime = 0; // 重置用时
 
@@ -9471,6 +9488,7 @@ function startRhythmTestMode() {
     rhythmAppState.wrong = 0;
     rhythmAppState.totalQuestions = 0;
     rhythmAppState.errorQuestions = [];
+    rhythmAppState.rhythmOccurrences = {}; // 重置重复计数
     rhythmAppState.testStartTime = new Date();
 
     // 隐藏练习说明
@@ -10118,11 +10136,15 @@ function generateRandomRhythm() {
             ];
         }
 
-        // 根据数量随机选择节奏型（可以重复）
+        // 根据数量选择节奏型（优先选出现次数最少的，避免重复）
         const selectedRhythms = [];
         for (let i = 0; i < quantity; i++) {
-            const randomIndex = Math.floor(Math.random() * rhythmNames.length);
-            selectedRhythms.push(rhythmNames[randomIndex]);
+            const minCount = Math.min(...rhythmNames.map(n => rhythmAppState.rhythmOccurrences[n] || 0));
+            const leastUsed = rhythmNames.filter(n => (rhythmAppState.rhythmOccurrences[n] || 0) === minCount);
+            const randomIndex = Math.floor(Math.random() * leastUsed.length);
+            const chosen = leastUsed[randomIndex];
+            selectedRhythms.push(chosen);
+            rhythmAppState.rhythmOccurrences[chosen] = (rhythmAppState.rhythmOccurrences[chosen] || 0) + 1;
         }
 
         // 从映射表获取所有节奏型的音符序列
