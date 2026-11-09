@@ -6315,19 +6315,19 @@ function initMelodyPage() {
 
     // 控制按钮
     const randomPlayBtn = document.getElementById('random-play-btn-melody');
+    const specifiedPlayBtn = document.getElementById('specified-play-btn-melody');
     const playBtn = document.getElementById('play-btn-melody');
     const submitBtn = document.getElementById('submit-btn-melody');
     const showAnswerBtn = document.getElementById('show-answer-btn-melody');
     if (randomPlayBtn) randomPlayBtn.addEventListener('click', playRandomMelody);
+    if (specifiedPlayBtn) specifiedPlayBtn.addEventListener('click', playSpecifiedMelody);
     if (playBtn) playBtn.addEventListener('click', repeatMelody);
     if (submitBtn) submitBtn.addEventListener('click', submitMelodyAnswer);
     if (showAnswerBtn) showAnswerBtn.addEventListener('click', showAnswerMelody);
 
     // 音符操作按钮
-    const addNoteBtn = document.getElementById('add-note-btn-melody');
     const deleteNoteBtn = document.getElementById('delete-note-btn-melody');
     const clearNotesBtn = document.getElementById('clear-notes-btn-melody');
-    if (addNoteBtn) addNoteBtn.addEventListener('click', addMelodyNote);
     if (deleteNoteBtn) deleteNoteBtn.addEventListener('click', deleteLastMelodyNote);
     if (clearNotesBtn) clearNotesBtn.addEventListener('click', clearMelodyNotes);
 
@@ -6393,9 +6393,11 @@ function initMelodyPage() {
     const timesigSelector = document.getElementById('timesig-selector-melody');
     if (keySelector) keySelector.addEventListener('change', (e) => {
         melodyAppState.selectedKey = e.target.value || null;
+        renderMelodyInput(); // 选择调式后马上更新调号
     });
     if (timesigSelector) timesigSelector.addEventListener('change', (e) => {
         melodyAppState.selectedTimeSignature = e.target.value || null;
+        renderMelodyInput(); // 选择拍号后马上更新拍号
     });
 
     // 风云榜单按钮
@@ -6850,10 +6852,7 @@ function renderMelodyInput() {
     } else if (melodyAppState.currentMelody && melodyAppState.currentMelody.key) {
         key = melodyAppState.currentMelody.key;
     }
-    if (!notes.length) {
-        container.innerHTML = '<div style="color:#999;padding:16px;text-align:center;font-size:14px;">请选择音高和时值后点击「添加音符」</div>';
-        return;
-    }
+    // 始终渲染五线谱（notes 为空时渲染 1 小节空白谱表，带谱号/调号/拍号）
     renderMelodyStaffVexflow(container, notes, timeSig, key, true);
 }
 
@@ -7845,6 +7844,14 @@ async function loadPresetMelodies() {
 
     selector.innerHTML = '';
 
+    // 先添加内置样例（MELODY_SAMPLES，9 首）
+    MELODY_SAMPLES.forEach((sample, idx) => {
+        const opt = document.createElement('option');
+        opt.value = 'sample_' + idx;
+        opt.textContent = sample.title;
+        selector.appendChild(opt);
+    });
+
     for (const preset of PRESET_MELODY_FILES) {
         let xmlText = null;
         try {
@@ -7887,24 +7894,22 @@ async function loadPresetMelodies() {
 
 // 获取当前旋律
 // 测试模式：从曲目库随机抽取；练习模式：按用户选择的曲目
-function getCurrentMelody() {
-    // 测试模式：随机抽取
-    if (melodyAppState.currentMode === 'test') {
-        const pool = melodyAppState.loadedMelodies.length > 0
-            ? melodyAppState.loadedMelodies
-            : MELODY_SAMPLES;
-        // 避免连续抽取同一首
-        let candidates = pool;
-        if (melodyAppState.currentMelody && pool.length > 1) {
-            candidates = pool.filter(m => m !== melodyAppState.currentMelody);
-        }
-        return candidates[Math.floor(Math.random() * candidates.length)];
+// 随机获取旋律（从所有曲目随机抽取，避免连续重复）
+function getRandomMelody() {
+    const pool = melodyAppState.loadedMelodies.length > 0
+        ? melodyAppState.loadedMelodies
+        : MELODY_SAMPLES;
+    let candidates = pool;
+    if (melodyAppState.currentMelody && pool.length > 1) {
+        candidates = pool.filter(m => m !== melodyAppState.currentMelody);
     }
+    return candidates[Math.floor(Math.random() * candidates.length)];
+}
 
-    // 练习模式：按用户选择的曲目
+// 指定获取旋律（按曲目下拉选择）
+function getSpecifiedMelody() {
     const selector = document.getElementById('melody-selector');
     const value = selector ? selector.value : '0';
-
     if (value.startsWith('file_')) {
         const filePath = value.substring(5);
         return melodyAppState.loadedMelodies.find(m => m.filePath === filePath) || MELODY_SAMPLES[0];
@@ -7923,7 +7928,7 @@ async function playRandomMelody() {
     try {
         await Tone.start();
         melodyAppState.isPlaying = true;
-        const melody = getCurrentMelody();
+        const melody = getRandomMelody();
         melodyAppState.currentMelody = melody;
         // 清空输入
         melodyAppState.inputNotes = [];
@@ -7941,7 +7946,37 @@ async function playRandomMelody() {
         if (analysisEl) analysisEl.style.display = 'none';
 
         await playMelodySequence(melody);
-        updateMelodyStatus(`已播放: ${melody.title}，请逐音输入您的答案`);
+        updateMelodyStatus(`已随机播放: ${melody.title}，请逐音输入您的答案`);
+    } catch (error) {
+        console.error('播放旋律失败:', error);
+        updateMelodyStatus('播放失败，请重试');
+    } finally {
+        melodyAppState.isPlaying = false;
+    }
+}
+
+// 指定播放旋律（播放曲目下拉选择的曲目）
+async function playSpecifiedMelody() {
+    if (melodyAppState.isPlaying) return;
+    try {
+        await Tone.start();
+        melodyAppState.isPlaying = true;
+        const melody = getSpecifiedMelody();
+        melodyAppState.currentMelody = melody;
+        melodyAppState.inputNotes = [];
+        melodyAppState.selectedKey = null;
+        melodyAppState.selectedTimeSignature = null;
+        const keySel = document.getElementById('key-selector-melody');
+        const tsSel = document.getElementById('timesig-selector-melody');
+        if (keySel) keySel.value = '';
+        if (tsSel) tsSel.value = '';
+        renderMelodyInput();
+        const answerDisplay = document.getElementById('melody-answer-display');
+        if (answerDisplay) answerDisplay.style.display = 'none';
+        const analysisEl = document.getElementById('test-analysis-melody');
+        if (analysisEl) analysisEl.style.display = 'none';
+        await playMelodySequence(melody);
+        updateMelodyStatus(`已播放指定曲目: ${melody.title}，请逐音输入您的答案`);
     } catch (error) {
         console.error('播放旋律失败:', error);
         updateMelodyStatus('播放失败，请重试');
