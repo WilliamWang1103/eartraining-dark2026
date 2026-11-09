@@ -15271,6 +15271,51 @@ function renderExamStaffSVG(qIdx) {
     el.innerHTML = svg;
 }
 
+// 通用钢琴键盘渲染：复用其他版块（单音/音程/和弦/旋律）的琴键外观与结构
+function renderSharedPiano(container, options) {
+    if (!container) return;
+    const opts = options || {};
+    const onNotePress = opts.onNotePress || (() => {});
+    const selectedNotes = opts.selectedNotes || new Set();
+    const pianoId = opts.pianoId || 'exam-piano';
+    container.innerHTML = '';
+
+    const piano = document.createElement('div');
+    piano.className = 'piano';
+    piano.id = pianoId;
+
+    const whiteNotes = allNotes.filter(n => n.type === 'white');
+    whiteNotes.forEach((note, index) => {
+        const key = document.createElement('div');
+        key.className = 'white-key' + (selectedNotes.has(note.note) ? ' active' : '');
+        key.innerHTML = `<span class="note-name">${note.display}</span>`;
+        key.dataset.note = note.note;
+        key.dataset.index = index;
+        const octaveLabel = document.createElement('div');
+        octaveLabel.className = `octave-label ${note.group}`;
+        if (note.group === 'group1') octaveLabel.textContent = '小字组';
+        else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
+        else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
+        else if (note.group === 'group4') octaveLabel.textContent = '小字三组';
+        key.appendChild(octaveLabel);
+        key.addEventListener('click', () => onNotePress(note.note));
+        piano.appendChild(key);
+    });
+
+    const blackNotes = allNotes.filter(n => n.type === 'black');
+    blackNotes.forEach(note => {
+        const key = document.createElement('div');
+        key.className = 'black-key' + (selectedNotes.has(note.note) ? ' active' : '');
+        key.innerHTML = note.display;
+        key.dataset.note = note.note;
+        key.addEventListener('click', () => onNotePress(note.note));
+        piano.appendChild(key);
+    });
+
+    container.appendChild(piano);
+    positionBlackKeys(pianoId);
+}
+
 // --- 输入区渲染 ---
 function renderExamInputArea(qIdx) {
     const el = document.getElementById('exam-input-area');
@@ -15293,8 +15338,6 @@ function renderExamPiano(qIdx) {
     const q = getExamQuestionAt(qIdx);
     const ans = getExamAnswerAt(qIdx);
     if (!q || !ans) return;
-    const whiteNotes = allNotes.filter(n => n.type === 'white');
-    const blackNotes = allNotes.filter(n => n.type === 'black');
 
     let selectedNotes = new Set();
     if (examState.selectedMeasure >= 0) {
@@ -15302,52 +15345,13 @@ function renderExamPiano(qIdx) {
         if (q.type === 'single') {
             const n = ans[m];
             if (n) selectedNotes.add(n);
-        } else if (q.type === 'interval-pitch' || q.type === 'interval-quality') {
-            (ans[m] || []).forEach(n => { if (n) selectedNotes.add(n); });
-        } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
+        } else {
             (ans[m] || []).forEach(n => { if (n) selectedNotes.add(n); });
         }
     }
 
-    let html = '<div class="exam-piano"><div class="exam-piano-inner" id="exam-piano-inner">';
-    whiteNotes.forEach((note, index) => {
-        const sel = selectedNotes.has(note.note) ? ' selected' : '';
-        html += `<div class="ew-key white${sel}" data-note="${note.note}" data-index="${index}" onclick="handleExamPianoInput('${note.note}')">${note.display}</div>`;
-    });
-    html += '</div></div>';
-    el.innerHTML = html;
-
-    // Use same positioning approach as initChordPiano
-    const inner = document.getElementById('exam-piano-inner');
-    if (!inner) return;
-
-    // Force reflow so offsetLeft/offsetWidth are accurate
-    inner.offsetWidth;
-
-    // Calculate metrics the same way as updatePianoMetrics
-    const whiteEls = inner.querySelectorAll('.ew-key.white');
-    if (!whiteEls.length) return;
-
-    const firstLeft = whiteEls[0].offsetLeft;
-    const whiteWidth = whiteEls[0].offsetWidth;
-    const spacing = whiteEls.length > 1 ? (whiteEls[1].offsetLeft - whiteEls[0].offsetLeft) : whiteWidth + 1;
-
-    // Remove existing black keys
-    inner.querySelectorAll('.ew-key.black').forEach(k => k.remove());
-
-    // Add black keys using calculateBlackKeyLeft formula
-    const blackWidth = 22;
-    blackNotes.forEach(note => {
-        const sel = selectedNotes.has(note.note) ? ' selected' : '';
-        const left = firstLeft + note.position * spacing + whiteWidth / 2 - blackWidth / 2;
-        const key = document.createElement('div');
-        key.className = `ew-key black${sel}`;
-        key.dataset.note = note.note;
-        key.style.left = `${left}px`;
-        key.innerHTML = note.display;
-        key.onclick = () => handleExamPianoInput(note.note);
-        inner.appendChild(key);
-    });
+    // 复用其他版块的通用琴键（不再新建 exam 专用琴键）
+    renderSharedPiano(el, { onNotePress: (n) => handleExamPianoInput(n), selectedNotes, pianoId: 'exam-piano' });
 }
 
 function renderExamRhythmInput(qIdx) {
@@ -15504,42 +15508,16 @@ function renderExamMelodyInput(qIdx) {
     });
     html += '</div></div>';
 
-    // Piano keyboard
-    const whiteNotes = allNotes.filter(n => n.type === 'white');
-    const blackNotes = allNotes.filter(n => n.type === 'black');
-
-    html += '<div class="exam-piano"><div class="exam-piano-inner" id="exam-piano-inner">';
-    whiteNotes.forEach((note, index) => {
-        const sel = examState.melodyCurrentPitch === note.note ? ' selected' : '';
-        html += `<div class="ew-key white${sel}" data-note="${note.note}" data-index="${index}" onclick="handleExamMelodyPiano('${note.note}')">${note.display}</div>`;
-    });
-    html += '</div></div>';
+    // Piano keyboard（复用其他版块的通用琴键）
+    html += '<div id="exam-piano-container"></div>';
 
     el.innerHTML = html;
 
-    // Position black keys
-    const inner = document.getElementById('exam-piano-inner');
-    if (inner) {
-        inner.offsetWidth;
-        const whiteEls = inner.querySelectorAll('.ew-key.white');
-        if (whiteEls.length) {
-            const firstLeft = whiteEls[0].offsetLeft;
-            const whiteWidth = whiteEls[0].offsetWidth;
-            const spacing = whiteEls.length > 1 ? (whiteEls[1].offsetLeft - whiteEls[0].offsetLeft) : whiteWidth + 1;
-            inner.querySelectorAll('.ew-key.black').forEach(k => k.remove());
-            const blackWidth = 22;
-            blackNotes.forEach(note => {
-                const sel = examState.melodyCurrentPitch === note.note ? ' selected' : '';
-                const left = firstLeft + note.position * spacing + whiteWidth / 2 - blackWidth / 2;
-                const key = document.createElement('div');
-                key.className = `ew-key black${sel}`;
-                key.dataset.note = note.note;
-                key.style.left = `${left}px`;
-                key.innerHTML = note.display;
-                key.onclick = () => handleExamMelodyPiano(note.note);
-                inner.appendChild(key);
-            });
-        }
+    const pianoContainer = document.getElementById('exam-piano-container');
+    if (pianoContainer) {
+        const selectedNotes = new Set();
+        if (examState.melodyCurrentPitch) selectedNotes.add(examState.melodyCurrentPitch);
+        renderSharedPiano(pianoContainer, { onNotePress: (n) => handleExamMelodyPiano(n), selectedNotes, pianoId: 'exam-melody-piano' });
     }
 }
 
@@ -16030,6 +16008,33 @@ function _gradeMelody(userAns, correct, scorePerItem) {
     return { score, keyOk, tsOk, userKey, correctKey: correct.keyName || correct.key, userTS, correctTS: correct.timeSignature, barResults };
 }
 
+// 重置综合考试到初始"考试设置"页面（结束页返回时使用）
+function resetExamToSetup() {
+    examState.phase = 'setup';
+    examState.questions = [];
+    examState.answers = null;
+    examState.score = 0;
+    examState.scoreBreakdown = [];
+    examState.currentQIndex = 0;
+    examState.currentPlayIndex = 0;
+    examState.selectedMeasure = -1;
+    examState.selectedBeat = -1;
+    examState.isPlaying = false;
+    clearInterval(examState.elapsedTimer);
+    const setupSec = document.getElementById('exam-setup-section');
+    const playingSec = document.getElementById('exam-playing-section');
+    const answeringSec = document.getElementById('exam-answering-section');
+    const resultSec = document.getElementById('exam-result-section');
+    const lbSec = document.getElementById('leaderboard-content-exam');
+    if (setupSec) setupSec.style.display = 'block';
+    if (playingSec) playingSec.style.display = 'none';
+    if (answeringSec) answeringSec.style.display = 'none';
+    if (resultSec) resultSec.style.display = 'none';
+    if (lbSec) lbSec.style.display = 'none';
+    showExamTab('setup');
+    renderExamConfig();
+}
+
 // --- 结果展示 ---
 function showExamResults(breakdown, totalScore) {
     const el = document.getElementById('exam-result-content');
@@ -16112,7 +16117,7 @@ function showExamResults(breakdown, totalScore) {
     html += `<div class="end-page-buttons">
         <button id="screenshot-btn-exam" class="btn primary">📷 截图保存成绩</button>
         <button id="leaderboard-goto-btn-exam" class="btn">🏆 查看风云榜单</button>
-        <button id="back-home-exam-result" class="btn">返回首页</button>
+        <button id="back-home-exam-result" class="btn">返回考试设置</button>
     </div>`;
 
     el.innerHTML = html;
@@ -16124,7 +16129,7 @@ function showExamResults(breakdown, totalScore) {
     const lbBtn = document.getElementById('leaderboard-goto-btn-exam');
     if (lbBtn) lbBtn.onclick = () => showExamTab('leaderboard');
     const backBtn = document.getElementById('back-home-exam-result');
-    if (backBtn) backBtn.onclick = () => pageManager.switchToPage('home-page');
+    if (backBtn) backBtn.onclick = () => resetExamToSetup();
 }
 
 // --- 风云榜单 ---
