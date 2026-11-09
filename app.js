@@ -6750,6 +6750,14 @@ function renderMelodyStaffVexflow(container, notes, timeSig, key, showCursor) {
 
     const lineCount = lines.length;
     const lineHeight = 75; // 行间距（减半）
+    const vexKey = keyToVexKeySignature(key);
+    // 调号升降号数量（用于每行第一个小节的额外宽度）
+    const keySigCount = (() => {
+        const sharps = { 'G': 1, 'D': 2, 'A': 3, 'E': 4, 'B': 5, 'F#': 6 };
+        const flats = { 'F': 1, 'Bb': 2, 'Eb': 3, 'Ab': 4, 'Db': 5, 'Gb': 6 };
+        return sharps[vexKey] || flats[vexKey] || 0;
+    })();
+    const lineStartExtra = (lineIdx) => 40 + keySigCount * 10 + (lineIdx === 0 ? 40 : 0);
     // 每行宽度（每行第一个小节加谱号空间）
     const lineWidths = lines.map((line, lineIdx) => {
         let w = 0;
@@ -6765,14 +6773,6 @@ function renderMelodyStaffVexflow(container, notes, timeSig, key, showCursor) {
     const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
     renderer.resize(width, height);
     const ctx = renderer.getContext();
-    const vexKey = keyToVexKeySignature(key);
-    // 调号升降号数量（用于每行第一个小节的额外宽度）
-    const keySigCount = (() => {
-        const sharps = { 'G': 1, 'D': 2, 'A': 3, 'E': 4, 'B': 5, 'F#': 6 };
-        const flats = { 'F': 1, 'Bb': 2, 'Eb': 3, 'Ab': 4, 'Db': 5, 'Gb': 6 };
-        return sharps[vexKey] || flats[vexKey] || 0;
-    })();
-    const lineStartExtra = (lineIdx) => 40 + keySigCount * 10 + (lineIdx === 0 ? 40 : 0);
 
     let lastNoteX = null;
     let lastLineY = 0;
