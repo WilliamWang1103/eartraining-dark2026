@@ -4143,6 +4143,46 @@ body {
     font-weight: 600;
 }
 
+.exam-config-row .q-del-btn {
+    background: rgba(244, 67, 54, 0.15);
+    color: #ff8a80;
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    line-height: 1;
+    cursor: pointer;
+    font-size: 0.8rem;
+    flex: 0 0 auto;
+    padding: 0;
+}
+
+.exam-config-row .q-del-btn:hover {
+    background: rgba(244, 67, 54, 0.3);
+    color: #fff;
+}
+
+.exam-add-row {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.exam-add-btn {
+    background: rgba(77, 182, 172, 0.15);
+    color: #4db6ac;
+    border: 1px dashed rgba(77, 182, 172, 0.5);
+    border-radius: 8px;
+    padding: 8px 20px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.exam-add-btn:hover {
+    background: rgba(77, 182, 172, 0.3);
+    color: #fff;
+}
+
 .exam-total-score {
     text-align: right;
     margin-top: 10px;

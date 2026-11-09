@@ -48,6 +48,7 @@ const singleAppState = {
     previousQuestion: null, // 上一题的音符数组（避免重复）
     lastSubmittedAnswer: null, // 最后提交的答案
     pianoSelection: null, // 琴键上最后一次选择的音
+    noteOccurrences: {}, // 本次练习/测试中每个音的出现次数（避免重复）
 
     // 用户信息（与 chordAppState 共享）
     userInfo: {
@@ -3454,10 +3455,16 @@ function handleSingleRandomPlay() {
             while (!validQuestion && innerAttempts < maxInnerAttempts) {
                 questionNotes = [];
 
-                // 随机选择音符
+                // 随机选择音符（优先少出现，且不重复）
+                const usedInQuestion = new Set();
                 for (let i = 0; i < singleAppState.currentVoices; i++) {
-                    const randomIndex = Math.floor(Math.random() * availableNotes.length);
-                    questionNotes.push(availableNotes[randomIndex]);
+                    const pool = availableNotes.filter(n => !usedInQuestion.has(n));
+                    const minCount = Math.min(...pool.map(n => singleAppState.noteOccurrences[n] || 0));
+                    const leastUsed = pool.filter(n => (singleAppState.noteOccurrences[n] || 0) === minCount);
+                    const randomIndex = Math.floor(Math.random() * leastUsed.length);
+                    const chosen = leastUsed[randomIndex];
+                    usedInQuestion.add(chosen);
+                    questionNotes.push(chosen);
                 }
 
                 // 检查是否有重复音符
@@ -3486,9 +3493,11 @@ function handleSingleRandomPlay() {
                 }
             }
         } else {
-            // 单声部模式，直接随机选择
-            const randomIndex = Math.floor(Math.random() * availableNotes.length);
-            questionNotes.push(availableNotes[randomIndex]);
+            // 单声部模式，优先选出现次数最少的音（避免重复）
+            const minCount = Math.min(...availableNotes.map(n => singleAppState.noteOccurrences[n] || 0));
+            const leastUsed = availableNotes.filter(n => (singleAppState.noteOccurrences[n] || 0) === minCount);
+            const randomIndex = Math.floor(Math.random() * leastUsed.length);
+            questionNotes.push(leastUsed[randomIndex]);
         }
 
         // 检查是否与上一题重复
@@ -3512,6 +3521,9 @@ function handleSingleRandomPlay() {
 
     // 保存题目
     singleAppState.lastQuestion = questionNotes;
+    questionNotes.forEach(note => {
+        singleAppState.noteOccurrences[note] = (singleAppState.noteOccurrences[note] || 0) + 1;
+    });
     singleAppState.pianoSelection = null;
     singleAppState.lastSubmittedAnswer = null;
 
@@ -4126,6 +4138,7 @@ function startSingleTestMode() {
     singleAppState.correct = 0;
     singleAppState.wrong = 0;
     singleAppState.totalQuestions = 0;
+    singleAppState.noteOccurrences = {}; // 重置重复计数
     singleAppState.errorQuestions = [];
     singleAppState.testStartTime = new Date();
     singleAppState.elapsedTime = 0; // 重置用时
@@ -5623,6 +5636,7 @@ function updateSingleScaleNotesByLevel(level) {
 
     singleAppState.currentScale = config.name;
     singleAppState.scaleNotes = config.notes || [];
+    singleAppState.noteOccurrences = {}; // 切换调式后重置重复计数
     updateSingleStatus(`已选择：${config.name}，可用音符 ${singleAppState.scaleNotes.length} 个`);
 
     // 应用调式限制到钢琴琴键
@@ -5922,6 +5936,132 @@ const MELODY_SAMPLES = [
             { pitch: 'A4', duration: 'h', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
             { pitch: 'A4', duration: 'h', dots: 0 }, { pitch: 'E4', duration: 'q', dots: 0 },
             { pitch: 'A4', duration: 'h', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 }
+        ]
+    },
+    {
+        title: 'F大调旋律',
+        key: 'F',
+        keyName: 'F大调',
+        timeSignature: '4/4',
+        notes: [
+            { pitch: 'F4', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'C5', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'F4', duration: 'q', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'Bb4', duration: 'q', dots: 0 },
+            { pitch: 'C5', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'F4', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'G4', duration: 'q', dots: 0 }, { pitch: 'Bb4', duration: 'q', dots: 0 },
+            { pitch: 'C5', duration: 'q', dots: 0 }, { pitch: 'D5', duration: 'q', dots: 0 },
+            { pitch: 'C5', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'F4', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'F4', duration: 'q', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'Bb4', duration: 'q', dots: 0 },
+            { pitch: 'C5', duration: 'q', dots: 0 }, { pitch: 'Bb4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'F4', duration: 'w', dots: 0 }
+        ]
+    },
+    {
+        title: 'D大调旋律',
+        key: 'D',
+        keyName: 'D大调',
+        timeSignature: '4/4',
+        notes: [
+            { pitch: 'D4', duration: 'q', dots: 0 }, { pitch: 'F#4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'F#4', duration: 'q', dots: 0 },
+            { pitch: 'G4', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'D5', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'C#5', duration: 'q', dots: 0 },
+            { pitch: 'E5', duration: 'q', dots: 0 }, { pitch: 'C#5', duration: 'q', dots: 0 },
+            { pitch: 'D5', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'F#4', duration: 'q', dots: 0 }, { pitch: 'A4', duration: 'q', dots: 0 },
+            { pitch: 'B4', duration: 'q', dots: 0 }, { pitch: 'D5', duration: 'q', dots: 0 },
+            { pitch: 'F#5', duration: 'q', dots: 0 }, { pitch: 'D5', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'C#5', duration: 'q', dots: 0 },
+            { pitch: 'E5', duration: 'q', dots: 0 }, { pitch: 'C#5', duration: 'q', dots: 0 },
+            { pitch: 'G4', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'D5', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'D4', duration: 'w', dots: 0 }
+        ]
+    },
+    {
+        title: 'e小调旋律',
+        key: 'e',
+        keyName: 'e小调',
+        timeSignature: '3/4',
+        notes: [
+            { pitch: 'E4', duration: 'q', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'F#4', duration: 'q', dots: 0 },
+            { pitch: 'E4', duration: 'q', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'D5', duration: 'q', dots: 0 }, { pitch: 'C5', duration: 'q', dots: 0 },
+            { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'F#4', duration: 'q', dots: 0 },
+            { pitch: 'E4', duration: 'q', dots: 0 }, { pitch: 'F#4', duration: 'q', dots: 0 },
+            { pitch: 'G4', duration: 'q', dots: 0 },
+            { pitch: 'A4', duration: 'q', dots: 0 }, { pitch: 'B4', duration: 'q', dots: 0 },
+            { pitch: 'C5', duration: 'q', dots: 0 },
+            { pitch: 'E4', duration: 'h', dots: 1 }
+        ]
+    },
+    {
+        title: 'C大调八分音符练习',
+        key: 'C',
+        keyName: 'C大调',
+        timeSignature: '4/4',
+        notes: [
+            { pitch: 'C4', duration: '8', dots: 0 }, { pitch: 'D4', duration: '8', dots: 0 },
+            { pitch: 'E4', duration: '8', dots: 0 }, { pitch: 'F4', duration: '8', dots: 0 },
+            { pitch: 'G4', duration: '8', dots: 0 }, { pitch: 'F4', duration: '8', dots: 0 },
+            { pitch: 'E4', duration: '8', dots: 0 }, { pitch: 'D4', duration: '8', dots: 0 },
+            { pitch: 'E4', duration: '8', dots: 0 }, { pitch: 'F4', duration: '8', dots: 0 },
+            { pitch: 'G4', duration: '8', dots: 0 }, { pitch: 'A4', duration: '8', dots: 0 },
+            { pitch: 'B4', duration: '8', dots: 0 }, { pitch: 'A4', duration: '8', dots: 0 },
+            { pitch: 'G4', duration: '8', dots: 0 }, { pitch: 'F4', duration: '8', dots: 0 },
+            { pitch: 'G4', duration: '8', dots: 0 }, { pitch: 'A4', duration: '8', dots: 0 },
+            { pitch: 'B4', duration: '8', dots: 0 }, { pitch: 'C5', duration: '8', dots: 0 },
+            { pitch: 'D5', duration: '8', dots: 0 }, { pitch: 'C5', duration: '8', dots: 0 },
+            { pitch: 'B4', duration: '8', dots: 0 }, { pitch: 'A4', duration: '8', dots: 0 },
+            { pitch: 'C4', duration: 'w', dots: 0 }
+        ]
+    },
+    {
+        title: 'G大调附点节奏',
+        key: 'G',
+        keyName: 'G大调',
+        timeSignature: '4/4',
+        notes: [
+            { pitch: 'G4', duration: 'q.', dots: 0 }, { pitch: 'B4', duration: '8', dots: 0 },
+            { pitch: 'D5', duration: 'q.', dots: 0 }, { pitch: 'B4', duration: '8', dots: 0 },
+            { pitch: 'A4', duration: 'q.', dots: 0 }, { pitch: 'C5', duration: '8', dots: 0 },
+            { pitch: 'E5', duration: 'q.', dots: 0 }, { pitch: 'C5', duration: '8', dots: 0 },
+            { pitch: 'D5', duration: 'q.', dots: 0 }, { pitch: 'B4', duration: '8', dots: 0 },
+            { pitch: 'G4', duration: 'q.', dots: 0 }, { pitch: 'B4', duration: '8', dots: 0 },
+            { pitch: 'G4', duration: 'w', dots: 0 }
+        ]
+    },
+    {
+        title: 'a小调三连音练习',
+        key: 'a',
+        keyName: 'a小调',
+        timeSignature: '3/4',
+        notes: [
+            { pitch: 'A4', duration: 'triplet', dots: 0 }, { pitch: 'C5', duration: 'triplet', dots: 0 },
+            { pitch: 'E5', duration: 'triplet', dots: 0 },
+            { pitch: 'A4', duration: 'triplet', dots: 0 }, { pitch: 'C5', duration: 'triplet', dots: 0 },
+            { pitch: 'E5', duration: 'triplet', dots: 0 },
+            { pitch: 'A4', duration: 'triplet', dots: 0 }, { pitch: 'C5', duration: 'triplet', dots: 0 },
+            { pitch: 'E5', duration: 'triplet', dots: 0 },
+            { pitch: 'D5', duration: 'triplet', dots: 0 }, { pitch: 'C5', duration: 'triplet', dots: 0 },
+            { pitch: 'B4', duration: 'triplet', dots: 0 },
+            { pitch: 'D5', duration: 'triplet', dots: 0 }, { pitch: 'C5', duration: 'triplet', dots: 0 },
+            { pitch: 'B4', duration: 'triplet', dots: 0 },
+            { pitch: 'D5', duration: 'triplet', dots: 0 }, { pitch: 'C5', duration: 'triplet', dots: 0 },
+            { pitch: 'B4', duration: 'triplet', dots: 0 },
+            { pitch: 'A4', duration: 'h', dots: 1 }
         ]
     }
 ];
@@ -13573,10 +13713,29 @@ function renderExamConfig() {
             <select class="q-count-select" onchange="setExamPaperField(${idx}, 'count', parseInt(this.value))">${countOptions}</select>
             <select class="q-score-select" onchange="setExamPaperField(${idx}, 'score', parseInt(this.value))">${scoreOptions}</select>
             <span class="q-total">${itemTotal}分</span>
+            <button class="q-del-btn" onclick="removeExamPaperItem(${idx})" title="删除该题型">✕</button>
         </div>`;
     });
+    html += `<div class="exam-add-row"><button class="exam-add-btn" onclick="addExamPaperItem()">＋ 添加题型</button></div>`;
     el.innerHTML = html;
     updateExamTotalScore();
+}
+
+// 添加题型
+function addExamPaperItem() {
+    const maxId = examState.examPaper.reduce((m, q) => Math.max(m, q.id || 0), 0);
+    examState.examPaper.push({ id: maxId + 1, type: 'single', count: 10, score: 1, difficulty: 1 });
+    renderExamConfig();
+}
+
+// 删除题型
+function removeExamPaperItem(idx) {
+    if (examState.examPaper.length <= 1) {
+        alert('至少保留一道题');
+        return;
+    }
+    examState.examPaper.splice(idx, 1);
+    renderExamConfig();
 }
 
 function setExamPaperField(idx, field, val) {
