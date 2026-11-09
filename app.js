@@ -13831,12 +13831,6 @@ function initExamPage() {
     if (start) start.onclick = () => startExam();
     const submit = document.getElementById('submit-exam-btn');
     if (submit) submit.onclick = () => submitExamAnswers();
-    const replay = document.getElementById('exam-replay-btn');
-    if (replay) replay.onclick = () => { examState.skipRequested = true; };
-    const skip = document.getElementById('exam-skip-btn');
-    if (skip) skip.onclick = () => { examState.jumpToNextQ = true; examState.skipRequested = true; };
-    const stop = document.getElementById('exam-stop-btn');
-    if (stop) stop.onclick = () => { examState.stopRequested = true; };
     const setupTab = document.getElementById('setup-btn-exam');
     if (setupTab) setupTab.onclick = () => showExamTab('setup');
     const lbTab = document.getElementById('leaderboard-btn-exam');
@@ -13860,6 +13854,10 @@ function showExamTab(tab) {
         if (lbBtn) lbBtn.classList.add('active');
         if (setupSec) setupSec.style.display = 'none';
         if (lbSec) lbSec.style.display = 'block';
+        const rsSec = document.getElementById('exam-result-section');
+        if (rsSec) rsSec.style.display = 'none';
+        const ansSec = document.getElementById('exam-answering-section');
+        if (ansSec) ansSec.style.display = 'none';
         renderExamLeaderboard();
     }
 }
@@ -14390,33 +14388,30 @@ async function _playNoteDelay(note, dur) {
 }
 
 async function _playSingleOnce(notes, bpm) {
-    const beatDur = 60 / bpm;
     await _playNoteDelay('A4', 1.5);
     await examSleep(500);
-    for (const n of notes) { playNoteWithWebAudio(n, 1.0, 0.8); await examSleep(beatDur * 1000); }
+    for (const n of notes) { playNoteWithWebAudio(n, 1.0, 0.8); await examSleep(4000); }
     await examSleep(300);
     await _playNoteDelay('A4', 1.5);
 }
 
 async function _playIntervalOnce(intervals, bpm) {
-    const beatDur = 60 / bpm;
     await _playNoteDelay('A4', 1.5);
     await examSleep(500);
     for (const iv of intervals) {
         playNoteWithWebAudio(iv.note1, 1.0, 0.8);
-        await examSleep(beatDur * 1000);
+        await examSleep(200);
         playNoteWithWebAudio(iv.note2, 1.0, 0.8);
-        await examSleep(beatDur * 1500);
+        await examSleep(4000);
     }
     await examSleep(300);
     await _playNoteDelay('A4', 1.5);
 }
 
 async function _playChordOnce(chords, bpm) {
-    const beatDur = 60 / bpm;
     await _playNoteDelay('A4', 1.5);
     await examSleep(500);
-    for (const c of chords) { playChord(c.notes); await examSleep(beatDur * 2000); }
+    for (const c of chords) { playChord(c.notes); await examSleep(4000); }
     await examSleep(300);
     await _playNoteDelay('A4', 1.5);
 }
@@ -14556,6 +14551,277 @@ function renderExamQuestion(qIdx) {
     }
     renderExamStaffSVG(qIdx);
     renderExamInputArea(qIdx);
+}
+
+// ==================== 综合考试五线谱（VexFlow 渲染） ====================
+// 单音/音程/和弦用全音符、4/4 拍；节奏/旋律照搬对应训练模块的成熟 VexFlow 渲染。
+// 所有题型均支持「点击小节变色选中」后作答/修改。
+
+function renderExamStaffVexflow(qIdx) {
+    const el = document.getElementById('exam-staff-area');
+    if (!el) return;
+    const q = getExamQuestionAt(qIdx);
+    const ans = getExamAnswerAt(qIdx);
+    if (!q || !ans) return;
+    el.innerHTML = '';
+    if (typeof Vex === 'undefined' || !Vex.Flow) {
+        el.innerHTML = '<div style="color:#999;padding:12px;text-align:center;">五线谱组件未加载</div>';
+        return;
+    }
+    const qType = q.type;
+    if (qType === 'single' || qType === 'interval-pitch' || qType === 'interval-quality' || qType === 'chord-pitch' || qType === 'chord-quality') {
+        renderExamPitchVexflow(qIdx);
+    } else if (qType === 'rhythm') {
+        renderExamRhythmVexflow(qIdx);
+    } else if (qType === 'melody') {
+        renderExamMelodyVexflow(qIdx);
+    }
+}
+
+function _overlayExamMeasureClicks(container, measureRects, selectedMeasure) {
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+    let layer = svg.querySelector('.exam-measure-layer');
+    if (!layer) {
+        layer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        layer.setAttribute('class', 'exam-measure-layer');
+        svg.appendChild(layer);
+    } else {
+        layer.innerHTML = '';
+    }
+    measureRects.forEach((r, m) => {
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', r.x);
+        rect.setAttribute('y', r.y);
+        rect.setAttribute('width', r.width);
+        rect.setAttribute('height', r.height);
+        const sel = m === selectedMeasure;
+        rect.setAttribute('fill', sel ? 'rgba(255,183,77,0.28)' : 'transparent');
+        rect.setAttribute('stroke', sel ? '#FFB74D' : 'transparent');
+        rect.setAttribute('stroke-width', sel ? '2' : '0');
+        rect.setAttribute('cursor', 'pointer');
+        rect.setAttribute('rx', '4');
+        rect.addEventListener('click', () => selectExamMeasure(m));
+        layer.appendChild(rect);
+    });
+}
+
+function _examPitchMeasureKeys(qType, ans, m) {
+    if (qType === 'single') {
+        const n = ans[m];
+        return n ? [pitchToVexKey(n)] : [];
+    }
+    const arr = ((ans[m] || [])).filter(n => n);
+    return arr.map(n => pitchToVexKey(n));
+}
+
+function renderExamPitchVexflow(qIdx) {
+    const el = document.getElementById('exam-staff-area');
+    const q = getExamQuestionAt(qIdx);
+    const ans = getExamAnswerAt(qIdx);
+    if (!q || !ans || !el) return;
+    const VF = Vex.Flow;
+    const qType = q.type;
+    const measureCount = q.count;
+    const timeSig = '4/4';
+    const mw = 92;
+    const firstExtra = 120;
+    const totalWidth = firstExtra + measureCount * mw + 40;
+    const height = 130;
+
+    const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
+    renderer.resize(totalWidth, height);
+    const ctx = renderer.getContext();
+
+    const measureRects = [];
+    let x = 10;
+    for (let m = 0; m < measureCount; m++) {
+        const isFirst = m === 0;
+        const stave = new VF.Stave(x, 10, mw + (isFirst ? firstExtra : 0));
+        if (isFirst) {
+            stave.addClef('treble').addTimeSignature(timeSig);
+            stave.setBegBarType(VF.Barline.type.SINGLE);
+        } else {
+            stave.setBegBarType(VF.Barline.type.NONE);
+        }
+        stave.setEndBarType(m === measureCount - 1 ? VF.Barline.type.END : VF.Barline.type.SINGLE);
+        stave.setContext(ctx).draw();
+
+        const keys = _examPitchMeasureKeys(qType, ans, m);
+        if (keys.length) {
+            const note = new VF.StaveNote({ keys, duration: 'w' });
+            const voice = new VF.Voice({ num_beats: 4, beat_value: 4 });
+            voice.addTickables([note]);
+            const noteArea = stave.getNoteEndX() - stave.getNoteStartX();
+            new VF.Formatter().joinVoices([voice]).format([voice], noteArea);
+            voice.draw(ctx, stave);
+        }
+
+        measureRects.push({ x: stave.getX(), y: 0, width: stave.getWidth(), height: 110 });
+        x += mw + (isFirst ? firstExtra : 0);
+    }
+
+    _overlayExamMeasureClicks(el, measureRects, examState.selectedMeasure);
+}
+
+function renderExamRhythmVexflow(qIdx) {
+    const el = document.getElementById('exam-staff-area');
+    const q = getExamQuestionAt(qIdx);
+    const ans = getExamAnswerAt(qIdx);
+    if (!q || !ans || !el) return;
+    const VF = Vex.Flow;
+    const timeSig = ans.timeSig || '2/4';
+    const beatsPerMeasure = parseInt(timeSig.split('/')[0]) || 2;
+    const measureCount = q.count;
+
+    const measures = (ans.bars || []).map(bar => {
+        const descriptors = [];
+        (bar || []).forEach(pattern => {
+            if (!pattern) return;
+            const rn = RHYTHM_DURATION_MAP[pattern];
+            if (rn) rn.forEach(n => descriptors.push({ duration: n.duration, beats: n.beats, dots: n.dots || 0, rest: false }));
+        });
+        return descriptors;
+    });
+
+    const widths = [];
+    for (let i = 0; i < measureCount; i++) {
+        const beats = (measures[i] || []).reduce((s, d) => s + (d.beats || 0), 0) || beatsPerMeasure;
+        const extraFirst = i === 0 ? 120 : 0;
+        widths.push(Math.max(90, 40 + extraFirst + beats * 55));
+    }
+    const totalWidth = widths.reduce((s, w) => s + w, 0) + 40;
+    const baseWidth = el.clientWidth > 0 ? el.clientWidth : 700;
+    const width = Math.max(baseWidth - 24, totalWidth);
+    const height = 120;
+
+    const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
+    renderer.resize(width, height);
+    const ctx = renderer.getContext();
+
+    const measureRects = [];
+    let x = 10;
+    for (let i = 0; i < measureCount; i++) {
+        const stave = new VF.Stave(x, 10, widths[i]);
+        if (i === 0) {
+            stave.addClef('treble').addTimeSignature(timeSig);
+            stave.setBegBarType(VF.Barline.type.SINGLE);
+        } else {
+            stave.setBegBarType(VF.Barline.type.NONE);
+        }
+        stave.setEndBarType(i === measureCount - 1 ? VF.Barline.type.END : VF.Barline.type.SINGLE);
+        stave.setContext(ctx).draw();
+
+        const measureNotes = measures[i] || [];
+        if (measureNotes.length) {
+            const built = buildVexRhythmNotes(measureNotes);
+            if (built.notes.length) {
+                const voice = new VF.Voice({ num_beats: built.totalBeats, beat_value: 4 });
+                voice.addTickables(built.notes);
+                const noteArea = stave.getNoteEndX() - stave.getNoteStartX();
+                new VF.Formatter().joinVoices([voice]).format([voice], noteArea);
+                voice.draw(ctx, stave);
+                built.beams.forEach(b => b.setContext(ctx).draw());
+                built.tuplets.forEach(t => t.setContext(ctx).draw());
+            }
+        }
+
+        measureRects.push({ x: stave.getX(), y: 0, width: stave.getWidth(), height: 110 });
+        x += widths[i];
+    }
+
+    _overlayExamMeasureClicks(el, measureRects, examState.selectedMeasure);
+}
+
+function renderExamMelodyVexflow(qIdx) {
+    const el = document.getElementById('exam-staff-area');
+    const q = getExamQuestionAt(qIdx);
+    const ans = getExamAnswerAt(qIdx);
+    if (!q || !ans || !el) return;
+    const VF = Vex.Flow;
+    const timeSig = ans.timeSig || '4/4';
+    const key = ans.key || 'C';
+    const beatsPerMeasure = parseInt(timeSig.split('/')[0]) || 4;
+    const beatValue = parseInt(timeSig.split('/')[1]) || 4;
+
+    const measures = (ans.bars || []).map(bar => bar || []);
+    const vexKey = keyToVexKeySignature(key);
+    const keySigCount = (() => {
+        const sharps = { 'G': 1, 'D': 2, 'A': 3, 'E': 4, 'B': 5, 'F#': 6 };
+        const flats = { 'F': 1, 'Bb': 2, 'Eb': 3, 'Ab': 4, 'Db': 5, 'Gb': 6 };
+        return sharps[vexKey] || flats[vexKey] || 0;
+    })();
+
+    const measuresPerLine = 4;
+    const baseWidths = measures.map(m => {
+        const beats = m.reduce((s, n) => s + getNoteBeatsForDuration(n.duration, n.dots || 0), 0) || beatsPerMeasure;
+        return Math.max(80, 30 + beats * 50);
+    });
+
+    const lines = [];
+    for (let i = 0; i < measures.length; i += measuresPerLine) {
+        const row = [];
+        for (let j = i; j < Math.min(i + measuresPerLine, measures.length); j++) row.push(j);
+        lines.push(row);
+    }
+
+    const lineHeight = 75;
+    const lineStartExtra = (lineIdx) => 40 + keySigCount * 10 + (lineIdx === 0 ? 40 : 0);
+    const lineWidths = lines.map((line, lineIdx) => {
+        let w = 0;
+        line.forEach((mi, posInLine) => {
+            const extra = posInLine === 0 ? lineStartExtra(lineIdx) : 0;
+            w += baseWidths[mi] + extra;
+        });
+        return w;
+    });
+    const width = Math.max(...lineWidths) + 20;
+    const height = lines.length * lineHeight + 20;
+
+    const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
+    renderer.resize(width, height);
+    const ctx = renderer.getContext();
+
+    const measureRects = [];
+    lines.forEach((lineMeasures, lineIdx) => {
+        const lineY = lineIdx * lineHeight;
+        let x = 10;
+        lineMeasures.forEach((mi, posInLine) => {
+            const m = measures[mi];
+            const isLineStart = posInLine === 0;
+            const extra = isLineStart ? lineStartExtra(lineIdx) : 0;
+            const stave = new VF.Stave(x, lineY - 10, baseWidths[mi] + extra);
+            if (isLineStart) {
+                stave.addClef('treble');
+                if (vexKey !== 'C') stave.addKeySignature(vexKey);
+                if (lineIdx === 0) stave.addTimeSignature(timeSig);
+                stave.setBegBarType(VF.Barline.type.SINGLE);
+            } else {
+                stave.setBegBarType(VF.Barline.type.NONE);
+            }
+            const isLast = (lineIdx === lines.length - 1 && posInLine === lineMeasures.length - 1);
+            stave.setEndBarType(isLast ? VF.Barline.type.END : VF.Barline.type.SINGLE);
+            stave.setContext(ctx).draw();
+
+            if (m.length) {
+                const built = buildMelodyVexNotes(m);
+                if (built.notes.length) {
+                    const voice = new VF.Voice({ num_beats: built.totalBeats, beat_value: beatValue });
+                    voice.addTickables(built.notes);
+                    const noteArea = stave.getNoteEndX() - stave.getNoteStartX();
+                    new VF.Formatter().joinVoices([voice]).format([voice], noteArea);
+                    voice.draw(ctx, stave);
+                    built.beams.forEach(b => b.setContext(ctx).draw());
+                    built.tuplets.forEach(t => t.setContext(ctx).draw());
+                }
+            }
+
+            measureRects.push({ x: stave.getX(), y: lineY - 20, width: stave.getWidth(), height: 80 });
+            x += baseWidths[mi] + extra;
+        });
+    });
+
+    _overlayExamMeasureClicks(el, measureRects, examState.selectedMeasure);
 }
 
 // --- SVG五线谱渲染 ---
@@ -14721,6 +14987,10 @@ function _calcExamBeamGroups(notes) {
 }
 
 function renderExamStaffSVG(qIdx) {
+    // ==== 五线谱改用 VexFlow 渲染（单音/音程/和弦用全音符4/4拍；节奏/旋律照搬对应测试模式） ====
+    renderExamStaffVexflow(qIdx);
+    return;
+    // ==== 以下旧的自制 SVG 渲染逻辑已废弃，保留备用 ====
     const el = document.getElementById('exam-staff-area');
     if (!el) return;
     const q = getExamQuestionAt(qIdx);
@@ -15492,7 +15762,7 @@ function handleExamRhythmInput(pattern) {
             examState.selectedMeasure = nn;
             examState.selectedBeat = 0;
         }
-        renderExamStaffSVG(q);
+        renderExamStaffSVG(qIdx);
         return;
     }
     // Place the pattern at the current beat
@@ -15521,6 +15791,13 @@ function handleExamRhythmInput(pattern) {
 // --- 提交与评分 ---
 function submitExamAnswers() {
     if (!confirm('确定提交答卷吗？提交后将自动评分。')) return;
+    // 立即停止播放（中途提交答卷即视为停止考试，无需单独"终止考试"按钮）
+    examState.stopRequested = true;
+    examState.skipRequested = true;
+    examState.jumpToNextQ = false;
+    clearInterval(examState.elapsedTimer);
+    const playingSec = document.getElementById('exam-playing-section');
+    if (playingSec) playingSec.style.display = 'none';
     const qs = examState.questions;
     const ans = examState.answers;
     const breakdown = [];
@@ -15761,7 +16038,20 @@ function showExamResults(breakdown, totalScore) {
     const totalPossible = breakdown.reduce((s, b) => s + b.total, 0);
     const pct = totalPossible > 0 ? totalScore / totalPossible : 0;
     const grade = pct >= 0.9 ? '优秀' : pct >= 0.75 ? '良好' : pct >= 0.6 ? '及格' : '不及格';
+    const ui = chordAppState.userInfo || {};
+    const endTime = new Date().toLocaleString('zh-CN');
     let html = `
+    <div class="test-end-header">
+        <h2>🎉 综合考试完成！</h2>
+        <p>您已完成综合考试，以下是您的成绩报告</p>
+    </div>
+    <div class="compact-user-info">
+        <p><strong>学校：</strong>${ui.school || '未填写'}</p>
+        <p><strong>专业班级：</strong>${ui.majorClass || '未填写'}</p>
+        <p><strong>姓名：</strong>${ui.name || '未填写'}</p>
+        <p><strong>指导教师：</strong>${ui.teacher || '未填写'}</p>
+        <p><strong>测试结束时间：</strong>${endTime}</p>
+    </div>
     <div class="exam-result-summary">
         <div class="exam-result-score">${totalScore}<span class="ers-unit"> / ${totalPossible} 分</span></div>
         <div class="exam-result-grade">${grade}</div>
@@ -15818,8 +16108,23 @@ function showExamResults(breakdown, totalScore) {
     }
     html += `</p></div>`;
 
+    // 结束页按钮：截图 / 风云榜单 / 返回首页（参照其他训练板块结束页）
+    html += `<div class="end-page-buttons">
+        <button id="screenshot-btn-exam" class="btn primary">📷 截图保存成绩</button>
+        <button id="leaderboard-goto-btn-exam" class="btn">🏆 查看风云榜单</button>
+        <button id="back-home-exam-result" class="btn">返回首页</button>
+    </div>`;
+
     el.innerHTML = html;
     el.scrollIntoView({ behavior: 'smooth' });
+
+    // 绑定结束页按钮
+    const shotBtn = document.getElementById('screenshot-btn-exam');
+    if (shotBtn) shotBtn.onclick = () => captureElementAsImage('#comprehensive-exam-page .exercise-page', '综合考试', () => { });
+    const lbBtn = document.getElementById('leaderboard-goto-btn-exam');
+    if (lbBtn) lbBtn.onclick = () => showExamTab('leaderboard');
+    const backBtn = document.getElementById('back-home-exam-result');
+    if (backBtn) backBtn.onclick = () => pageManager.switchToPage('home-page');
 }
 
 // --- 风云榜单 ---
