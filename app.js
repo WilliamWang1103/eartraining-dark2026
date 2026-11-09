@@ -193,31 +193,45 @@ const melodyAppState = {
     activeAudioNodes: [] // 当前活跃的音频节点（用于立即停止）
 };
 
-// 音符表 - 钢琴键盘范围 G3 至 F5
+// 音符表 - 钢琴键盘范围 C3 至 C6
 const allNotes = [
-    { note: 'G3', name: 'G', display: 'G3', type: 'white', octave: 3, position: 0, group: 'group1' },
-    { note: 'G#3', name: 'G#', display: 'G#3<br>Ab3', type: 'black', octave: 3, position: 0.5, group: 'group1' },
-    { note: 'A3', name: 'A', display: 'A3', type: 'white', octave: 3, position: 1, group: 'group1' },
-    { note: 'A#3', name: 'A#', display: 'A#3<br>Bb3', type: 'black', octave: 3, position: 1.5, group: 'group1' },
-    { note: 'B3', name: 'B', display: 'B3', type: 'white', octave: 3, position: 2, group: 'group1' },
-    { note: 'C4', name: 'C', display: 'C4', type: 'white', octave: 4, position: 3, group: 'group2' },
-    { note: 'C#4', name: 'C#', display: 'C#4<br>Db4', type: 'black', octave: 4, position: 3.5, group: 'group2' },
-    { note: 'D4', name: 'D', display: 'D4', type: 'white', octave: 4, position: 4, group: 'group2' },
-    { note: 'D#4', name: 'D#', display: 'D#4<br>Eb4', type: 'black', octave: 4, position: 4.5, group: 'group2' },
-    { note: 'E4', name: 'E', display: 'E4', type: 'white', octave: 4, position: 5, group: 'group2' },
-    { note: 'F4', name: 'F', display: 'F4', type: 'white', octave: 4, position: 6, group: 'group2' },
-    { note: 'F#4', name: 'F#', display: 'F#4<br>Gb4', type: 'black', octave: 4, position: 6.5, group: 'group2' },
-    { note: 'G4', name: 'G', display: 'G4', type: 'white', octave: 4, position: 7, group: 'group2' },
-    { note: 'G#4', name: 'G#', display: 'G#4<br>Ab4', type: 'black', octave: 4, position: 7.5, group: 'group2' },
-    { note: 'A4', name: 'A', display: 'A4', type: 'white', octave: 4, position: 8, group: 'group2' },
-    { note: 'A#4', name: 'A#', display: 'A#4<br>Bb4', type: 'black', octave: 4, position: 8.5, group: 'group2' },
-    { note: 'B4', name: 'B', display: 'B4', type: 'white', octave: 4, position: 9, group: 'group2' },
-    { note: 'C5', name: 'C', display: 'C5', type: 'white', octave: 5, position: 10, group: 'group3' },
-    { note: 'C#5', name: 'C#', display: 'C#5<br>Db5', type: 'black', octave: 5, position: 10.5, group: 'group3' },
-    { note: 'D5', name: 'D', display: 'D5', type: 'white', octave: 5, position: 11, group: 'group3' },
-    { note: 'D#5', name: 'D#', display: 'D#5<br>Eb5', type: 'black', octave: 5, position: 11.5, group: 'group3' },
-    { note: 'E5', name: 'E', display: 'E5', type: 'white', octave: 5, position: 12, group: 'group3' },
-    { note: 'F5', name: 'F', display: 'F5', type: 'white', octave: 5, position: 13, group: 'group3' }
+    { note: 'C3', name: 'C', display: 'C3', type: 'white', octave: 3, position: 0, group: 'group1' },
+    { note: 'C#3', name: 'C#', display: 'C#3<br>Db3', type: 'black', octave: 3, position: 0.5, group: 'group1' },
+    { note: 'D3', name: 'D', display: 'D3', type: 'white', octave: 3, position: 1, group: 'group1' },
+    { note: 'D#3', name: 'D#', display: 'D#3<br>Eb3', type: 'black', octave: 3, position: 1.5, group: 'group1' },
+    { note: 'E3', name: 'E', display: 'E3', type: 'white', octave: 3, position: 2, group: 'group1' },
+    { note: 'F3', name: 'F', display: 'F3', type: 'white', octave: 3, position: 3, group: 'group1' },
+    { note: 'F#3', name: 'F#', display: 'F#3<br>Gb3', type: 'black', octave: 3, position: 3.5, group: 'group1' },
+    { note: 'G3', name: 'G', display: 'G3', type: 'white', octave: 3, position: 4, group: 'group1' },
+    { note: 'G#3', name: 'G#', display: 'G#3<br>Ab3', type: 'black', octave: 3, position: 4.5, group: 'group1' },
+    { note: 'A3', name: 'A', display: 'A3', type: 'white', octave: 3, position: 5, group: 'group1' },
+    { note: 'A#3', name: 'A#', display: 'A#3<br>Bb3', type: 'black', octave: 3, position: 5.5, group: 'group1' },
+    { note: 'B3', name: 'B', display: 'B3', type: 'white', octave: 3, position: 6, group: 'group1' },
+    { note: 'C4', name: 'C', display: 'C4', type: 'white', octave: 4, position: 7, group: 'group2' },
+    { note: 'C#4', name: 'C#', display: 'C#4<br>Db4', type: 'black', octave: 4, position: 7.5, group: 'group2' },
+    { note: 'D4', name: 'D', display: 'D4', type: 'white', octave: 4, position: 8, group: 'group2' },
+    { note: 'D#4', name: 'D#', display: 'D#4<br>Eb4', type: 'black', octave: 4, position: 8.5, group: 'group2' },
+    { note: 'E4', name: 'E', display: 'E4', type: 'white', octave: 4, position: 9, group: 'group2' },
+    { note: 'F4', name: 'F', display: 'F4', type: 'white', octave: 4, position: 10, group: 'group2' },
+    { note: 'F#4', name: 'F#', display: 'F#4<br>Gb4', type: 'black', octave: 4, position: 10.5, group: 'group2' },
+    { note: 'G4', name: 'G', display: 'G4', type: 'white', octave: 4, position: 11, group: 'group2' },
+    { note: 'G#4', name: 'G#', display: 'G#4<br>Ab4', type: 'black', octave: 4, position: 11.5, group: 'group2' },
+    { note: 'A4', name: 'A', display: 'A4', type: 'white', octave: 4, position: 12, group: 'group2' },
+    { note: 'A#4', name: 'A#', display: 'A#4<br>Bb4', type: 'black', octave: 4, position: 12.5, group: 'group2' },
+    { note: 'B4', name: 'B', display: 'B4', type: 'white', octave: 4, position: 13, group: 'group2' },
+    { note: 'C5', name: 'C', display: 'C5', type: 'white', octave: 5, position: 14, group: 'group3' },
+    { note: 'C#5', name: 'C#', display: 'C#5<br>Db5', type: 'black', octave: 5, position: 14.5, group: 'group3' },
+    { note: 'D5', name: 'D', display: 'D5', type: 'white', octave: 5, position: 15, group: 'group3' },
+    { note: 'D#5', name: 'D#', display: 'D#5<br>Eb5', type: 'black', octave: 5, position: 15.5, group: 'group3' },
+    { note: 'E5', name: 'E', display: 'E5', type: 'white', octave: 5, position: 16, group: 'group3' },
+    { note: 'F5', name: 'F', display: 'F5', type: 'white', octave: 5, position: 17, group: 'group3' },
+    { note: 'F#5', name: 'F#', display: 'F#5<br>Gb5', type: 'black', octave: 5, position: 17.5, group: 'group3' },
+    { note: 'G5', name: 'G', display: 'G5', type: 'white', octave: 5, position: 18, group: 'group3' },
+    { note: 'G#5', name: 'G#', display: 'G#5<br>Ab5', type: 'black', octave: 5, position: 18.5, group: 'group3' },
+    { note: 'A5', name: 'A', display: 'A5', type: 'white', octave: 5, position: 19, group: 'group3' },
+    { note: 'A#5', name: 'A#', display: 'A#5<br>Bb5', type: 'black', octave: 5, position: 19.5, group: 'group3' },
+    { note: 'B5', name: 'B', display: 'B5', type: 'white', octave: 5, position: 20, group: 'group3' },
+    { note: 'C6', name: 'C', display: 'C6', type: 'white', octave: 6, position: 21, group: 'group4' }
 ];
 
 // 等音映射表 - 用于判断两个音名是否表示同一个音高
@@ -1206,7 +1220,7 @@ function initChordPiano() {
         octaveLabel.className = `octave-label ${note.group}`;
         if (note.group === 'group1') octaveLabel.textContent = '小字组';
         else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
-        else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
+        else if (note.group === 'group3') octaveLabel.textContent = '小字二组'; else if (note.group === 'group4') octaveLabel.textContent = '小字三组';
         key.appendChild(octaveLabel);
         // 桌面端事件（添加触摸锁检查，防止移动端双响）
         key.addEventListener('mousedown', (e) => {
@@ -6453,7 +6467,7 @@ function initMelodyPiano() {
         octaveLabel.className = `octave-label ${note.group}`;
         if (note.group === 'group1') octaveLabel.textContent = '小字组';
         else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
-        else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
+        else if (note.group === 'group3') octaveLabel.textContent = '小字二组'; else if (note.group === 'group4') octaveLabel.textContent = '小字三组';
         key.appendChild(octaveLabel);
         key.addEventListener('mousedown', (e) => {
             if (Date.now() - lastPianoTouchTime < PIANO_TOUCH_LOCK_MS) return;
@@ -11102,7 +11116,7 @@ function initSinglePiano() {
         octaveLabel.className = `octave-label ${note.group}`;
         if (note.group === 'group1') octaveLabel.textContent = '小字组';
         else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
-        else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
+        else if (note.group === 'group3') octaveLabel.textContent = '小字二组'; else if (note.group === 'group4') octaveLabel.textContent = '小字三组';
         key.appendChild(octaveLabel);
         // 桌面端事件（添加触摸锁检查，防止移动端双响）
         key.addEventListener('mousedown', (e) => {
@@ -11240,7 +11254,7 @@ function initIntervalPiano() {
         octaveLabel.className = `octave-label ${note.group}`;
         if (note.group === 'group1') octaveLabel.textContent = '小字组';
         else if (note.group === 'group2') octaveLabel.textContent = '小字一组';
-        else if (note.group === 'group3') octaveLabel.textContent = '小字二组';
+        else if (note.group === 'group3') octaveLabel.textContent = '小字二组'; else if (note.group === 'group4') octaveLabel.textContent = '小字三组';
         key.appendChild(octaveLabel);
         // 桌面端事件（添加触摸锁检查，防止移动端双响）
         key.addEventListener('mousedown', (e) => {
@@ -13721,10 +13735,9 @@ function getDifficultyOptions(difficultySource) {
 }
 
 const EXAM_NOTES = [];
-for (let oct = 3; oct <= 5; oct++) {
+for (let oct = 3; oct <= 6; oct++) {
     ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].forEach(n => {
-        if (oct === 3 && !['G', 'G#', 'A', 'A#', 'B'].includes(n)) return;
-        if (oct === 5 && !['C', 'C#', 'D', 'D#', 'E', 'F'].includes(n)) return;
+        if (oct === 6 && n !== 'C') return; // 最高到 C6
         EXAM_NOTES.push(n + oct);
     });
 }
