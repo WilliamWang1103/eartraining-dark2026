@@ -6722,9 +6722,12 @@ function renderMelodyStaffVexflow(container, notes, timeSig, key, showCursor) {
     if (cur.length) measures.push(cur);
     if (!measures.length) measures.push([]);
 
-    const measureCount = measures.length;
-    const staveGap = 12;
-    const widths = measures.map(m => Math.max(130, 70 + m.length * 45));
+    const staveGap = 0; // 小节间无间距，紧贴
+    // 每个小节基础宽度（按拍数，更贴合内容，避免末尾窄条空白）
+    const baseWidths = measures.map(m => {
+        const beats = m.reduce((s, n) => s + getNoteBeatsForDuration(n.duration, n.dots || (String(n.duration).includes('.') ? 1 : 0)), 0) || beatsPerMeasure;
+        return Math.max(80, 30 + beats * 50);
+    });
 
     // 多行换行：每行固定 4 小节，超过自动换行
     const measuresPerLine = 4;
@@ -6736,8 +6739,16 @@ function renderMelodyStaffVexflow(container, notes, timeSig, key, showCursor) {
     }
 
     const lineCount = lines.length;
-    const lineHeight = 150;
-    const lineWidths = lines.map(line => line.reduce((s, mi) => s + widths[mi], 0) + staveGap * Math.max(0, line.length - 1));
+    const lineHeight = 75; // 行间距（减半）
+    // 每行宽度（每行第一个小节加谱号空间）
+    const lineWidths = lines.map((line, lineIdx) => {
+        let w = 0;
+        line.forEach((mi, posInLine) => {
+            const extra = posInLine === 0 ? (lineIdx === 0 ? 80 : 40) : 0;
+            w += baseWidths[mi] + extra + (posInLine > 0 ? staveGap : 0);
+        });
+        return w;
+    });
     const width = Math.max(...lineWidths) + 20;
     const height = lineCount * lineHeight + 20;
 
@@ -6753,11 +6764,15 @@ function renderMelodyStaffVexflow(container, notes, timeSig, key, showCursor) {
         let x = 10;
         lineMeasures.forEach((mi, posInLine) => {
             const m = measures[mi];
-            const stave = new VF.Stave(x, lineY - 10, widths[mi]);
-            if (lineIdx === 0 && posInLine === 0) {
-                stave.addClef('treble');
-                if (vexKey !== 'C') stave.addKeySignature(vexKey);
-                stave.addTimeSignature(ts);
+            const isLineStart = posInLine === 0;
+            const extra = isLineStart ? (lineIdx === 0 ? 80 : 40) : 0;
+            const stave = new VF.Stave(x, lineY - 10, baseWidths[mi] + extra);
+            if (isLineStart) {
+                stave.addClef('treble'); // 每行左首都加谱号
+                if (lineIdx === 0) {
+                    if (vexKey !== 'C') stave.addKeySignature(vexKey);
+                    stave.addTimeSignature(ts);
+                }
                 stave.setBegBarType(VF.Barline.type.SINGLE);
             } else {
                 stave.setBegBarType(VF.Barline.type.NONE);
@@ -6780,7 +6795,7 @@ function renderMelodyStaffVexflow(container, notes, timeSig, key, showCursor) {
                     lastLineY = lineY;
                 }
             }
-            x += widths[mi] + staveGap;
+            x += baseWidths[mi] + extra + staveGap;
         });
     });
 
