@@ -4101,44 +4101,77 @@ body {
 
 .exam-config-row {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    font-size: 0.82rem;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .exam-config-row:last-child {
     border-bottom: none;
 }
 
+.exam-config-row .q-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .exam-config-row .q-name {
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 600;
     flex: 1;
+    min-width: 0;
+    font-size: 0.85rem;
+}
+
+.exam-config-row .q-total {
+    color: #FFB74D;
+    font-weight: 700;
+    font-size: 0.82rem;
+    flex: 0 0 auto;
+}
+
+.exam-config-row .q-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+}
+
+.exam-config-row .q-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
     min-width: 0;
 }
 
-.exam-config-row .q-difficulty-select,
-.exam-config-row .q-score-select {
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
-    padding: 3px 6px;
-    font-size: 0.72rem;
-    cursor: pointer;
-    max-width: 140px;
+.exam-config-row .q-field-wide {
+    grid-column: 1 / -1;
 }
 
-.exam-config-row .q-difficulty-select:focus,
-.exam-config-row .q-score-select:focus {
+.exam-config-row .q-field-label {
+    font-size: 0.68rem;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.exam-config-row select {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 6px;
+    padding: 7px 8px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    min-height: 34px;
+}
+
+.exam-config-row select:focus {
     border-color: #FFB74D;
     outline: none;
 }
 
 .exam-config-row .q-score-select {
-    max-width: 60px;
     color: #FFB74D;
     font-weight: 600;
 }
@@ -4147,12 +4180,12 @@ body {
     background: rgba(244, 67, 54, 0.15);
     color: #ff8a80;
     border: 1px solid rgba(244, 67, 54, 0.3);
-    border-radius: 4px;
-    width: 26px;
-    height: 26px;
+    border-radius: 6px;
+    width: 30px;
+    height: 30px;
     line-height: 1;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     flex: 0 0 auto;
     padding: 0;
 }
@@ -4219,6 +4252,22 @@ body {
 
 .exam-instructions li strong {
     color: #FFB74D;
+}
+
+.exam-instructions li.exam-flow-summary {
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.15);
+    color: #ffd966;
+    font-weight: 700;
+    font-size: 0.82rem;
+}
+
+.exam-instructions .exam-flow-note {
+    margin: 10px 0 0;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.5;
 }
 
 /* 考试进度面板 */

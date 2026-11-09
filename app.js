@@ -13736,12 +13736,12 @@ const EXAM_QUESTION_TYPES = [
 // 默认考卷（6题）
 function buildDefaultExamPaper() {
     return [
-        { id: 1, type: 'single', count: 10, score: 1, difficulty: 1 },
-        { id: 2, type: 'interval-pitch', count: 10, score: 2, difficulty: 1 },
-        { id: 3, type: 'chord-pitch', count: 10, score: 3, difficulty: 1 },
-        { id: 4, type: 'rhythm', count: 4, score: 2, difficulty: 1 },
-        { id: 5, type: 'chord-quality', count: 10, score: 3, difficulty: 1 },
-        { id: 6, type: 'melody', count: 8, score: 2, difficulty: 1 }
+        { id: 1, type: 'single', count: 10, score: 1, difficulty: 1, plays: 3 },
+        { id: 2, type: 'interval-pitch', count: 10, score: 2, difficulty: 1, plays: 3 },
+        { id: 3, type: 'chord-pitch', count: 10, score: 3, difficulty: 1, plays: 3 },
+        { id: 4, type: 'rhythm', count: 4, score: 2, difficulty: 1, plays: 3 },
+        { id: 5, type: 'chord-quality', count: 10, score: 3, difficulty: 1, plays: 3 },
+        { id: 6, type: 'melody', count: 8, score: 2, difficulty: 1, plays: 3 }
     ];
 }
 
@@ -13897,26 +13897,51 @@ function renderExamConfig() {
             scoreOptions += `<option value="${s}" ${q.score === s ? 'selected' : ''}>${s}分</option>`;
         }
         const itemTotal = getExamItemScore(q);
+        // 演奏遍数（默认3遍，上限4遍）
+        let playOptions = '';
+        for (let p = 1; p <= 4; p++) {
+            playOptions += `<option value="${p}" ${(q.plays || 3) === p ? 'selected' : ''}>${p}遍</option>`;
+        }
         html += `<div class="exam-config-row">
-            <span class="q-name">第${idx + 1}题</span>
-            <select class="q-type-select" onchange="setExamPaperField(${idx}, 'type', this.value)">${typeOptions}</select>
-            <select class="q-difficulty-select" onchange="setExamPaperField(${idx}, 'difficulty', parseInt(this.value))">${diffOptions}</select>
-            <span class="q-unit">${meta.unit}</span>
-            <select class="q-count-select" onchange="setExamPaperField(${idx}, 'count', parseInt(this.value))">${countOptions}</select>
-            <select class="q-score-select" onchange="setExamPaperField(${idx}, 'score', parseInt(this.value))">${scoreOptions}</select>
-            <span class="q-total">${itemTotal}分</span>
-            <button class="q-del-btn" onclick="removeExamPaperItem(${idx})" title="删除该题型">✕</button>
+            <div class="q-head">
+                <span class="q-name">第${idx + 1}题</span>
+                <span class="q-total">${itemTotal}分</span>
+                <button class="q-del-btn" onclick="removeExamPaperItem(${idx})" title="删除该题型">✕</button>
+            </div>
+            <div class="q-fields">
+                <label class="q-field q-field-wide">
+                    <span class="q-field-label">题型</span>
+                    <select class="q-type-select" onchange="setExamPaperField(${idx}, 'type', this.value)">${typeOptions}</select>
+                </label>
+                <label class="q-field">
+                    <span class="q-field-label">难度</span>
+                    <select class="q-difficulty-select" onchange="setExamPaperField(${idx}, 'difficulty', parseInt(this.value))">${diffOptions}</select>
+                </label>
+                <label class="q-field">
+                    <span class="q-field-label">数量（${meta.unit}）</span>
+                    <select class="q-count-select" onchange="setExamPaperField(${idx}, 'count', parseInt(this.value))">${countOptions}</select>
+                </label>
+                <label class="q-field">
+                    <span class="q-field-label">单项分（分/${meta.unit}）</span>
+                    <select class="q-score-select" onchange="setExamPaperField(${idx}, 'score', parseInt(this.value))">${scoreOptions}</select>
+                </label>
+                <label class="q-field">
+                    <span class="q-field-label">演奏遍数</span>
+                    <select class="q-plays-select" title="演奏遍数（上限4遍）" onchange="setExamPaperField(${idx}, 'plays', parseInt(this.value))">${playOptions}</select>
+                </label>
+            </div>
         </div>`;
     });
     html += `<div class="exam-add-row"><button class="exam-add-btn" onclick="addExamPaperItem()">＋ 添加题型</button></div>`;
     el.innerHTML = html;
     updateExamTotalScore();
+    renderExamInstructions();
 }
 
 // 添加题型
 function addExamPaperItem() {
     const maxId = examState.examPaper.reduce((m, q) => Math.max(m, q.id || 0), 0);
-    examState.examPaper.push({ id: maxId + 1, type: 'single', count: 10, score: 1, difficulty: 1 });
+    examState.examPaper.push({ id: maxId + 1, type: 'single', count: 10, score: 1, difficulty: 1, plays: 3 });
     renderExamConfig();
 }
 
@@ -13940,6 +13965,7 @@ function setExamPaperField(idx, field, val) {
             q.count = meta.defaultCount;
             q.score = meta.defaultScore;
             q.difficulty = meta.defaultDifficulty;
+            q.plays = 3; // 重置演奏遍数为默认3遍
         }
     }
     q[field] = val;
@@ -13951,6 +13977,23 @@ function updateExamTotalScore() {
     examState.examPaper.forEach(q => { total += getExamItemScore(q); });
     const el = document.getElementById('exam-total-score');
     if (el) el.textContent = total;
+}
+
+// 动态渲染"考试流程"（根据上面的题型/数量/分值/遍数设置灵活调整）
+function renderExamInstructions() {
+    const list = document.getElementById('exam-instructions-list');
+    if (!list) return;
+    let html = '';
+    examState.examPaper.forEach((q, idx) => {
+        const meta = getExamTypeMeta(q.type);
+        if (!meta) return;
+        const total = getExamItemScore(q);
+        const plays = q.plays || 3;
+        html += `<li><strong>第${idx + 1}题</strong>：${meta.name}，${q.count}${meta.unit}，共${total}分，演奏${plays}遍</li>`;
+    });
+    const totalScore = examState.examPaper.reduce((s, q) => s + getExamItemScore(q), 0);
+    html += `<li class="exam-flow-summary">共 ${examState.examPaper.length} 题，总分 ${totalScore} 分</li>`;
+    list.innerHTML = html;
 }
 
 // --- 题目生成 ---
@@ -14006,7 +14049,7 @@ function _genChordQuality(count, difficulty) {
 }
 
 function _genSingle(count, difficulty) {
-    const notePool = scaleDifficultyConfig[difficulty] ? scaleDifficultyConfig[difficulty].notes : EXAM_NOTES;
+    const notePool = scaleDifficultyConfig[difficulty] ? buildScaleNotesForLevel(difficulty) : EXAM_NOTES;
     const out = [];
     for (let i = 0; i < count; i++) out.push(notePool[Math.floor(Math.random() * notePool.length)]);
     return out;
@@ -14167,16 +14210,24 @@ function _updateStatus(text) { const el = document.getElementById('exam-status')
 function _updateProgress(qIdx, pIdx) {
     const totalQs = examState.questions.length;
     const qEl = document.getElementById('exam-current-q'); if (qEl) qEl.textContent = `${qIdx + 1}/${totalQs}`;
-    const pEl = document.getElementById('exam-current-play'); if (pEl) pEl.textContent = `${pIdx + 1}/4`;
+    const curQ = examState.questions[qIdx];
+    const plays = curQ ? (curQ.plays || 3) : 4;
+    const pEl = document.getElementById('exam-current-play'); if (pEl) pEl.textContent = `${pIdx + 1}/${plays}`;
     const nameEl = document.getElementById('exam-question-name');
-    if (nameEl && examState.questions[qIdx]) {
-        const meta = getExamTypeMeta(examState.questions[qIdx].type);
+    if (nameEl && curQ) {
+        const meta = getExamTypeMeta(curQ.type);
         nameEl.textContent = meta ? meta.name : `第${qIdx + 1}题`;
     }
     const fill = document.getElementById('exam-progress-fill');
     if (fill) {
-        const total = totalQs * 4; const done = qIdx * 4 + pIdx;
-        fill.style.width = (done / total * 100) + '%';
+        let total = 0, done = 0;
+        examState.questions.forEach((qq, i) => {
+            const pp = qq.plays || 3;
+            total += pp;
+            if (i < qIdx) done += pp;
+            else if (i === qIdx) done += pIdx;
+        });
+        fill.style.width = (total > 0 ? (done / total * 100) : 0) + '%';
     }
 }
 
@@ -14211,7 +14262,7 @@ function buildPlaySequence() {
             default:
                 playFn = () => Promise.resolve();
         }
-        return { name, play: playFn, type: q.type };
+        return { name, play: playFn, type: q.type, plays: q.plays || 3 };
     });
 }
 
@@ -14280,7 +14331,8 @@ async function playExamSequence() {
             renderExamNavBar();
             renderExamQuestion(examState.currentQuestion);
         }
-        for (let pi = 0; pi < 4; pi++) {
+        const plays = seq[qi].plays || 3;
+        for (let pi = 0; pi < plays; pi++) {
             if (examState.stopRequested) return;
             if (examState.jumpToNextQ) {
                 examState.jumpToNextQ = false;
@@ -14302,7 +14354,7 @@ async function playExamSequence() {
             }
 
             // Wait between plays (30s), skip last play's wait
-            if (pi < 3) {
+            if (pi < plays - 1) {
                 await _examCountdown(30, `第${pi + 2}遍播放`);
             }
         }
