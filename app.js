@@ -450,6 +450,50 @@ const scaleDifficultyConfig = {
     }
 };
 
+// 根据级别生成调式内的音符（扩展到 C3-C6 全范围，含等音映射）
+function buildScaleNotesForLevel(level) {
+    const config = scaleDifficultyConfig[level];
+    if (!config) return allNotes.map(n => n.note);
+    // 收集所有调式的音名（含等音映射）
+    const allowedNames = new Set();
+    Object.values(config.scales).forEach(scale => {
+        (scale || []).forEach(name => {
+            allowedNames.add(name);
+            const enh = enharmonicMap[name];
+            if (enh) allowedNames.add(enh);
+        });
+    });
+    // 从 allNotes 筛选调式内的音符（name 或 name 的等音在集合中）
+    return allNotes.filter(n => {
+        if (allowedNames.has(n.name)) return true;
+        const enh = enharmonicMap[n.name];
+        return enh ? allowedNames.has(enh) : false;
+    }).map(n => n.note);
+}
+
+// 应用调式限制到旋律听辨的钢琴琴键（根据 selectedKey 激活调式内琴键）
+function applyMelodyScaleRestrictions() {
+    let scaleNotes;
+    if (melodyAppState.selectedKey) {
+        scaleNotes = buildScaleNotesForLevel(parseInt(melodyAppState.selectedKey, 10));
+    } else {
+        scaleNotes = allNotes.map(n => n.note); // 未选调式时全部激活
+    }
+    const allowed = enrichAllowedNotes(scaleNotes);
+    const piano = document.getElementById('piano-melody');
+    if (!piano) return;
+    piano.querySelectorAll('.white-key, .black-key').forEach(key => {
+        const note = key.dataset.note;
+        if (!allowed.has(note)) {
+            key.classList.add('disabled');
+            key.dataset.disabled = 'true';
+        } else {
+            key.classList.remove('disabled');
+            delete key.dataset.disabled;
+        }
+    });
+}
+
 // 难度配置
 const difficultyConfig = {
     1: {
@@ -2888,7 +2932,7 @@ function updateChordScaleNotesByLevel(level) {
 
     chordAppState.scaleDifficulty = level;
     chordAppState.currentScale = config.name;
-    chordAppState.scaleNotes = config.notes || [];
+    chordAppState.scaleNotes = buildScaleNotesForLevel(level);
     updateChordStatus(`已选择：${config.name}，可用音符 ${chordAppState.scaleNotes.length} 个`);
 
     // 应用调式限制到钢琴琴键
@@ -3291,7 +3335,7 @@ function updateIntervalScaleNotesByLevel(level) {
     }
 
     intervalAppState.currentScale = config.name;
-    intervalAppState.scaleNotes = config.notes || [];
+    intervalAppState.scaleNotes = buildScaleNotesForLevel(level);
     updateIntervalStatus(`已选择：${config.name}，可用音符 ${intervalAppState.scaleNotes.length} 个`);
 
     // 应用调式限制到钢琴琴键
@@ -5666,7 +5710,7 @@ function updateSingleScaleNotesByLevel(level) {
     }
 
     singleAppState.currentScale = config.name;
-    singleAppState.scaleNotes = config.notes || [];
+    singleAppState.scaleNotes = buildScaleNotesForLevel(level);
     singleAppState.noteOccurrences = {}; // 切换调式后重置重复计数
     updateSingleStatus(`已选择：${config.name}，可用音符 ${singleAppState.scaleNotes.length} 个`);
 
@@ -5697,9 +5741,9 @@ function updateSingleScaleNotes(scaleName) {
     singleAppState.currentScale = scaleName;
 
     // 从配置中查找对应的音符
-    for (const level of Object.values(scaleDifficultyConfig)) {
+    for (const [levelNum, level] of Object.entries(scaleDifficultyConfig)) {
         if (level.scales[scaleName]) {
-            singleAppState.scaleNotes = level.notes || [];
+            singleAppState.scaleNotes = buildScaleNotesForLevel(parseInt(levelNum, 10));
             updateSingleStatus(`已选择：${scaleName}，可用音符 ${singleAppState.scaleNotes.length} 个`);
             return;
         }
@@ -6408,6 +6452,7 @@ function initMelodyPage() {
     if (keySelector) keySelector.addEventListener('change', (e) => {
         melodyAppState.selectedKey = e.target.value || null;
         renderMelodyInput(); // 选择调式后马上更新调号
+        applyMelodyScaleRestrictions(); // 按调式激活琴键
     });
     if (timesigSelector) timesigSelector.addEventListener('change', (e) => {
         melodyAppState.selectedTimeSignature = e.target.value || null;
@@ -6538,6 +6583,9 @@ function initMelodyPiano() {
         }, { passive: true });
         piano.appendChild(key);
     });
+
+    // 应用调式限制（激活调式内琴键）
+    applyMelodyScaleRestrictions();
 }
 
 // 旋律钢琴按键处理
