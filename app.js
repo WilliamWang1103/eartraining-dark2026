@@ -12460,14 +12460,14 @@ const TEST_XP_TIERS = [
 
 // 等级配置（经验值阈值，等级只升不降）
 const LEVEL_CONFIG = [
-    { level: 1, name: '启蒙', xpRequired: 0 },
-    { level: 2, name: '入门', xpRequired: 50 },
-    { level: 3, name: '初级', xpRequired: 150 },
-    { level: 4, name: '进阶', xpRequired: 350 },
-    { level: 5, name: '中级', xpRequired: 700 },
-    { level: 6, name: '高级', xpRequired: 1200 },
+    { level: 1, name: '闻乐', xpRequired: 0 },
+    { level: 2, name: '伶人', xpRequired: 50 },
+    { level: 3, name: '乐工', xpRequired: 150 },
+    { level: 4, name: '知音', xpRequired: 350 },
+    { level: 5, name: '乐正', xpRequired: 700 },
+    { level: 6, name: '乐师', xpRequired: 1200 },
     { level: 7, name: '大师', xpRequired: 2000 },
-    { level: 8, name: '宗师', xpRequired: 3200 }
+    { level: 8, name: '大司乐', xpRequired: 3200 }
 ];
 
 // 根据经验值计算等级信息
@@ -12552,7 +12552,7 @@ function updateLearningStatus() {
     if (xpTextEl) {
         xpTextEl.textContent = levelInfo.nextName
             ? `${levelInfo.currentXp}/${levelInfo.nextLevelXp} XP · 距${levelInfo.nextName}还需${levelInfo.nextLevelXp - levelInfo.currentXp} XP`
-            : '已满级 · 听音宗师';
+            : '已满级 · 大司乐';
     }
 
     // 连续学习天数（基于真实学习记录，非签到）
