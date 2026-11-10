@@ -3091,6 +3091,24 @@ body {
     white-space: nowrap;
 }
 
+/* 境界晋升提示 */
+.levelup-icon {
+    font-size: 3rem;
+    margin-bottom: 8px;
+}
+
+.levelup-title {
+    font-size: 1.3rem;
+    color: #ffd966;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.levelup-desc {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.75);
+}
+
 /* 弹窗通用样式 */
 .modal {
     display: none;

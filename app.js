@@ -11801,7 +11801,9 @@ const learningManager = {
         if (data.xp === undefined || data.xp === null) data.xp = 0;
         // 测试模式不在逐题时结算经验，统一在测试结束按得分分层奖励
         if (record.learningMode === 'test') return;
+        const beforeXp = data.xp;
         data.xp += record.correct ? XP_RULES.practiceCorrect : XP_RULES.wrong;
+        checkLevelUp(beforeXp, data.xp);
     },
 
     // 更新薄弱点分析
@@ -12489,12 +12491,39 @@ function getLevelInfo(xp) {
     return {
         level: current.level,
         name: current.name,
+        sublevel: getSublevelName(progress),
         xp,
         currentXp,
         nextLevelXp,
         progress,
         nextName: next ? next.name : null
     };
+}
+
+// 每级内部的小进级（按该级经验进度百分比划分，仿修仙小说境界）
+function getSublevelName(progress) {
+    if (progress >= 66) return '圆满';
+    if (progress >= 33) return '大成';
+    return '小成';
+}
+
+// 检测等级晋升（经验值跨过等级阈值时触发晋升提示）
+function checkLevelUp(beforeXp, afterXp) {
+    const before = getLevelInfo(beforeXp);
+    const after = getLevelInfo(afterXp);
+    if (after.level > before.level) {
+        showLevelUpModal(after);
+    }
+}
+
+// 显示晋升提示弹窗
+function showLevelUpModal(levelInfo) {
+    const title = document.getElementById('levelup-title');
+    const desc = document.getElementById('levelup-desc');
+    if (title) title.textContent = `晋升为「${levelInfo.name}」`;
+    if (desc) desc.textContent = `恭喜！你的境界提升至 Lv.${levelInfo.level} ${levelInfo.name} · ${levelInfo.sublevel}`;
+    const modal = document.getElementById('levelup-modal');
+    if (modal) modal.style.display = 'flex';
 }
 
 // 测试模式按得分率分层奖励经验（测试结束统一结算）
@@ -12506,9 +12535,11 @@ function awardTestXp(accuracyPercent) {
     }
     if (xp > 0) {
         const data = learningManager.init();
+        const beforeXp = data.xp || 0;
         data.xp = (data.xp || 0) + xp;
         learningManager.saveData(data);
         updateLearningStatus();
+        checkLevelUp(beforeXp, data.xp);
     }
     return xp;
 }
@@ -12546,7 +12577,7 @@ function updateLearningStatus() {
     const xpFillEl = document.getElementById('xp-progress-fill');
     const xpTextEl = document.getElementById('xp-progress-text');
 
-    if (levelEl) levelEl.textContent = `Lv.${levelInfo.level} ${levelInfo.name}`;
+    if (levelEl) levelEl.textContent = `Lv.${levelInfo.level} ${levelInfo.name} · ${levelInfo.sublevel}`;
     if (accuracyEl) accuracyEl.textContent = totalRecords > 0 ? accuracy + '%' : '--';
     if (xpFillEl) xpFillEl.style.width = levelInfo.progress + '%';
     if (xpTextEl) {
@@ -12571,8 +12602,13 @@ function showLearningPathModal() {
     let html = '';
 
     // ========== 1. 学习数据摘要 ==========
+    const levelInfo = getLevelInfo(data.xp || 0);
     html += '<div class="report-summary-cards">';
     html += `
+        <div class="summary-card highlight">
+            <div class="summary-value">${levelInfo.name} · ${levelInfo.sublevel}</div>
+            <div class="summary-label">当前称号 Lv.${levelInfo.level}</div>
+        </div>
         <div class="summary-card">
             <div class="summary-value">${report.summary.totalStudyDays}</div>
             <div class="summary-label">学习天数</div>
@@ -13543,9 +13579,11 @@ function doSignIn() {
 
     // 签到奖励经验值
     const ldata = learningManager.init();
+    const beforeXp = ldata.xp || 0;
     ldata.xp = (ldata.xp || 0) + XP_RULES.signin;
     learningManager.saveData(ldata);
     updateLearningStatus();
+    checkLevelUp(beforeXp, ldata.xp);
 
     // 奖励提示
     let rewardMsg = '签到成功！';

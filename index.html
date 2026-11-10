@@ -1837,6 +1837,24 @@
             </div>
         </div>
 
+        <!-- 境界晋升提示弹窗 -->
+        <div id="levelup-modal" class="modal" style="display: none;">
+            <div class="modal-content smart-modal" style="max-width: 420px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-crown"></i> 境界晋升</h3>
+                    <button class="modal-close" onclick="closeModal('levelup-modal')"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-body" style="text-align:center;">
+                    <div class="levelup-icon">🎉</div>
+                    <div class="levelup-title" id="levelup-title">晋升为「乐师」</div>
+                    <div class="levelup-desc" id="levelup-desc">恭喜！你的境界已提升</div>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn primary" onclick="closeModal('levelup-modal')">继续学习</button>
+                </div>
+            </div>
+        </div>
+
         <!-- 所有 JavaScript 逻辑已移至 app.js -->
         <script src="app.js?v=20260815a"></script>
     </div>
