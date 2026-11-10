@@ -12273,29 +12273,12 @@ function initLearningFeatures() {
         });
     }
 
-    // 绑定AI答疑按钮
-    const qaBtn = document.getElementById('music-qa-btn');
-    if (qaBtn) {
-        qaBtn.addEventListener('click', () => {
-            document.getElementById('qa-modal').style.display = 'flex';
-        });
-    }
-
-    // 绑定和弦库按钮
-    const chordlibBtn = document.getElementById('chord-library-btn');
-    if (chordlibBtn) {
-        chordlibBtn.addEventListener('click', () => {
-            showChordLibrary('chord');
-            document.getElementById('chordlib-modal').style.display = 'flex';
-        });
-    }
-
-    // 绑定每日目标按钮
-    const goalsBtn = document.getElementById('daily-goals-btn');
-    if (goalsBtn) {
-        goalsBtn.addEventListener('click', () => {
-            showDailyGoals();
-            document.getElementById('goals-modal').style.display = 'flex';
+    // 绑定乐理知识中心按钮（理论答疑·和弦库·音乐小知识）
+    const knowledgeHubBtn = document.getElementById('knowledge-hub-btn');
+    if (knowledgeHubBtn) {
+        knowledgeHubBtn.addEventListener('click', () => {
+            showKnowledgeHub();
+            document.getElementById('knowledge-hub-modal').style.display = 'flex';
         });
     }
 
@@ -12367,24 +12350,6 @@ function initLearningFeatures() {
         });
     }
 
-    // 绑定学习时长按钮
-    const timeStatsBtn = document.getElementById('time-stats-btn');
-    if (timeStatsBtn) {
-        timeStatsBtn.addEventListener('click', () => {
-            showTimeStats();
-            document.getElementById('time-stats-modal').style.display = 'flex';
-        });
-    }
-
-    // 绑定音乐小知识按钮
-    const knowledgeBtn = document.getElementById('daily-knowledge-btn');
-    if (knowledgeBtn) {
-        knowledgeBtn.addEventListener('click', () => {
-            showDailyKnowledge();
-            document.getElementById('knowledge-modal').style.display = 'flex';
-        });
-    }
-
     // 绑定学习计划按钮
     const planBtn = document.getElementById('study-plan-btn');
     if (planBtn) {
@@ -12403,6 +12368,36 @@ function closeModal(modalId) {
     if (modal) {
         modal.style.display = 'none';
     }
+}
+
+// 显示乐理知识中心（默认进入理论答疑 tab）
+function showKnowledgeHub() {
+    const firstTab = document.querySelector('#knowledge-hub-modal .tab-btn[data-hub="qa"]');
+    switchKnowledgeHubTab('qa', firstTab);
+}
+
+// 切换乐理知识中心 tab（理论答疑 / 和弦库 / 音乐小知识）
+function switchKnowledgeHubTab(tab, btn) {
+    if (!btn) return;
+    // 更新 tab 高亮
+    const tabs = btn.parentElement.querySelectorAll('.tab-btn');
+    tabs.forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+
+    // 切换 panel 显隐
+    const panels = { qa: 'hub-panel-qa', chordlib: 'hub-panel-chordlib', knowledge: 'hub-panel-knowledge' };
+    Object.entries(panels).forEach(([key, id]) => {
+        const panel = document.getElementById(id);
+        if (panel) panel.style.display = key === tab ? 'block' : 'none';
+    });
+
+    // 底部"换一个"按钮仅音乐小知识 tab 显示
+    const refreshBtn = document.getElementById('knowledge-refresh-btn');
+    if (refreshBtn) refreshBtn.style.display = tab === 'knowledge' ? 'inline-block' : 'none';
+
+    // 初始化各 tab 内容
+    if (tab === 'chordlib') showChordLibrary('chord');
+    if (tab === 'knowledge') getDailyKnowledge();
 }
 
 // 更新首页学习状态
@@ -12576,6 +12571,23 @@ function showLearningPathModal() {
     html += '<div class="report-section-block"><h4>🏆 学习成就</h4>';
     html += generateAchievementsHTML(report);
     html += '</div>';
+
+    // ========== 7. 学习时长统计（并入学习分析） ==========
+    const timeStats = calculateTimeStats(data);
+    html += '<div class="report-section-block"><h4>⏱️ 学习时长</h4>';
+    html += '<div class="report-summary-cards">';
+    html += `<div class="summary-card"><div class="summary-value">${formatTime(timeStats.totalTime)}</div><div class="summary-label">总时长</div></div>`;
+    html += `<div class="summary-card"><div class="summary-value">${timeStats.totalDays}</div><div class="summary-label">学习天数</div></div>`;
+    html += `<div class="summary-card highlight"><div class="summary-value">${formatTime(timeStats.avgDailyTime)}</div><div class="summary-label">日均时长</div></div>`;
+    html += '</div>';
+    html += '<div class="time-stats-section" style="margin-top:10px;"><h4>📈 各模块学习时长</h4><div class="time-type-bars">';
+    const typeNamesTime = { single: '单音', interval: '音程', chord: '和弦', rhythm: '节奏', melody: '旋律' };
+    const maxTypeTime = Math.max(...Object.values(timeStats.typeTime), 1);
+    Object.entries(timeStats.typeTime).forEach(([type, time]) => {
+        const pct = maxTypeTime > 0 ? (time / maxTypeTime) * 100 : 0;
+        html += `<div class="time-type-item"><span class="time-type-name">${typeNamesTime[type] || type}</span><div class="time-type-bar-container"><div class="time-type-bar" style="width: ${pct}%;"></div></div><span class="time-type-value">${formatTime(time)}</span></div>`;
+    });
+    html += '</div></div></div>';
 
     container.innerHTML = html;
     document.getElementById('report-modal').style.display = 'flex';
@@ -12996,6 +13008,85 @@ function switchChordlibTab(type, btn) {
 
 // ==================== 每日目标功能 ====================
 
+// 渲染今日目标区块（学习计划内嵌，可手动设定题数/正确率/练习类型）
+function renderDailyGoalBlock() {
+    const today = new Date().toDateString();
+    const data = learningManager.init();
+    const existingGoal = data.dailyGoals?.[today];
+
+    if (!existingGoal) {
+        return `
+            <div class="plan-section">
+                <div class="plan-section-title">🎯 今日学习目标</div>
+                <div class="goal-form-group">
+                    <label>每日练习题数</label>
+                    <div class="goal-options" id="goal-questions">
+                        <button class="goal-option" data-value="10">10题</button>
+                        <button class="goal-option active" data-value="20">20题</button>
+                        <button class="goal-option" data-value="30">30题</button>
+                        <button class="goal-option" data-value="50">50题</button>
+                    </div>
+                </div>
+                <div class="goal-form-group">
+                    <label>目标正确率</label>
+                    <div class="goal-options" id="goal-accuracy">
+                        <button class="goal-option" data-value="60">60%</button>
+                        <button class="goal-option" data-value="70">70%</button>
+                        <button class="goal-option active" data-value="80">80%</button>
+                        <button class="goal-option" data-value="90">90%</button>
+                    </div>
+                </div>
+                <div class="goal-form-group">
+                    <label>练习类型（可多选）</label>
+                    <div class="goal-options" id="goal-types">
+                        <button class="goal-option active" data-type="chord">和弦</button>
+                        <button class="goal-option" data-type="interval">音程</button>
+                        <button class="goal-option" data-type="single">单音</button>
+                        <button class="goal-option" data-type="rhythm">节奏</button>
+                        <button class="goal-option" data-type="melody">旋律</button>
+                    </div>
+                </div>
+                <button class="modal-btn primary" style="width:100%; margin-top:12px;" onclick="saveDailyGoal()">保存今日目标</button>
+            </div>
+        `;
+    }
+
+    const totalRecords = Object.values(data.learningRecords).flat().filter(r =>
+        new Date(r.timestamp).toDateString() === today
+    );
+    const correctCount = totalRecords.filter(r => r.correct).length;
+    const progress = totalRecords.length;
+    const accuracy = progress > 0 ? Math.round((correctCount / progress) * 100) : 0;
+    const questionsGoal = existingGoal.questions || 20;
+    const accuracyGoal = existingGoal.accuracy || 80;
+    const typeNames = { chord: '和弦', interval: '音程', single: '单音', rhythm: '节奏', melody: '旋律' };
+    const typesText = (existingGoal.types || []).map(t => typeNames[t] || t).join('、');
+    const questionsPercent = Math.min(100, Math.round((progress / questionsGoal) * 100));
+    const accuracyMet = accuracy >= accuracyGoal;
+    const achieved = progress >= questionsGoal && accuracyMet;
+
+    return `
+        <div class="plan-section">
+            <div class="plan-section-title">🎯 今日学习目标</div>
+            <div class="goal-info-row">
+                <span>练习类型：${typesText}</span>
+                <span>📅 ${new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}</span>
+            </div>
+            <div class="progress-section">
+                <div class="progress-label"><span>完成题数</span><span class="progress-current">${progress}/${questionsGoal}</span></div>
+                <div class="progress-bar-container"><div class="progress-bar" style="width: ${questionsPercent}%;"></div></div>
+            </div>
+            <div class="progress-section">
+                <div class="progress-label"><span>当前正确率</span><span class="${accuracyMet ? 'progress-success' : 'progress-warning'}">${accuracy}% / ${accuracyGoal}%</span></div>
+            </div>
+            <div class="goal-status ${achieved ? 'achieved' : ''}">
+                ${achieved ? '🎉 恭喜达成今日目标！' : progress >= questionsGoal ? '✅ 题数已完成，继续提升正确率！' : '💪 继续加油，距离目标还差 ' + (questionsGoal - progress) + ' 题'}
+            </div>
+            ${achieved ? '<button class="modal-btn primary" style="width:100%; margin-top:12px;" onclick="resetDailyGoal()">重新设定目标</button>' : ''}
+        </div>
+    `;
+}
+
 // 显示每日目标
 function showDailyGoals() {
     const container = document.getElementById('goals-modal-content');
@@ -13163,7 +13254,7 @@ function saveDailyGoal() {
 
     learningManager.saveData(data);
     alert('🎯 目标设定成功！开始练习吧！');
-    showDailyGoals(); // 刷新显示进度
+    showStudyPlan(); // 刷新学习计划中的目标进度
 }
 
 // 重置每日目标
@@ -13175,7 +13266,7 @@ function resetDailyGoal() {
             delete data.dailyGoals[today];
             learningManager.saveData(data);
         }
-        showDailyGoals();
+        showStudyPlan();
     }
 }
 
@@ -13577,6 +13668,8 @@ function showStudyPlan() {
     const plan = generateStudyPlan(data);
 
     container.innerHTML = `
+        ${renderDailyGoalBlock()}
+
         <div class="plan-header">
             <h4>📋 个性化学习计划</h4>
             <p>基于您的学习数据，AI为您制定以下学习计划</p>
@@ -13629,6 +13722,7 @@ function showStudyPlan() {
             </div>
         </div>
     `;
+    setupGoalOptions();
 }
 
 // 生成学习计划
