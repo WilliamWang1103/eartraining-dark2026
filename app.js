@@ -11635,7 +11635,8 @@ const learningManager = {
                 totalSessions: 0,   // 总学习次数
                 lastStudyDate: null // 最后学习日期
             },
-            adaptiveLevel: adaptiveLevel
+            adaptiveLevel: adaptiveLevel,
+            xp: 0                   // 累计经验值（学习等级，只升不降）
         };
     },
 
@@ -11690,6 +11691,11 @@ const learningManager = {
                 totalSessions: 0,
                 lastStudyDate: null
             };
+        }
+
+        // 确保经验值字段存在
+        if (data.xp === undefined || data.xp === null) {
+            data.xp = 0;
         }
 
         return data;
@@ -11761,7 +11767,18 @@ const learningManager = {
         // 更新自适应难度（仅基于测试模式数据进行难度调整）
         this.updateAdaptiveLevel(data, type, record);
 
+        // 增加经验值（学习等级，只升不降）
+        this.addXp(data, record);
+
         this.saveData(data);
+    },
+
+    // 增加经验值
+    addXp(data, record) {
+        if (data.xp === undefined || data.xp === null) data.xp = 0;
+        data.xp += record.correct
+            ? (record.learningMode === 'test' ? XP_RULES.testCorrect : XP_RULES.practiceCorrect)
+            : XP_RULES.wrong;
     },
 
     // 更新薄弱点分析
@@ -12400,6 +12417,56 @@ function switchKnowledgeHubTab(tab, btn) {
     if (tab === 'knowledge') getDailyKnowledge();
 }
 
+// ==================== 学习等级（经验值成长制） ====================
+
+// 经验值获取规则
+const XP_RULES = {
+    practiceCorrect: 2,   // 练习模式答对
+    testCorrect: 5,       // 测试模式答对
+    wrong: 1,             // 答错（参与奖励）
+    signin: 5,            // 每日签到
+    dailyGoal: 20         // 达成每日目标
+};
+
+// 等级配置（经验值阈值，等级只升不降）
+const LEVEL_CONFIG = [
+    { level: 1, name: '启蒙', xpRequired: 0 },
+    { level: 2, name: '入门', xpRequired: 50 },
+    { level: 3, name: '初级', xpRequired: 150 },
+    { level: 4, name: '进阶', xpRequired: 350 },
+    { level: 5, name: '中级', xpRequired: 700 },
+    { level: 6, name: '高级', xpRequired: 1200 },
+    { level: 7, name: '大师', xpRequired: 2000 },
+    { level: 8, name: '宗师', xpRequired: 3200 }
+];
+
+// 根据经验值计算等级信息
+function getLevelInfo(xp) {
+    xp = xp || 0;
+    let current = LEVEL_CONFIG[0];
+    let next = null;
+    for (let i = 0; i < LEVEL_CONFIG.length; i++) {
+        if (xp >= LEVEL_CONFIG[i].xpRequired) {
+            current = LEVEL_CONFIG[i];
+            next = LEVEL_CONFIG[i + 1] || null;
+        } else {
+            break;
+        }
+    }
+    const currentXp = xp - current.xpRequired;
+    const nextLevelXp = next ? next.xpRequired - current.xpRequired : 0;
+    const progress = next ? Math.min(100, Math.round((currentXp / nextLevelXp) * 100)) : 100;
+    return {
+        level: current.level,
+        name: current.name,
+        xp,
+        currentXp,
+        nextLevelXp,
+        progress,
+        nextName: next ? next.name : null
+    };
+}
+
 // 更新首页学习状态
 function updateLearningStatus() {
     const data = learningManager.init();
@@ -12407,13 +12474,27 @@ function updateLearningStatus() {
     const correctRecords = Object.values(data.learningRecords).flat().filter(r => r.correct);
     const accuracy = totalRecords > 0 ? Math.round((correctRecords.length / totalRecords) * 100) : 0;
 
-    const level = accuracy >= 80 ? '高级' : accuracy >= 60 ? '中级' : '初级';
+    // 学习等级：经验值成长制（只升不降）
+    const levelInfo = getLevelInfo(data.xp || 0);
 
     const levelEl = document.getElementById('user-level');
     const accuracyEl = document.getElementById('user-accuracy');
+    const xpFillEl = document.getElementById('xp-progress-fill');
+    const xpTextEl = document.getElementById('xp-progress-text');
 
-    if (levelEl) levelEl.textContent = level;
+    if (levelEl) levelEl.textContent = `Lv.${levelInfo.level} ${levelInfo.name}`;
     if (accuracyEl) accuracyEl.textContent = totalRecords > 0 ? accuracy + '%' : '--';
+    if (xpFillEl) xpFillEl.style.width = levelInfo.progress + '%';
+    if (xpTextEl) {
+        xpTextEl.textContent = levelInfo.nextName
+            ? `${levelInfo.currentXp}/${levelInfo.nextLevelXp} XP · 距${levelInfo.nextName}还需${levelInfo.nextLevelXp - levelInfo.currentXp} XP`
+            : '已满级 · 听音宗师';
+    }
+
+    // 连续学习天数（来自签到数据）
+    const signinData = getSigninData();
+    const streakEl = document.getElementById('user-streak');
+    if (streakEl) streakEl.textContent = (signinData.streak || 0) + '天';
 }
 
 // 显示学习路径推荐弹窗（含完整学习报告）
@@ -13396,6 +13477,12 @@ function doSignIn() {
     }
 
     saveSigninData(data);
+
+    // 签到奖励经验值
+    const ldata = learningManager.init();
+    ldata.xp = (ldata.xp || 0) + XP_RULES.signin;
+    learningManager.saveData(ldata);
+    updateLearningStatus();
 
     // 奖励提示
     let rewardMsg = '签到成功！';

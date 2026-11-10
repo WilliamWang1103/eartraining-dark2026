@@ -3061,6 +3061,36 @@ body {
     margin: 0 4px;
 }
 
+/* 经验值进度条（学习等级） */
+.xp-progress-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.xp-progress-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.xp-progress-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #ffd966, #ffb347);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.xp-progress-text {
+    font-size: 0.72rem;
+    color: rgba(200, 220, 230, 0.7);
+    white-space: nowrap;
+}
+
 /* 弹窗通用样式 */
 .modal {
     display: none;
