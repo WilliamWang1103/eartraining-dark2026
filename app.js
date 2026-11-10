@@ -2053,6 +2053,9 @@ function endChordTestMode() {
     // 更新风云榜单
     updateChordLeaderboard();
 
+    // 测试模式按得分率分层奖励经验
+    awardTestXp(chordAppState.totalQuestions > 0 ? Math.round(chordAppState.correct / chordAppState.totalQuestions * 100) : 0);
+
     // 隐藏钢琴、按钮和练习说明，显示测试结果
     const pianoContainer = document.getElementById('piano-container-chord');
     const playControls = document.getElementById('play-controls-chord');
@@ -4283,6 +4286,9 @@ function endSingleTestMode() {
     // 更新风云榜单
     updateLeaderboard();
 
+    // 测试模式按得分率分层奖励经验
+    awardTestXp(singleAppState.totalQuestions > 0 ? Math.round(singleAppState.correct / singleAppState.totalQuestions * 100) : 0);
+
     // 隐藏钢琴和按钮，显示测试结果
     const pianoContainer = document.getElementById('piano-container-single');
     const playControls = document.getElementById('play-controls-single');
@@ -4591,6 +4597,9 @@ function endIntervalTestMode() {
 
     // 更新风云榜单
     updateIntervalLeaderboard();
+
+    // 测试模式按得分率分层奖励经验
+    awardTestXp(intervalAppState.totalQuestions > 0 ? Math.round(intervalAppState.correct / intervalAppState.totalQuestions * 100) : 0);
 
     // 隐藏钢琴和按钮，显示测试结果
     const pianoContainer = document.getElementById('piano-container-interval');
@@ -8387,6 +8396,9 @@ function endMelodyTestMode() {
     updateMelodyStatus('测试已结束');
     updateMelodyLeaderboard();
 
+    // 测试模式按得分率分层奖励经验
+    awardTestXp(melodyAppState.totalQuestions > 0 ? Math.round(melodyAppState.correct / melodyAppState.totalQuestions * 100) : 0);
+
     // 隐藏练习内容，显示结束页（内嵌式，与其他模块一致）
     const practiceContent = document.getElementById('practice-test-content-melody');
     const testEndContent = document.getElementById('melody-test-end-content');
@@ -9727,6 +9739,9 @@ function endRhythmTestMode() {
 
     // 更新风云榜单
     updateRhythmLeaderboard();
+
+    // 测试模式按得分率分层奖励经验
+    awardTestXp(rhythmAppState.totalQuestions > 0 ? Math.round(rhythmAppState.correct / rhythmAppState.totalQuestions * 100) : 0);
 
     // 隐藏钢琴、按钮和练习说明，显示测试结果
     const playControls = document.getElementById('play-controls-rhythm');
@@ -11730,11 +11745,18 @@ const learningManager = {
         // 确定学习模式：practice（练习）或 test（测试）
         const learningMode = record.learningMode || 'practice';
 
+        // 真实计时：计算距离上次答题的间隔作为本题耗时
+        const now = Date.now();
+        const elapsedSec = this._sessionStart ? Math.floor((now - this._sessionStart) / 1000) : 0;
+        this._sessionStart = now;
+        const duration = Math.min(Math.max(elapsedSec, 1), 600);  // 1秒~10分钟之间，避免异常值
+
         const newRecord = {
-            timestamp: Date.now(),
+            timestamp: now,
             date: new Date().toLocaleDateString('zh-CN'),
             learningMode: learningMode,  // 区分练习/测试模式
             source: type,  // 数据来源类型
+            duration: duration,  // 本题真实耗时（秒）
             ...record
         };
 
@@ -11760,9 +11782,10 @@ const learningManager = {
             this.removeFromErrorBook(data, type, record);
         }
 
-        // 更新统计
+        // 更新统计（累计真实学习时长）
         data.stats.lastStudyDate = newRecord.date;
         data.stats.totalSessions++;
+        data.stats.totalStudyTime = (data.stats.totalStudyTime || 0) + duration;
 
         // 更新自适应难度（仅基于测试模式数据进行难度调整）
         this.updateAdaptiveLevel(data, type, record);
@@ -11776,9 +11799,9 @@ const learningManager = {
     // 增加经验值
     addXp(data, record) {
         if (data.xp === undefined || data.xp === null) data.xp = 0;
-        data.xp += record.correct
-            ? (record.learningMode === 'test' ? XP_RULES.testCorrect : XP_RULES.practiceCorrect)
-            : XP_RULES.wrong;
+        // 测试模式不在逐题时结算经验，统一在测试结束按得分分层奖励
+        if (record.learningMode === 'test') return;
+        data.xp += record.correct ? XP_RULES.practiceCorrect : XP_RULES.wrong;
     },
 
     // 更新薄弱点分析
@@ -12422,11 +12445,18 @@ function switchKnowledgeHubTab(tab, btn) {
 // 经验值获取规则
 const XP_RULES = {
     practiceCorrect: 2,   // 练习模式答对
-    testCorrect: 5,       // 测试模式答对
-    wrong: 1,             // 答错（参与奖励）
+    wrong: 1,             // 练习模式答错（参与奖励）
     signin: 5,            // 每日签到
     dailyGoal: 20         // 达成每日目标
 };
+
+// 测试模式得分分层经验奖励（按得分率，测试结束统一结算）
+const TEST_XP_TIERS = [
+    { min: 90, xp: 10 },   // 优秀：90%+
+    { min: 75, xp: 5 },    // 良好：75-89%
+    { min: 60, xp: 2 },    // 及格：60-74%
+    { min: 0, xp: 0 }      // 未达标：60%以下
+];
 
 // 等级配置（经验值阈值，等级只升不降）
 const LEVEL_CONFIG = [
@@ -12467,6 +12497,40 @@ function getLevelInfo(xp) {
     };
 }
 
+// 测试模式按得分率分层奖励经验（测试结束统一结算）
+function awardTestXp(accuracyPercent) {
+    if (typeof accuracyPercent !== 'number' || isNaN(accuracyPercent)) return 0;
+    let xp = 0;
+    for (const tier of TEST_XP_TIERS) {
+        if (accuracyPercent >= tier.min) { xp = tier.xp; break; }
+    }
+    if (xp > 0) {
+        const data = learningManager.init();
+        data.xp = (data.xp || 0) + xp;
+        learningManager.saveData(data);
+        updateLearningStatus();
+    }
+    return xp;
+}
+
+// 计算连续学习天数（基于真实学习记录的去重日期，非签到）
+function calculateStudyStreak(data) {
+    const dates = new Set();
+    Object.values(data.learningRecords || {}).forEach(records => {
+        (records || []).forEach(r => { if (r.date) dates.add(r.date); });
+    });
+    let streak = 0;
+    const cursor = new Date();
+    const todayStr = cursor.toLocaleDateString('zh-CN');
+    // 今天没学习则从昨天开始算连续
+    if (!dates.has(todayStr)) cursor.setDate(cursor.getDate() - 1);
+    while (dates.has(cursor.toLocaleDateString('zh-CN'))) {
+        streak++;
+        cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+}
+
 // 更新首页学习状态
 function updateLearningStatus() {
     const data = learningManager.init();
@@ -12491,10 +12555,9 @@ function updateLearningStatus() {
             : '已满级 · 听音宗师';
     }
 
-    // 连续学习天数（来自签到数据）
-    const signinData = getSigninData();
+    // 连续学习天数（基于真实学习记录，非签到）
     const streakEl = document.getElementById('user-streak');
-    if (streakEl) streakEl.textContent = (signinData.streak || 0) + '天';
+    if (streakEl) streakEl.textContent = calculateStudyStreak(data) + '天';
 }
 
 // 显示学习路径推荐弹窗（含完整学习报告）
@@ -12714,7 +12777,7 @@ function startRecommendedPractice() {
     let weakestType = 'chord';
     let lowestAccuracy = 100;
 
-    for (const type of ['chord', 'interval', 'single']) {
+    for (const type of ['chord', 'interval', 'single', 'rhythm', 'melody']) {
         const records = data.learningRecords[type] || [];
         if (records.length > 0) {
             const correct = records.filter(r => r.correct).length;
@@ -12727,7 +12790,7 @@ function startRecommendedPractice() {
     }
 
     // 跳转到对应的练习页面
-    const pageMap = { chord: 'chord-page', interval: 'interval-page', single: 'single-page' };
+    const pageMap = { chord: 'chord-page', interval: 'interval-page', single: 'single-page', rhythm: 'rhythm-page', melody: 'melody-page' };
     if (pageMap[weakestType]) {
         pageManager.switchToPage(pageMap[weakestType]);
     }
@@ -12790,7 +12853,7 @@ function practiceSingleError(key) {
 // 开始专项练习
 function startErrorbookPractice() {
     closeModal('errorbook-modal');
-    const pageMap = { chord: 'chord-page', interval: 'interval-page', single: 'single-page' };
+    const pageMap = { chord: 'chord-page', interval: 'interval-page', single: 'single-page', rhythm: 'rhythm-page', melody: 'melody-page' };
     if (pageMap[currentErrorbookType]) {
         pageManager.switchToPage(pageMap[currentErrorbookType]);
     }
@@ -13573,14 +13636,12 @@ function calculateTimeStats(data) {
         dailyTime: []
     };
 
-    // 计算各类型题目数量作为时长估算
-    const typeQuestionCounts = {};
+    // 使用每条记录的真实耗时（duration），旧记录无 duration 时回退到 30 秒估算
     for (const type of ['single', 'interval', 'chord', 'rhythm', 'melody']) {
         const records = data.learningRecords[type] || [];
-        typeQuestionCounts[type] = records.length;
-        // 每题平均约30秒
-        result.typeTime[type] = records.length * 30;
-        result.totalTime += records.length * 30;
+        const typeTime = records.reduce((s, r) => s + (r.duration || 30), 0);
+        result.typeTime[type] = typeTime;
+        result.totalTime += typeTime;
     }
 
     // 计算天数
@@ -13605,7 +13666,7 @@ function calculateTimeStats(data) {
         for (const type of allTypes) {
             const records = data.learningRecords[type] || [];
             const dayRecords = records.filter(r => r.date === dateStr);
-            dayTime += dayRecords.length * 30;
+            dayTime += dayRecords.reduce((s, r) => s + (r.duration || 30), 0);
         }
 
         maxDailyTime = Math.max(maxDailyTime, dayTime);
@@ -13814,11 +13875,11 @@ function showStudyPlan() {
 
 // 生成学习计划
 function generateStudyPlan(data) {
-    const typeNames = { single: '单音', interval: '音程', chord: '和弦' };
+    const typeNames = { single: '单音', interval: '音程', chord: '和弦', rhythm: '节奏', melody: '旋律' };
 
     // 分析学习数据
     const stats = {};
-    for (const type of ['single', 'interval', 'chord']) {
+    for (const type of ['single', 'interval', 'chord', 'rhythm', 'melody']) {
         const records = data.learningRecords[type] || [];
         const correct = records.filter(r => r.correct).length;
         stats[type] = {
@@ -13859,7 +13920,7 @@ function generateStudyPlan(data) {
 
     // 重点提升方向
     const focusAreas = [];
-    for (const type of ['single', 'interval', 'chord']) {
+    for (const type of ['single', 'interval', 'chord', 'rhythm', 'melody']) {
         if (stats[type].total > 0) {
             const level = stats[type].accuracy >= 85 ? '已掌握' :
                 stats[type].accuracy >= 60 ? '需加强' : '重点提升';
@@ -16100,6 +16161,10 @@ function submitExamAnswers() {
     document.getElementById('exam-result-section').style.display = 'block';
     showExamResults(breakdown, totalScore);
     updateExamLeaderboard();
+
+    // 综合考试按得分率分层奖励经验
+    const examTotalPossible = breakdown.reduce((s, b) => s + b.total, 0);
+    awardTestXp(examTotalPossible > 0 ? Math.round(totalScore / examTotalPossible * 100) : 0);
 }
 
 function _gradeRhythm(userAns, correct, scoreTimeSig, scorePerBar) {
