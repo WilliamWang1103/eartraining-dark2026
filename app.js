@@ -14070,6 +14070,20 @@ for (let oct = 3; oct <= 6; oct++) {
     });
 }
 
+// 人声音域 G3-G5（单音/音程/和弦出题音域，避免过低或过高的音）
+const HUMAN_VOICE_NOTES = [];
+(function () {
+    const g3 = getFrequency('G3');
+    const g5 = getFrequency('G5');
+    for (let oct = 3; oct <= 6; oct++) {
+        ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].forEach(n => {
+            const note = n + oct;
+            const f = getFrequency(note);
+            if (f >= g3 - 0.01 && f <= g5 + 0.01) HUMAN_VOICE_NOTES.push(note);
+        });
+    }
+})();
+
 const EXAM_CHORD_TYPES = [
     { name: '大三', intervals: [0, 4, 7] }, { name: '小三', intervals: [0, 3, 7] },
     { name: '增三', intervals: [0, 4, 8] }, { name: '减三', intervals: [0, 3, 6] },
@@ -14090,6 +14104,23 @@ const EXAM_KEYS = [
     { value: 'e', name: 'e小调', scale: ['E', 'F#', 'G', 'A', 'B', 'C', 'D'] },
     { value: 'd', name: 'd小调', scale: ['D', 'E', 'F', 'G', 'A', 'Bb', 'C'] }
 ];
+
+// 民族五声调式（宫商角徵羽）
+const PENTATONIC_KEYS = [
+    { value: 'C', name: 'C宫调式', tonic: 'C', scale: ['C', 'D', 'E', 'G', 'A'], semitones: [0, 2, 4, 7, 9], pianyin: ['F', 'B'] },
+    { value: 'G', name: 'G宫调式', tonic: 'G', scale: ['G', 'A', 'B', 'D', 'E'], semitones: [0, 2, 4, 7, 9], pianyin: ['C', 'F#'] },
+    { value: 'F', name: 'F宫调式', tonic: 'F', scale: ['F', 'G', 'A', 'C', 'D'], semitones: [0, 2, 4, 7, 9], pianyin: ['Bb', 'E'] },
+    { value: 'D', name: 'D商调式', tonic: 'D', scale: ['D', 'E', 'G', 'A', 'C'], semitones: [0, 2, 5, 7, 10], pianyin: ['F', 'B'] },
+    { value: 'E', name: 'E角调式', tonic: 'E', scale: ['E', 'G', 'A', 'C', 'D'], semitones: [0, 3, 5, 8, 10], pianyin: ['F', 'B'] },
+    { value: 'A', name: 'A羽调式', tonic: 'A', scale: ['A', 'C', 'D', 'E', 'G'], semitones: [0, 3, 5, 7, 10], pianyin: ['F', 'B'] }
+];
+
+// 调式音阶的半音间隔（相对主音）
+const SCALE_SEMITONES = {
+    major: [0, 2, 4, 5, 7, 9, 11],
+    minor: [0, 2, 3, 5, 7, 8, 10],
+    pentatonic: [0, 2, 4, 7, 9]
+};
 
 const examState = {
     phase: 'setup', questions: [], currentQIndex: 0, currentPlayIndex: 0,
@@ -14327,22 +14358,28 @@ function _genChordQuality(count, difficulty) {
 }
 
 function _genSingle(count, difficulty) {
-    const notePool = scaleDifficultyConfig[difficulty] ? buildScaleNotesForLevel(difficulty) : EXAM_NOTES;
+    const rawPool = scaleDifficultyConfig[difficulty] ? buildScaleNotesForLevel(difficulty) : EXAM_NOTES;
+    // 限制到人声音域 G3-G5
+    const notePool = rawPool.filter(n => HUMAN_VOICE_NOTES.includes(n));
+    const finalPool = notePool.length ? notePool : HUMAN_VOICE_NOTES;
     const out = [];
-    for (let i = 0; i < count; i++) out.push(notePool[Math.floor(Math.random() * notePool.length)]);
+    for (let i = 0; i < count; i++) out.push(finalPool[Math.floor(Math.random() * finalPool.length)]);
     return out;
 }
 
 function _genInterval(count, difficulty) {
-    const notePool = scaleDifficultyConfig[difficulty] ? scaleDifficultyConfig[difficulty].notes : EXAM_NOTES;
+    const rawPool = scaleDifficultyConfig[difficulty] ? scaleDifficultyConfig[difficulty].notes : EXAM_NOTES;
+    // 限制到人声音域 G3-G5
+    const notePool = rawPool.filter(n => HUMAN_VOICE_NOTES.includes(n));
+    const finalPool = notePool.length ? notePool : HUMAN_VOICE_NOTES;
     const out = [];
     const semis = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
     for (let i = 0; i < count; i++) {
-        const n1 = notePool[Math.floor(Math.random() * Math.max(1, notePool.length - 7))];
+        const n1 = finalPool[Math.floor(Math.random() * Math.max(1, finalPool.length - 7))];
         const st = semis[Math.floor(Math.random() * semis.length)];
         const f1 = getFrequency(n1), f2 = f1 * Math.pow(2, st / 12);
         let best = null, md = Infinity;
-        for (const n of notePool) { const d = Math.abs(getFrequency(n) - f2); if (d < md) { md = d; best = n; } }
+        for (const n of finalPool) { const d = Math.abs(getFrequency(n) - f2); if (d < md) { md = d; best = n; } }
         out.push({ note1: n1, note2: best });
     }
     return out;
@@ -14351,7 +14388,8 @@ function _genInterval(count, difficulty) {
 function _genChord(count, difficulty) {
     const out = [];
     const chordPool = difficultyConfig[difficulty] ? difficultyConfig[difficulty].chords : EXAM_CHORD_TYPES.slice(0, 7);
-    const roots = EXAM_NOTES.filter(n => { const o = parseInt(n.slice(-1)); return o === 4; });
+    // 根音限制在人声音域 G3-G5 内的第4八度（C4-B4）
+    const roots = HUMAN_VOICE_NOTES.filter(n => parseInt(n.slice(-1)) === 4);
     for (let i = 0; i < count; i++) {
         const type = chordPool[Math.floor(Math.random() * chordPool.length)];
         const root = roots[Math.floor(Math.random() * roots.length)];
@@ -14359,7 +14397,7 @@ function _genChord(count, difficulty) {
         const notes = type.intervals.map(iv => {
             const f = rf * Math.pow(2, iv / 12);
             let best = null, md = Infinity;
-            for (const n of EXAM_NOTES) { const d = Math.abs(getFrequency(n) - f); if (d < md) { md = d; best = n; } }
+            for (const n of HUMAN_VOICE_NOTES) { const d = Math.abs(getFrequency(n) - f); if (d < md) { md = d; best = n; } }
             return best;
         });
         out.push({ root, typeName: type.name, notes });
@@ -14394,19 +14432,134 @@ function _genRhythm(timeSig, bars, difficulty) {
     return { timeSignature: finalTimeSig, bars, measures };
 }
 
-function _genMelody(bars, difficulty) {
-    // Use scale difficulty to determine key
-    const scaleConfig = scaleDifficultyConfig[difficulty] || scaleDifficultyConfig[1];
-    const scaleKeys = Object.keys(scaleConfig.scales);
-    const selectedScale = scaleKeys[Math.floor(Math.random() * scaleKeys.length)];
-    const scaleNotes = scaleConfig.scales[selectedScale];
-    // Find matching EXAM_KEYS entry or create one
-    let key = EXAM_KEYS.find(k => k.name === selectedScale);
-    if (!key) {
-        const match = selectedScale.match(/^([A-G][#b]?)/);
-        const keyValue = match ? match[1] : 'C';
-        key = { value: keyValue, name: selectedScale, scale: scaleNotes };
+// 生成旋律音高序列（体现中西风格差异 + 黄金分割点高潮）
+function _genMelodyPitches(scaleNotes, tonicName, style, semitones, pianyin, noteCount) {
+    const n = semitones.length;
+    const tonicNote = tonicName + '4';
+    const degrees = [];
+    let degree = 0;
+
+    const goldenIndex = Math.floor(noteCount * 0.618);
+
+    for (let i = 0; i < noteCount; i++) {
+        let d;
+        if (i === goldenIndex && noteCount > 3) {
+            d = n - 1;  // 黄金分割点：旋律高潮，放最高音
+        } else {
+            d = _nextMelodyDegree(degree, n, style);
+        }
+        degree = d;
+        degrees.push(d);
     }
+
+    // 结尾：最后音 = 主音（音级0）
+    if (noteCount > 0) degrees[noteCount - 1] = 0;
+    // 西洋大小调：倒数第二音 = 属音（音级4，属→主解决）
+    if ((style === 'major' || style === 'minor') && noteCount >= 2 && n >= 7) {
+        degrees[noteCount - 2] = 4;
+    }
+
+    const result = degrees.map(deg => degreeToPitch(tonicNote, semitones, deg));
+
+    // 民族五声：随机 1-2 个位置（避开结尾）替换为偏音
+    if (style === 'pentatonic' && pianyin && pianyin.length && noteCount > 4) {
+        const pianCount = 1 + Math.floor(Math.random() * 2);
+        for (let k = 0; k < pianCount; k++) {
+            const idx = 1 + Math.floor(Math.random() * (noteCount - 2));
+            result[idx] = pianyinToPitch(pianyin[Math.floor(Math.random() * pianyin.length)]);
+        }
+    }
+
+    return result;
+}
+
+// 根据风格决定下一个音级
+function _nextMelodyDegree(current, n, style) {
+    const r = Math.random();
+    if (style === 'major' || style === 'minor') {
+        // 西洋大小调：级进为主 + 少量跳进 + 和弦化进行
+        if (r < 0.55) {
+            const step = Math.random() < 0.5 ? 1 : -1;
+            return Math.max(0, Math.min(n - 1, current + step));
+        } else if (r < 0.85) {
+            const leap = [2, 3, -2, -3][Math.floor(Math.random() * 4)];
+            return Math.max(0, Math.min(n - 1, current + leap));
+        } else {
+            // 和弦化进行（分解和弦：主和弦音级 0,2,4）
+            const chordTones = [0, 2, 4];
+            return chordTones[Math.floor(Math.random() * chordTones.length)];
+        }
+    } else {
+        // 民族五声：音阶级进为主，偶尔五声跳进
+        if (r < 0.8) {
+            const step = Math.random() < 0.5 ? 1 : -1;
+            return Math.max(0, Math.min(n - 1, current + step));
+        } else {
+            const leap = [2, -2][Math.floor(Math.random() * 2)];
+            return Math.max(0, Math.min(n - 1, current + leap));
+        }
+    }
+}
+
+// 音级 → 实际音名（含八度，限制在人声音域 G3-G5）
+function degreeToPitch(tonicNote, semitones, degree) {
+    const n = semitones.length;
+    const d = ((degree % n) + n) % n;
+    const octaveShift = Math.floor(degree / n);
+    const semitone = semitones[d] + octaveShift * 12;
+    const f = getFrequency(tonicNote) * Math.pow(2, semitone / 12);
+    let best = tonicNote, md = Infinity;
+    for (const note of HUMAN_VOICE_NOTES) {
+        const diff = Math.abs(getFrequency(note) - f);
+        if (diff < md) { md = diff; best = note; }
+    }
+    return best;
+}
+
+// 偏音名 → 人声音域内的实际音名（含八度，等音映射）
+function pianyinToPitch(pianyinName) {
+    const targetF = getFrequency(pianyinName + '4');
+    let best = pianyinName + '4', md = Infinity;
+    for (const note of HUMAN_VOICE_NOTES) {
+        const diff = Math.abs(getFrequency(note) - targetF);
+        if (diff < md) { md = diff; best = note; }
+    }
+    return best;
+}
+
+function _genMelody(bars, difficulty) {
+    // 1. 确定调式（西洋大小调 或 民族五声调式）
+    const usePentatonic = Math.random() < 0.5;
+    let scaleNotes, tonicName, keyValue, keyName, style, semitones, pianyin;
+
+    if (usePentatonic) {
+        const pk = PENTATONIC_KEYS[Math.floor(Math.random() * PENTATONIC_KEYS.length)];
+        scaleNotes = pk.scale;
+        tonicName = pk.tonic;
+        keyValue = pk.value;
+        keyName = pk.name;
+        style = 'pentatonic';
+        semitones = pk.semitones;
+        pianyin = pk.pianyin;
+    } else {
+        const scaleConfig = scaleDifficultyConfig[difficulty] || scaleDifficultyConfig[1];
+        const scaleKeys = Object.keys(scaleConfig.scales);
+        const selectedScale = scaleKeys[Math.floor(Math.random() * scaleKeys.length)];
+        scaleNotes = scaleConfig.scales[selectedScale];
+        const isMinor = selectedScale.includes('小调');
+        style = isMinor ? 'minor' : 'major';
+        semitones = SCALE_SEMITONES[style];
+        pianyin = null;
+        let key = EXAM_KEYS.find(k => k.name === selectedScale);
+        if (!key) {
+            const match = selectedScale.match(/^([A-G][#b]?)/);
+            key = { value: match ? match[1] : 'C', name: selectedScale, scale: scaleNotes };
+        }
+        keyValue = key.value;
+        keyName = key.name;
+        tonicName = key.value;
+    }
+
     const timeSig = Math.random() > 0.5 ? '2/4' : '3/4';
     const bpb = parseInt(timeSig.split('/')[0]);
     const measures = [];
@@ -14427,13 +14580,12 @@ function _genMelody(bars, difficulty) {
         return map[dur] || dur;
     };
 
+    // 2. 先收集节奏（扁平），再生成音高序列
+    const rhythmNotes = [];
     for (let m = 0; m < bars; m++) {
-        const bar = [];
-        let startBeat = 0;
         let rem = bpb;
         while (rem > 0.001) {
-            let pat;
-            let patBeats;
+            let pat, patBeats;
             if (rem >= 2 - 0.001 && Math.random() > 0.6) {
                 pat = EXAM_RHYTHM_2BEAT[Math.floor(Math.random() * EXAM_RHYTHM_2BEAT.length)];
                 patBeats = 2;
@@ -14443,28 +14595,42 @@ function _genMelody(bars, difficulty) {
             }
             const rn = RHYTHM_DURATION_MAP[pat];
             if (rn && rn.length > 0) {
-                let subStart = 0;
-                rn.forEach(n => {
-                    const pitch = scaleNotes[Math.floor(Math.random() * scaleNotes.length)] + '4';
-                    const nb = getNoteBeatsForDuration(n.duration, n.dots || 0);
-                    const noteObj = {
-                        pitch,
-                        rhythm: rhythmForDur(n.duration, n.dots || 0),
-                        duration: n.duration,
-                        dots: n.dots || 0,
-                        startBeat: startBeat + subStart
-                    };
-                    bar.push(noteObj);
-                    notes.push({ pitch, duration: n.duration, beats: nb, dots: n.dots || 0 });
-                    subStart += nb;
-                });
+                rn.forEach(n => rhythmNotes.push({ duration: n.duration, beats: n.beats, dots: n.dots || 0 }));
             }
-            startBeat += patBeats;
             rem -= patBeats;
+        }
+    }
+
+    // 3. 生成音高序列（体现中西风格 + 黄金分割高潮）
+    const totalNotes = rhythmNotes.length;
+    const pitchList = _genMelodyPitches(scaleNotes, tonicName, style, semitones, pianyin, totalNotes);
+
+    // 4. 组装 measures 和 notes
+    let idx = 0;
+    for (let m = 0; m < bars; m++) {
+        const bar = [];
+        let startBeat = 0;
+        let rem = bpb;
+        while (rem > 0.001 && idx < totalNotes) {
+            const rn = rhythmNotes[idx];
+            const pitch = pitchList[idx];
+            const nb = rn.beats;
+            bar.push({
+                pitch,
+                rhythm: rhythmForDur(rn.duration, rn.dots),
+                duration: rn.duration,
+                dots: rn.dots,
+                startBeat: startBeat
+            });
+            notes.push({ pitch, duration: rn.duration, beats: nb, dots: rn.dots });
+            startBeat += nb;
+            rem -= nb;
+            idx++;
         }
         measures.push(bar);
     }
-    return { key: key.value, keyName: key.name, scale: key.scale, timeSignature: timeSig, bars, measures, notes };
+
+    return { key: keyValue, keyName, scale: scaleNotes, timeSignature: timeSig, bars, measures, notes };
 }
 
 // --- 播放 ---
