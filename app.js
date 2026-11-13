@@ -14363,7 +14363,13 @@ function _genSingle(count, difficulty) {
     const notePool = rawPool.filter(n => HUMAN_VOICE_NOTES.includes(n));
     const finalPool = notePool.length ? notePool : HUMAN_VOICE_NOTES;
     const out = [];
-    for (let i = 0; i < count; i++) out.push(finalPool[Math.floor(Math.random() * finalPool.length)]);
+    let prev = null;
+    for (let i = 0; i < count; i++) {
+        let n;
+        do { n = finalPool[Math.floor(Math.random() * finalPool.length)]; } while (n === prev && finalPool.length > 1);
+        out.push(n);
+        prev = n;
+    }
     return out;
 }
 
@@ -14374,13 +14380,19 @@ function _genInterval(count, difficulty) {
     const finalPool = notePool.length ? notePool : HUMAN_VOICE_NOTES;
     const out = [];
     const semis = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    let prevKey = null;
     for (let i = 0; i < count; i++) {
-        const n1 = finalPool[Math.floor(Math.random() * Math.max(1, finalPool.length - 7))];
-        const st = semis[Math.floor(Math.random() * semis.length)];
-        const f1 = getFrequency(n1), f2 = f1 * Math.pow(2, st / 12);
-        let best = null, md = Infinity;
-        for (const n of finalPool) { const d = Math.abs(getFrequency(n) - f2); if (d < md) { md = d; best = n; } }
+        let n1, best, key;
+        do {
+            n1 = finalPool[Math.floor(Math.random() * Math.max(1, finalPool.length - 7))];
+            const st = semis[Math.floor(Math.random() * semis.length)];
+            const f1 = getFrequency(n1), f2 = f1 * Math.pow(2, st / 12);
+            best = null; let md = Infinity;
+            for (const n of finalPool) { const d = Math.abs(getFrequency(n) - f2); if (d < md) { md = d; best = n; } }
+            key = n1 + '|' + best;
+        } while (key === prevKey && finalPool.length > 2);
         out.push({ note1: n1, note2: best });
+        prevKey = key;
     }
     return out;
 }
@@ -14390,9 +14402,14 @@ function _genChord(count, difficulty) {
     const chordPool = difficultyConfig[difficulty] ? difficultyConfig[difficulty].chords : EXAM_CHORD_TYPES.slice(0, 7);
     // 根音限制在人声音域 G3-G5 内的第4八度（C4-B4）
     const roots = HUMAN_VOICE_NOTES.filter(n => parseInt(n.slice(-1)) === 4);
+    let prevKey = null;
     for (let i = 0; i < count; i++) {
-        const type = chordPool[Math.floor(Math.random() * chordPool.length)];
-        const root = roots[Math.floor(Math.random() * roots.length)];
+        let type, root, key;
+        do {
+            type = chordPool[Math.floor(Math.random() * chordPool.length)];
+            root = roots[Math.floor(Math.random() * roots.length)];
+            key = root + '|' + type.name;
+        } while (key === prevKey && (chordPool.length * roots.length) > 1);
         const rf = getFrequency(root);
         const notes = type.intervals.map(iv => {
             const f = rf * Math.pow(2, iv / 12);
@@ -14401,6 +14418,7 @@ function _genChord(count, difficulty) {
             return best;
         });
         out.push({ root, typeName: type.name, notes });
+        prevKey = key;
     }
     return out;
 }
@@ -14799,14 +14817,14 @@ async function playExamSequence() {
 
             // Wait between plays (30s), skip last play's wait
             if (pi < plays - 1) {
-                await _examCountdown(30, `第${pi + 2}遍播放`);
+                await _examCountdown(15, `第${pi + 2}遍播放`);
             }
         }
         // Wait between questions (2 min), skip last question
         if (qi < totalQs - 1) {
             _updateStatus(`第${qi + 1}题播放完毕，准备下一题...`);
             if (!examState.jumpToNextQ) {
-                await _examCountdown(120, `下一题（第${qi + 2}题）`);
+                await _examCountdown(30, `下一题（第${qi + 2}题）`);
             }
         }
     }
@@ -14834,32 +14852,34 @@ async function _playNoteDelay(note, dur) {
 }
 
 async function _playSingleOnce(notes, bpm) {
+    // 每遍之前给标准音 A4
     await _playNoteDelay('A4', 1.5);
-    await examSleep(500);
-    for (const n of notes) { playNoteWithWebAudio(n, 1.0, 0.8); await examSleep(4000); }
-    await examSleep(300);
-    await _playNoteDelay('A4', 1.5);
+    await examSleep(250);
+    // 延长每个音时长（2秒），相邻音间隔仅 0.25 秒
+    for (const n of notes) { playNoteWithWebAudio(n, 2.0, 0.8); await examSleep(2250); }
 }
 
 async function _playIntervalOnce(intervals, bpm) {
+    // 每遍之前给标准音 A4
     await _playNoteDelay('A4', 1.5);
-    await examSleep(500);
+    await examSleep(250);
     for (const iv of intervals) {
         playNoteWithWebAudio(iv.note1, 1.0, 0.8);
-        await examSleep(200);
+        await examSleep(1250);  // 1秒音 + 0.25秒间隔
         playNoteWithWebAudio(iv.note2, 1.0, 0.8);
-        await examSleep(4000);
+        await examSleep(1250);
     }
-    await examSleep(300);
-    await _playNoteDelay('A4', 1.5);
 }
 
 async function _playChordOnce(chords, bpm) {
+    // 每遍之前给标准音 A4
     await _playNoteDelay('A4', 1.5);
-    await examSleep(500);
-    for (const c of chords) { playChord(c.notes); await examSleep(4000); }
-    await examSleep(300);
-    await _playNoteDelay('A4', 1.5);
+    await examSleep(250);
+    // 和弦各音同时发声，持续2秒，相邻和弦间隔仅 0.25 秒
+    for (const c of chords) {
+        c.notes.forEach(n => playNoteWithWebAudio(n, 2.0, 0.8));
+        await examSleep(2250);
+    }
 }
 
 async function _playRhythmOnce(rhythm, bpm) {
@@ -15049,6 +15069,16 @@ function _overlayExamMeasureClicks(container, measureRects, selectedMeasure) {
         rect.setAttribute('rx', '4');
         rect.addEventListener('click', () => selectExamMeasure(m));
         layer.appendChild(rect);
+        // 小节号（每小节都显示）
+        const num = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        num.setAttribute('x', r.x + r.width / 2);
+        num.setAttribute('y', Math.max(r.y + 14, 8));
+        num.setAttribute('text-anchor', 'middle');
+        num.setAttribute('font-size', '12');
+        num.setAttribute('fill', '#555');
+        num.setAttribute('font-weight', '600');
+        num.textContent = (m + 1);
+        layer.appendChild(num);
     });
 }
 
@@ -15726,6 +15756,10 @@ function renderSharedPiano(container, options) {
     const pianoId = opts.pianoId || 'exam-piano';
     container.innerHTML = '';
 
+    // 横向滚动容器（琴键可左右滑动）
+    const scrollWrap = document.createElement('div');
+    scrollWrap.className = 'piano-scroll-wrap';
+
     const piano = document.createElement('div');
     piano.className = 'piano';
     piano.id = pianoId;
@@ -15758,8 +15792,17 @@ function renderSharedPiano(container, options) {
         piano.appendChild(key);
     });
 
-    container.appendChild(piano);
+    scrollWrap.appendChild(piano);
+    container.appendChild(scrollWrap);
     positionBlackKeys(pianoId);
+
+    // 初始滚动到 F4 居中
+    requestAnimationFrame(() => {
+        const f4 = piano.querySelector('[data-note="F4"]');
+        if (f4 && scrollWrap.scrollWidth > scrollWrap.clientWidth) {
+            scrollWrap.scrollLeft = Math.max(0, f4.offsetLeft - scrollWrap.clientWidth / 2 + f4.offsetWidth / 2);
+        }
+    });
 }
 
 // --- 输入区渲染 ---
@@ -16043,7 +16086,7 @@ function handleExamMelodyPiano(note) {
         examState.selectedBeat = nextBeat;
     }
 
-    try { playNoteWithWebAudio(note, 0.5, 0.6); } catch (e) { }
+    // 只高亮不出声（避免漏题）
     renderExamStaffSVG(qIdx);
     renderExamInputArea(qIdx);
 }
@@ -16147,8 +16190,7 @@ function handleExamPianoInput(note) {
         if (idx !== -1) { arr.splice(idx, 1); }
         else { arr.push(note); if (arr.length > 4) arr.shift(); }
     }
-    // Play the note for feedback
-    try { playNoteWithWebAudio(note, 0.5, 0.6); } catch (e) { }
+    // 只高亮不出声（避免漏题）
     renderExamStaffSVG(qIdx);
     renderExamInputArea(qIdx);
 }

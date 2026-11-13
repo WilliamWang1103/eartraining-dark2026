@@ -1336,6 +1336,18 @@ body {
     /* 滑块圆角2像素 */
 }
 
+/* 钢琴横向滚动容器（综合考试琴键左右滑动） */
+.piano-scroll-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+}
+
+.piano-scroll-wrap .piano {
+    min-width: max-content;
+}
+
 /* 钢琴主体样式 */
 .piano {
     display: flex;
