@@ -14240,6 +14240,18 @@ function renderExamConfig() {
         for (let p = 1; p <= 4; p++) {
             playOptions += `<option value="${p}" ${(q.plays || 3) === p ? 'selected' : ''}>${p}遍</option>`;
         }
+        // 拍号（仅节奏题型显示）
+        let timeSigHtml = '';
+        if (q.type === 'rhythm') {
+            const curTs = q.timeSig || '2/4';
+            timeSigHtml = `<label class="q-field">
+                <span class="q-field-label">拍号</span>
+                <select class="q-timesig-select" onchange="setExamPaperField(${idx}, 'timeSig', this.value)">
+                    <option value="2/4" ${curTs === '2/4' ? 'selected' : ''}>2/4</option>
+                    <option value="3/4" ${curTs === '3/4' ? 'selected' : ''}>3/4</option>
+                </select>
+            </label>`;
+        }
         html += `<div class="exam-config-row">
             <div class="q-head">
                 <span class="q-name">第${idx + 1}题</span>
@@ -14267,6 +14279,7 @@ function renderExamConfig() {
                     <span class="q-field-label">演奏遍数</span>
                     <select class="q-plays-select" title="演奏遍数（上限4遍）" onchange="setExamPaperField(${idx}, 'plays', parseInt(this.value))">${playOptions}</select>
                 </label>
+                ${timeSigHtml}
             </div>
         </div>`;
     });
@@ -14305,6 +14318,10 @@ function setExamPaperField(idx, field, val) {
             q.difficulty = meta.defaultDifficulty;
             q.plays = 3; // 重置演奏遍数为默认3遍
         }
+        // 节奏题型默认拍号
+        if (val === 'rhythm' && !q.timeSig) {
+            q.timeSig = '2/4';
+        }
     }
     q[field] = val;
     renderExamConfig();
@@ -14331,6 +14348,9 @@ function renderExamInstructions() {
     });
     const totalScore = examState.examPaper.reduce((s, q) => s + getExamItemScore(q), 0);
     html += `<li class="exam-flow-summary">共 ${examState.examPaper.length} 题，总分 ${totalScore} 分</li>`;
+    if (examState.examPaper.length < 5) {
+        html += `<li style="color:#ffab40;font-size:0.78rem;">⚠️ 至少设置 5 道题才能获得经验值（当前 ${examState.examPaper.length} 题）</li>`;
+    }
     list.innerHTML = html;
 }
 
@@ -16442,9 +16462,11 @@ function submitExamAnswers() {
     showExamResults(breakdown, totalScore);
     updateExamLeaderboard();
 
-    // 综合考试按得分率分层奖励经验
-    const examTotalPossible = breakdown.reduce((s, b) => s + b.total, 0);
-    awardTestXp(examTotalPossible > 0 ? Math.round(totalScore / examTotalPossible * 100) : 0);
+    // 综合考试按得分率分层奖励经验（至少5道题，防止刷经验）
+    if (breakdown.length >= 5) {
+        const examTotalPossible = breakdown.reduce((s, b) => s + b.total, 0);
+        awardTestXp(examTotalPossible > 0 ? Math.round(totalScore / examTotalPossible * 100) : 0);
+    }
 }
 
 function _gradeRhythm(userAns, correct, scoreTimeSig, scorePerBar) {
