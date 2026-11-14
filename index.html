@@ -1421,6 +1421,11 @@
 
                         <!-- 底部控制按钮 -->
                         <div class="play-controls" id="play-controls-melody">
+                            <select id="melody-source-select" title="题源选择"
+                                style="padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.08);color:#e0e0e0;border:1px solid rgba(255,255,255,0.2);font-size:0.85rem;cursor:pointer;">
+                                <option value="library" style="color:#333;">题源：题库</option>
+                                <option value="generated" style="color:#333;">题源：系统编写</option>
+                            </select>
                             <button id="random-play-btn-melody" class="btn"><i class="fas fa-random"></i> 随机播放</button>
                             <button id="specified-play-btn-melody" class="btn secondary" title="播放曲目下拉中选定的曲目"><i class="fas fa-music"></i> 指定播放</button>
                             <button id="play-btn-melody" class="btn secondary"><i class="fas fa-play"></i> 重复播放</button>

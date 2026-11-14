@@ -188,6 +188,7 @@ const melodyAppState = {
     vexflowContext: null,
     vexflowStave: null,
     loadedMelodies: [], // 从melodies/文件夹加载的预置曲目
+    melodySource: 'library', // 题源：'library'题库 | 'generated'系统编写
     leaderboard: [],
     testAnalysis: [], // 测试结果分析记录
     activeAudioNodes: [] // 当前活跃的音频节点（用于立即停止）
@@ -344,13 +345,13 @@ const chordTypes = [
     { name: "小三", type: "minor", difficulty: 1, intervals: [0, 3, 7], description: "小三度+大三度" },
     { name: "增三", type: "augmented", difficulty: 1, intervals: [0, 4, 8], description: "大三度+大三度" },
     { name: "减三", type: "diminished", difficulty: 1, intervals: [0, 3, 6], description: "小三度+小三度" },
-    { name: "大七", type: "major7", difficulty: 2, intervals: [0, 4, 7, 11], description: "大三和弦+大七度" },
-    { name: "属七", type: "dominant7", difficulty: 2, intervals: [0, 4, 7, 10], description: "大三和弦+小七度" },
-    { name: "小大七", type: "minorMajor7", difficulty: 3, intervals: [0, 3, 7, 11], description: "小三和弦+大七度" },
-    { name: "小七", type: "minor7", difficulty: 2, intervals: [0, 3, 7, 10], description: "小三和弦+小七度" },
-    { name: "半减七", type: "halfDiminished7", difficulty: 3, intervals: [0, 3, 6, 10], description: "减三和弦+小七度" },
-    { name: "减七", type: "diminished7", difficulty: 3, intervals: [0, 3, 6, 9], description: "减三和弦+减七度" },
-    { name: "增七", type: "augmented7", difficulty: 7, intervals: [0, 4, 8, 11], description: "增三和弦+大七度" },
+    { name: "大七", type: "major7", difficulty: 3, intervals: [0, 4, 7, 11], description: "大三和弦+大七度（大大七）" },
+    { name: "属七", type: "dominant7", difficulty: 2, intervals: [0, 4, 7, 10], description: "大三和弦+小七度（大小七）" },
+    { name: "小大七", type: "minorMajor7", difficulty: 3, intervals: [0, 3, 7, 11], description: "小三和弦+大七度（小大七）" },
+    { name: "小七", type: "minor7", difficulty: 2, intervals: [0, 3, 7, 10], description: "小三和弦+小七度（小小七）" },
+    { name: "半减七", type: "halfDiminished7", difficulty: 2, intervals: [0, 3, 6, 10], description: "减三和弦+小七度（减小七）" },
+    { name: "减七", type: "diminished7", difficulty: 2, intervals: [0, 3, 6, 9], description: "减三和弦+减七度（减减七）" },
+    { name: "增七", type: "augmented7", difficulty: 3, intervals: [0, 4, 8, 11], description: "增三和弦+大七度（增大七）" },
     { name: "属七升五", type: "dominant7sharp5", difficulty: 7, intervals: [0, 4, 8, 10], description: "增三和弦+小七度" },
     { name: "属七降五", type: "dominant7flat5", difficulty: 7, intervals: [0, 4, 6, 10], description: "减五度+小七度" },
     { name: "大九", type: "major9", difficulty: 7, intervals: [0, 4, 7, 11, 14], description: "大七和弦+大九度" },
@@ -502,13 +503,13 @@ const difficultyConfig = {
         chords: chordTypes.filter(c => c.difficulty <= 1)
     },
     2: {
-        name: "2级: 常用七和弦",
-        description: "加入属七和弦、小七和弦、大七和弦",
+        name: "2级: 三和弦与常用七和弦",
+        description: "加入大小七、小小七、减小七、减减七（混合出题）",
         chords: chordTypes.filter(c => c.difficulty <= 2)
     },
     3: {
         name: "3级: 其他七和弦",
-        description: "加入半减七和弦、减七和弦、小大七和弦",
+        description: "加入大大七、小大七、增大七（不常用七和弦）",
         chords: chordTypes.filter(c => c.difficulty <= 3)
     },
 };
@@ -6452,6 +6453,18 @@ function initMelodyPage() {
         updateMelodyStatus('已切换曲目，请点击"随机播放"');
     });
 
+    // 题源选择（题库 / 系统编写）
+    const sourceSelect = document.getElementById('melody-source-select');
+    if (sourceSelect) sourceSelect.addEventListener('change', () => {
+        melodyAppState.melodySource = sourceSelect.value;
+        melodyAppState.currentMelody = null;
+        melodyAppState.inputNotes = [];
+        renderMelodyInput();
+        updateMelodyStatus(melodyAppState.melodySource === 'generated'
+            ? '已切换为系统编写旋律，点击"随机播放"生成新题'
+            : '已切换为题库曲目，点击"随机播放"抽取曲目');
+    });
+
     // 预置曲目加载：从melodies/文件夹加载MusicXML文件
     loadPresetMelodies();
 
@@ -7965,8 +7978,24 @@ async function loadPresetMelodies() {
 
 // 获取当前旋律
 // 测试模式：从曲目库随机抽取；练习模式：按用户选择的曲目
+// 系统编写旋律（参考综合考试旋律出题原则，增加偶然性）
+function generateSystemMelody() {
+    const gen = _genMelody(8, 1);  // 8 小节，1 级难度
+    return {
+        title: `${gen.keyName}（系统编写）`,
+        key: gen.key,
+        keyName: gen.keyName,
+        timeSignature: gen.timeSignature,
+        notes: gen.notes.map(n => ({ pitch: n.pitch, duration: n.duration, dots: n.dots }))
+    };
+}
+
 // 随机获取旋律（从所有曲目随机抽取，避免连续重复）
 function getRandomMelody() {
+    // 系统编写模式：每次生成新旋律，增加偶然性
+    if (melodyAppState.melodySource === 'generated') {
+        return generateSystemMelody();
+    }
     const pool = melodyAppState.loadedMelodies.length > 0
         ? melodyAppState.loadedMelodies
         : MELODY_SAMPLES;
