@@ -14048,8 +14048,8 @@ function buildDefaultExamPaper() {
         { id: 1, type: 'single', count: 10, score: 1, difficulty: 1, plays: 3 },
         { id: 2, type: 'interval-pitch', count: 10, score: 2, difficulty: 1, plays: 3 },
         { id: 3, type: 'chord-pitch', count: 10, score: 3, difficulty: 1, plays: 3 },
-        { id: 4, type: 'rhythm', count: 4, score: 2, difficulty: 1, plays: 3 },
-        { id: 5, type: 'chord-quality', count: 10, score: 3, difficulty: 1, plays: 3 },
+        { id: 4, type: 'rhythm', count: 4, score: 2, difficulty: 1, plays: 3, timeSig: '2/4' },
+        { id: 5, type: 'rhythm', count: 4, score: 2, difficulty: 1, plays: 3, timeSig: '3/4' },
         { id: 6, type: 'melody', count: 8, score: 2, difficulty: 1, plays: 3 }
     ];
 }
@@ -14344,7 +14344,7 @@ function generateExamQuestions() {
         else if (q.type === 'interval-quality') questions.push({ paperIdx: idx, ...q, data: _genIntervalQuality(q.count, q.difficulty) });
         else if (q.type === 'chord-pitch') questions.push({ paperIdx: idx, ...q, data: _genChord(q.count, q.difficulty) });
         else if (q.type === 'chord-quality') questions.push({ paperIdx: idx, ...q, data: _genChordQuality(q.count, q.difficulty) });
-        else if (q.type === 'rhythm') questions.push({ paperIdx: idx, ...q, data: _genRhythm(null, q.count, q.difficulty) });
+        else if (q.type === 'rhythm') questions.push({ paperIdx: idx, ...q, data: _genRhythm(q.timeSig || null, q.count, q.difficulty) });
         else if (q.type === 'melody') questions.push({ paperIdx: idx, ...q, data: _genMelody(q.count, q.difficulty) });
     });
     return questions;
