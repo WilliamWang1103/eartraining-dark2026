@@ -14758,6 +14758,9 @@ function buildPlaySequence() {
 }
 
 async function startExam() {
+    // 防止重复点击「开始考试」导致题目重复生成、多遍播放交叉
+    if (examState.isPlaying) return;
+    examState.isPlaying = true;
     await ensureAudioReady();
     try { await Tone.start(); } catch (e) { console.warn('Tone.start failed:', e); }
     examState.questions = generateExamQuestions();
@@ -14793,11 +14796,13 @@ async function startExam() {
     if (examState.stopRequested) {
         _updateStatus('考试已终止');
         clearInterval(examState.elapsedTimer);
+        examState.isPlaying = false;
         return;
     }
 
     // Finalize: hide playing controls, keep answer sheet
     examState.phase = 'answering';
+    examState.isPlaying = false;
     const playingSec = document.getElementById('exam-playing-section');
     if (playingSec) playingSec.style.display = 'none';
 }
