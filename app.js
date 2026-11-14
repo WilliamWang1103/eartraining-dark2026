@@ -14175,6 +14175,11 @@ function initExamPage() {
     if (setupTab) setupTab.onclick = () => showExamTab('setup');
     const lbTab = document.getElementById('leaderboard-btn-exam');
     if (lbTab) lbTab.onclick = () => showExamTab('leaderboard');
+    // 教师隐藏功能入口：仅任课教师显示
+    const teacherArea = document.getElementById('teacher-export-area');
+    if (teacherArea) teacherArea.style.display = isTeacherUser() ? 'block' : 'none';
+    const teacherBtn = document.getElementById('teacher-export-btn');
+    if (teacherBtn) teacherBtn.onclick = () => teacherExportExam();
     renderExamConfig();
     renderExamLeaderboard();
 }
@@ -14352,6 +14357,318 @@ function renderExamInstructions() {
         html += `<li style="color:#ffab40;font-size:0.78rem;">⚠️ 至少设置 5 道题才能获得经验值（当前 ${examState.examPaper.length} 题）</li>`;
     }
     list.innerHTML = html;
+}
+
+// ==================== 教师隐藏功能：任课教师出卷（PDF + MIDI） ====================
+const TEACHER_NAMES = ['王向辉', '斯琴', '王艳', '刘利剑'];
+
+function getSavedUserInfo() {
+    try { return JSON.parse(localStorage.getItem('userInfo') || 'null'); } catch (e) { return null; }
+}
+
+// 是否任课教师：专业班级填「任课教师」且姓名为指定 4 位教师之一
+function isTeacherUser() {
+    const ui = getSavedUserInfo() || (typeof melodyAppState !== 'undefined' ? melodyAppState.userInfo : null) || {};
+    return ui.majorClass === '任课教师' && TEACHER_NAMES.includes(ui.name);
+}
+
+// 音名 → MIDI 编号（C4 = 60）
+function noteNameToMidi(note) {
+    const map = { 'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11 };
+    const m = (note || '').match(/^([A-G][#b]?)(\d)$/);
+    if (!m) return 60;
+    return (parseInt(m[2]) + 1) * 12 + (map[m[1]] !== undefined ? map[m[1]] : 0);
+}
+
+// MIDI 变长数值编码（variable-length quantity）
+function midiVLV(value) {
+    const buf = [value & 0x7f];
+    while ((value >>= 7) > 0) buf.unshift((value & 0x7f) | 0x80);
+    return buf;
+}
+
+// 时值 → MIDI ticks（TPQN = 480，四分音符 = 480 ticks）
+function midiDurTicks(duration, dots, tpqn = 480) {
+    const baseMap = { 'w': 4, 'h': 2, 'q': 1, '8': 0.5, '16': 0.25, 'triplet': 1 / 3 };
+    let beats = baseMap[(duration || 'q').replace('.', '')] || 1;
+    if (dots) beats *= 1.5;
+    return Math.round(beats * tpqn);
+}
+
+// 组装一条 MIDI 轨道（轨道名 + 拍号 + 速度 + 音符事件 + 结束）
+function buildMidiTrack(trackName, timeSig, noteEvents, tpqn = 480) {
+    const bytes = [];
+    const nameBytes = [];
+    for (let i = 0; i < trackName.length; i++) nameBytes.push(trackName.charCodeAt(i) & 0x7f);
+    bytes.push(0x00, 0xFF, 0x03, nameBytes.length, ...nameBytes);
+    const [beats, beatType] = (timeSig || '4/4').split('/');
+    const denom = parseInt(beatType) || 4;
+    bytes.push(0x00, 0xFF, 0x58, 0x04, parseInt(beats) || 4, Math.round(Math.log2(denom)), 24, 8);
+    bytes.push(0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20); // 120 BPM
+    noteEvents.forEach(ev => { bytes.push(...midiVLV(ev.delta), ...ev.data); });
+    bytes.push(0x00, 0xFF, 0x2F, 0x00);
+    return bytes;
+}
+
+// 生成综合考试 MIDI 文件（SMF Format 1：每道题一条轨道）
+function buildExamMIDI(questions) {
+    const tpqn = 480;
+    const tracks = [];
+    questions.forEach((q, qi) => {
+        const trackName = `Q${qi + 1}-${q.type}`;
+        const evs = [];
+        let timeSig = '4/4';
+        const addNote = (pitch, dur) => { evs.push({ delta: 0, data: [0x90, pitch, 80] }); evs.push({ delta: dur, data: [0x80, pitch, 0] }); };
+        const addChord = (pitches, dur) => {
+            pitches.forEach(p => evs.push({ delta: 0, data: [0x90, p, 80] }));
+            pitches.forEach((p, i) => evs.push({ delta: i === 0 ? dur : 0, data: [0x80, p, 0] }));
+        };
+        const qTicks = midiDurTicks('q', 0, tpqn);
+
+        if (q.type === 'single') {
+            (q.data || []).forEach(n => addNote(noteNameToMidi(n), qTicks));
+        } else if (q.type === 'interval-pitch' || q.type === 'interval-quality') {
+            (q.data || []).forEach(iv => addChord([noteNameToMidi(iv.note1), noteNameToMidi(iv.note2)], qTicks));
+        } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
+            (q.data || []).forEach(ch => addChord((ch.notes || []).map(noteNameToMidi), qTicks));
+        } else if (q.type === 'rhythm') {
+            timeSig = (q.data && q.data.timeSignature) || q.timeSig || '4/4';
+            ((q.data && q.data.measures) || []).forEach(bar => {
+                bar.forEach(pattern => {
+                    const rn = RHYTHM_DURATION_MAP[pattern];
+                    if (rn) rn.forEach(n => addNote(noteNameToMidi('C4'), midiDurTicks(n.duration, n.dots, tpqn)));
+                });
+            });
+        } else if (q.type === 'melody') {
+            timeSig = (q.data && q.data.timeSignature) || '4/4';
+            ((q.data && q.data.notes) || []).forEach(n => addNote(noteNameToMidi(n.pitch), midiDurTicks(n.duration, n.dots, tpqn)));
+        }
+        tracks.push(buildMidiTrack(trackName, timeSig, evs, tpqn));
+    });
+
+    const chunk = (id, data) => {
+        const out = [];
+        for (let i = 0; i < 4; i++) out.push(id.charCodeAt(i));
+        out.push((data.length >> 24) & 0xff, (data.length >> 16) & 0xff, (data.length >> 8) & 0xff, data.length & 0xff);
+        out.push(...data);
+        return out;
+    };
+    const headerData = [0, 1, (tracks.length >> 8) & 0xff, tracks.length & 0xff, (tpqn >> 8) & 0xff, tpqn & 0xff];
+    const header = chunk('MThd', headerData);
+    const body = tracks.map(t => chunk('MTrk', t));
+    const all = [header, ...body];
+    const total = all.reduce((s, a) => s + a.length, 0);
+    const bytes = new Uint8Array(total);
+    let off = 0;
+    all.forEach(a => { bytes.set(a, off); off += a.length; });
+    return bytes;
+}
+
+// 下载 Uint8Array 为文件
+function downloadBytes(bytes, filename, mime) {
+    const blob = new Blob([bytes], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ==================== 试卷 PDF 渲染 ====================
+// 音高 → 五线谱 Y 坐标（复用 noteToStaffPosition，高音谱表）
+function staffNoteY(pitch, staffTopY, lineSpacing) {
+    const position = noteToStaffPosition(pitch);
+    return staffTopY + (8 - position) * (lineSpacing / 2);
+}
+
+// 仅绘制符头（柱式和弦/音程用）
+function drawNoteHeadOnly(ctx, x, noteY, filled) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(x, noteY, 7, 5, -0.3, 0, 2 * Math.PI);
+    if (filled) { ctx.fillStyle = '#222'; ctx.fill(); } else { ctx.fillStyle = '#fff'; ctx.fill(); }
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.restore();
+}
+
+// 在一行五线谱上绘制一组柱式音符
+function drawExamStaff(canvas, noteGroups, opts) {
+    opts = opts || {};
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    const lineSpacing = 12;
+    const staffTop = 36;
+    const staffLeft = 70;
+    drawClef(ctx, staffLeft - 55, 0, staffTop, 'treble', lineSpacing);
+    if (opts.timeSig) drawTimeSignature(ctx, opts.timeSig, staffLeft - 12, staffTop, lineSpacing);
+    if (opts.key) drawKeySignature(ctx, opts.key, staffLeft + 15, staffTop);
+    drawStaffLines(ctx, staffLeft, staffTop, W - staffLeft - 16, lineSpacing);
+    const n = Math.max(noteGroups.length, 1);
+    const startX = staffLeft + 48;
+    const avail = W - startX - 16;
+    const gap = Math.min(60, avail / n);
+    noteGroups.forEach((grp, i) => {
+        const x = startX + i * gap;
+        (grp.pitches || []).forEach(p => drawNoteHeadOnly(ctx, x, staffNoteY(p, staffTop, lineSpacing), true));
+    });
+    if (opts.labelNotes !== false) {
+        ctx.save();
+        ctx.fillStyle = '#333';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        noteGroups.forEach((grp, i) => {
+            ctx.fillText((grp.pitches || []).join(' '), startX + i * gap, staffTop + 4 * lineSpacing + 22);
+        });
+        ctx.restore();
+    }
+}
+
+// 收集题目的柱式音符组
+function collectNoteGroups(q) {
+    const groups = [];
+    const d = q.data || [];
+    if (q.type === 'single') {
+        d.forEach(n => groups.push({ pitches: [n] }));
+    } else if (q.type === 'interval-pitch' || q.type === 'interval-quality') {
+        d.forEach(iv => groups.push({ pitches: [iv.note1, iv.note2] }));
+    } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
+        d.forEach(ch => groups.push({ pitches: ch.notes || [] }));
+    } else if (q.type === 'melody') {
+        (d.notes || []).forEach(n => groups.push({ pitches: [n.pitch] }));
+    }
+    return groups;
+}
+
+// 节奏题文字描述
+function describeRhythm(data) {
+    if (!data || !data.measures) return '（无节奏数据）';
+    let html = `<div style="font-weight:bold;">拍号：${data.timeSignature || '2/4'}</div>`;
+    data.measures.forEach((bar, i) => {
+        html += `<div>第${i + 1}小节：${(bar || []).join(' ｜ ')}</div>`;
+    });
+    return html;
+}
+
+// 生成试卷预览 HTML
+function buildTeacherExamHTML(questions) {
+    let html = `<div style="font-family:'Times New Roman',serif;color:#111;width:720px;box-sizing:border-box;">
+        <h1 style="text-align:center;font-size:22px;margin:0 0 4px;">视唱练耳综合考试试卷</h1>
+        <p style="text-align:center;font-size:13px;margin:0 0 14px;color:#555;">（默认 6 题 · 共 100 分）</p>`;
+    questions.forEach((q, qi) => {
+        const meta = getExamTypeMeta(q.type);
+        const total = getExamItemScore(q);
+        html += `<div class="tq" style="margin-bottom:18px;">
+            <div style="font-size:15px;font-weight:bold;margin-bottom:4px;">第${qi + 1}题　${meta ? meta.name : q.type}（共 ${total} 分）</div>
+            <div class="tq-canvas" data-idx="${qi}" style="background:#fff;border:1px solid #ddd;border-radius:4px;padding:6px;"></div>
+        </div>`;
+    });
+    html += `</div>`;
+    return html;
+}
+
+// 绘制每题的画布
+function drawTeacherExamCanvases(container, questions) {
+    questions.forEach((q, qi) => {
+        const wrap = container.querySelector(`.tq-canvas[data-idx="${qi}"]`);
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        if (q.type === 'rhythm') {
+            wrap.innerHTML = `<div style="font-size:14px;line-height:1.9;color:#222;">${describeRhythm(q.data)}</div>`;
+            return;
+        }
+        const groups = collectNoteGroups(q);
+        const perRow = 12;
+        const labelNotes = q.type !== 'melody';
+        for (let i = 0; i < groups.length; i += perRow) {
+            const row = groups.slice(i, i + perRow);
+            const canvas = document.createElement('canvas');
+            canvas.width = 720;
+            canvas.height = 128;
+            wrap.appendChild(canvas);
+            drawExamStaff(canvas, row, { timeSig: q.data && q.data.timeSignature, key: q.data && q.data.key, labelNotes });
+        }
+    });
+}
+
+// 由多张 JPEG 组装 PDF（A4，每页一张图片）
+function buildPDFFromJPEGs(jpegs, pageW, pageH) {
+    const objs = [];
+    const newObj = (str) => { objs.push(str); return objs.length; };
+    const catalogNum = newObj('');
+    const pagesNum = newObj('');
+    const kids = [];
+    jpegs.forEach(jp => {
+        const imageNum = newObj(`<< /Type /XObject /Subtype /Image /Width ${jp.w} /Height ${jp.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jp.stream.length} >>\nstream\n${jp.stream}\nendstream`);
+        const content = `q ${pageW} 0 0 ${pageH} 0 0 cm /Im0 Do Q`;
+        const contentNum = newObj(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+        const pageNum = newObj(`<< /Type /Page /Parent ${pagesNum} 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /Im0 ${imageNum} 0 R >> >> /Contents ${contentNum} 0 R >>`);
+        kids.push(pageNum);
+    });
+    objs[catalogNum - 1] = `<< /Type /Catalog /Pages ${pagesNum} 0 R >>`;
+    objs[pagesNum - 1] = `<< /Type /Pages /Kids [${kids.map(k => k + ' 0 R').join(' ')}] /Count ${kids.length} >>`;
+
+    let pdf = '%PDF-1.4\n';
+    const offsets = [];
+    objs.forEach((content, i) => {
+        offsets.push(pdf.length);
+        pdf += `${i + 1} 0 obj\n${content}\nendobj\n`;
+    });
+    const xrefStart = pdf.length;
+    pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+    offsets.forEach(off => pdf += String(off).padStart(10, '0') + ' 00000 n \n');
+    pdf += `trailer\n<< /Size ${objs.length + 1} /Root ${catalogNum} 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`;
+    const bytes = new Uint8Array(pdf.length);
+    for (let i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 0xff;
+    return bytes;
+}
+
+// 生成试卷 PDF（html2canvas 渲染 → 切页 → 嵌入 PDF）
+async function buildExamPDF(questions) {
+    const container = document.createElement('div');
+    container.id = 'teacher-exam-preview';
+    container.innerHTML = buildTeacherExamHTML(questions);
+    container.style.cssText = 'position:fixed;left:-10000px;top:0;background:#fff;padding:24px;font-family:"Times New Roman",serif;';
+    document.body.appendChild(container);
+    drawTeacherExamCanvases(container, questions);
+    await new Promise(r => setTimeout(r, 120));
+    const canvas = await html2canvas(container, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    document.body.removeChild(container);
+
+    const A4_W = 595.28, A4_H = 841.89;
+    const pagePxH = Math.round(canvas.width * A4_H / A4_W);
+    const jpegs = [];
+    for (let y = 0; y < canvas.height; y += pagePxH) {
+        const h = Math.min(pagePxH, canvas.height - y);
+        const pc = document.createElement('canvas');
+        pc.width = canvas.width;
+        pc.height = h;
+        const ctx = pc.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, pc.width, h);
+        ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+        const dataUrl = pc.toDataURL('image/jpeg', 0.9);
+        jpegs.push({ w: pc.width, h, stream: atob(dataUrl.split(',')[1]) });
+    }
+    return buildPDFFromJPEGs(jpegs, A4_W, A4_H);
+}
+
+// 教师出卷入口
+async function teacherExportExam() {
+    if (!isTeacherUser()) { alert('仅任课教师可使用该功能'); return; }
+    try {
+        examState.examPaper = buildDefaultExamPaper();
+        const questions = generateExamQuestions();
+        downloadBytes(buildExamMIDI(questions), '综合考试_默认组卷.mid', 'audio/midi');
+        const pdf = await buildExamPDF(questions);
+        downloadBytes(pdf, '综合考试_默认组卷.pdf', 'application/pdf');
+        alert('已生成试卷 PDF 与 MIDI 文件，请查看浏览器下载。');
+    } catch (e) {
+        console.error(e);
+        alert('出卷失败：' + e.message);
+    }
 }
 
 // --- 题目生成 ---
