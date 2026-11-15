@@ -14047,7 +14047,7 @@ function buildDefaultExamPaper() {
     return [
         { id: 1, type: 'single', count: 10, score: 1, difficulty: 1, plays: 3 },
         { id: 2, type: 'interval-pitch', count: 10, score: 2, difficulty: 1, plays: 3 },
-        { id: 3, type: 'chord-pitch', count: 10, score: 3, difficulty: 1, plays: 3 },
+        { id: 3, type: 'chord-pitch', count: 10, score: 3, difficulty: 2, plays: 3 },
         { id: 4, type: 'rhythm', count: 4, score: 2, difficulty: 1, plays: 3, timeSig: '2/4' },
         { id: 5, type: 'rhythm', count: 4, score: 2, difficulty: 1, plays: 3, timeSig: '3/4' },
         { id: 6, type: 'melody', count: 8, score: 2, difficulty: 1, plays: 3 }
@@ -14430,7 +14430,10 @@ function buildExamMIDI(questions) {
         } else if (q.type === 'interval-pitch' || q.type === 'interval-quality') {
             (q.data || []).forEach(iv => addChord([noteNameToMidi(iv.note1), noteNameToMidi(iv.note2)], qTicks));
         } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
-            (q.data || []).forEach(ch => addChord((ch.notes || []).map(noteNameToMidi), qTicks));
+            (q.data || []).forEach(ch => {
+                addChord((ch.notes || []).map(noteNameToMidi), qTicks);
+                if (ch.resolution && ch.resolution.notes) addChord(ch.resolution.notes.map(noteNameToMidi), qTicks);
+            });
         } else if (q.type === 'rhythm') {
             timeSig = (q.data && q.data.timeSignature) || q.timeSig || '4/4';
             ((q.data && q.data.measures) || []).forEach(bar => {
@@ -14477,9 +14480,10 @@ function downloadBytes(bytes, filename, mime) {
 }
 
 // ==================== 试卷 PDF 渲染（VexFlow 出版级五线谱） ====================
-const TEACHER_STAFF_W = 720;   // 每行五线谱宽度
-const TEACHER_ROW_H = 150;     // 每行五线谱高度（含上下留白）
-const TEACHER_STAVE_Y = 55;    // 第一行五线谱顶部 y
+const TEACHER_STAFF_W = 720;   // 每行五线谱宽度（CSS 逻辑宽度）
+const TEACHER_ROW_H = 100;     // 每行五线谱高度（含上下留白，紧凑固定）
+const TEACHER_STAVE_Y = 30;    // 第一行五线谱顶部 y
+const TEACHER_SCALE = 2;       // VexFlow 渲染分辨率倍率（高分辨率，缩小后音符清晰）
 
 // 音名 → VexFlow key（'C4'→'c/4'，'C#4'→'c#/4'，'Bb4'→'bb/4'）
 function noteNameToVexKey(note) {
@@ -14508,7 +14512,7 @@ function renderVexStaffLine(ctx, bars, opts) {
     const beatValue = opts.beatValue || 4;
     bars.forEach((bar, i) => {
         const x = marginX + i * staveW;
-        const stave = new Vex.Flow.Stave(x, staveY, staveW, { fill_style: '#000000', stroke_style: '#000000' });
+        const stave = new Vex.Flow.Stave(x, staveY, staveW, { fill_style: '#000000', stroke_style: '#000000', spacing_between_lines_px: 12 });
         if (i === 0) {
             stave.addClef(clef);
             if (opts.timeSig) stave.addTimeSignature(opts.timeSig);
@@ -14559,7 +14563,12 @@ function buildExamStaffBars(q) {
     } else if (q.type === 'interval-pitch' || q.type === 'interval-quality') {
         (q.data || []).forEach(iv => bars.push([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(iv.note1), noteNameToVexKey(iv.note2)], duration: 'w' })]));
     } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
-        (q.data || []).forEach(ch => bars.push([new Vex.Flow.StaveNote({ clef, keys: (ch.notes || []).map(noteNameToVexKey), duration: 'w' })]));
+        (q.data || []).forEach(ch => {
+            bars.push([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.notes || []).map(noteNameToVexKey), duration: 'w' })]);
+            if (ch.resolution && ch.resolution.notes) {
+                bars.push([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.resolution.notes).map(noteNameToVexKey), duration: 'w' })]);
+            }
+        });
     } else if (q.type === 'rhythm') {
         const ts = (q.data && q.data.timeSignature) || q.timeSig || '4/4';
         const bpb = parseInt(ts.split('/')[0]) || 4;
@@ -14608,17 +14617,22 @@ function drawTeacherExamCanvases(container, questions) {
         wrap.innerHTML = '';
         const { bars, opts } = buildExamStaffBars(q);
         if (!bars.length) return;
-        // 旋律题每 4 小节折行，其余一行放下所有小节
-        const perLine = q.type === 'melody' ? 4 : bars.length;
+        // 旋律题每 4 小节折行；和弦题超过 10 小节每行 10 小节；其余一行放下所有小节
+        let perLine = bars.length;
+        if (q.type === 'melody') perLine = 4;
+        else if ((q.type === 'chord-pitch' || q.type === 'chord-quality') && bars.length > 10) perLine = 10;
         const lines = [];
         for (let i = 0; i < bars.length; i += perLine) lines.push(bars.slice(i, i + perLine));
         const canvas = document.createElement('canvas');
-        canvas.width = TEACHER_STAFF_W;
-        canvas.height = lines.length * TEACHER_ROW_H;
+        canvas.width = TEACHER_STAFF_W * TEACHER_SCALE;
+        canvas.height = lines.length * TEACHER_ROW_H * TEACHER_SCALE;
         canvas.style.display = 'block';
+        canvas.style.width = TEACHER_STAFF_W + 'px';
+        canvas.style.height = (lines.length * TEACHER_ROW_H) + 'px';
         wrap.appendChild(canvas);
         const renderer = new Vex.Flow.Renderer(canvas, Vex.Flow.Renderer.Backends.CANVAS);
         const ctx = renderer.getContext();
+        ctx.scale(TEACHER_SCALE, TEACHER_SCALE);
         lines.forEach((line, li) => {
             renderVexStaffLine(ctx, line, Object.assign({}, opts, { staveY: TEACHER_STAVE_Y + li * TEACHER_ROW_H }));
         });
@@ -14795,27 +14809,71 @@ function _genInterval(count, difficulty) {
     return out;
 }
 
+// 综合考试和弦出题定义（三和弦原位/转位 + 七和弦省略五音+解决三和弦）
+const EXAM_CHORD_DEFS = {
+    '大三': { intervals: [0, 4, 7], seventh: false },
+    '小三': { intervals: [0, 3, 7], seventh: false },
+    '增三': { intervals: [0, 4, 8], seventh: false },
+    '减三': { intervals: [0, 3, 6], seventh: false },
+    // 大小七（属七）：省略五音出题，解决到上四度大三和弦
+    '属七': { intervals: [0, 4, 7, 10], seventh: true, resolve: '大三', resolveStep: 5 },
+    // 小小七（小七）：省略五音出题，解决到上四度小三和弦
+    '小七': { intervals: [0, 3, 7, 10], seventh: true, resolve: '小三', resolveStep: 5 },
+    // 减七（导七）：省略五音出题，解决到上行小二度大三和弦（主和弦）
+    '减七': { intervals: [0, 3, 6, 9], seventh: true, resolve: '大三', resolveStep: 1 }
+};
+
+// 从根音 + 半音数得到音名（映射到宽音域 C3-C6，保证转位/七和弦音程正确）
+function _noteFromSemitone(root, semitone) {
+    const f = getFrequency(root) * Math.pow(2, semitone / 12);
+    let best = null, md = Infinity;
+    for (const n of EXAM_NOTES) { const d = Math.abs(getFrequency(n) - f); if (d < md) { md = d; best = n; } }
+    return best;
+}
+
+// 按 MIDI 音高排序音名数组（低音在前，用于 VexFlow 纵向排列）
+function _sortNotesByMidi(notes) {
+    return [...notes].sort((a, b) => noteNameToMidi(a) - noteNameToMidi(b));
+}
+
+// 生成三和弦题项（原位 0 / 一转 1 / 二转 2）
+function _genTriadItem(root, typeName, def) {
+    const inversion = Math.floor(Math.random() * 3);
+    const invIntervals = def.intervals.map((it, idx) => (idx < inversion ? it + 12 : it));
+    const notes = _sortNotesByMidi(invIntervals.map(iv => _noteFromSemitone(root, iv)));
+    return { root, typeName, notes, kind: 'triad', inversion };
+}
+
+// 生成七和弦题项（省略五音 + 后接解决三和弦）
+function _genSeventhItem(root, typeName, def) {
+    // 省略五音：intervals 下标 2 为五音
+    const omitFifth = def.intervals.filter((it, idx) => idx !== 2);
+    const notes = _sortNotesByMidi(omitFifth.map(iv => _noteFromSemitone(root, iv)));
+    const resolveDef = EXAM_CHORD_DEFS[def.resolve];
+    const resolveRoot = _noteFromSemitone(root, def.resolveStep);
+    const resolveNotes = _sortNotesByMidi(resolveDef.intervals.map(iv => _noteFromSemitone(resolveRoot, iv)));
+    return { root, typeName, notes, kind: 'seventh', resolution: { root: resolveRoot, typeName: def.resolve, notes: resolveNotes } };
+}
+
 function _genChord(count, difficulty) {
     const out = [];
-    const chordPool = difficultyConfig[difficulty] ? difficultyConfig[difficulty].chords : EXAM_CHORD_TYPES.slice(0, 7);
     // 根音限制在人声音域 G3-G5 内的第4八度（C4-B4）
     const roots = HUMAN_VOICE_NOTES.filter(n => parseInt(n.slice(-1)) === 4);
+    // 三和弦池；难度 >= 2 时加入七和弦（大小七/小小七/减七）
+    const triadNames = ['大三', '小三', '增三', '减三'];
+    const seventhNames = ['属七', '小七', '减七'];
+    const poolNames = triadNames.concat(difficulty >= 2 ? seventhNames : []);
     let prevKey = null;
     for (let i = 0; i < count; i++) {
-        let type, root, key;
+        let item, key;
         do {
-            type = chordPool[Math.floor(Math.random() * chordPool.length)];
-            root = roots[Math.floor(Math.random() * roots.length)];
-            key = root + '|' + type.name;
-        } while (key === prevKey && (chordPool.length * roots.length) > 1);
-        const rf = getFrequency(root);
-        const notes = type.intervals.map(iv => {
-            const f = rf * Math.pow(2, iv / 12);
-            let best = null, md = Infinity;
-            for (const n of HUMAN_VOICE_NOTES) { const d = Math.abs(getFrequency(n) - f); if (d < md) { md = d; best = n; } }
-            return best;
-        });
-        out.push({ root, typeName: type.name, notes });
+            const name = poolNames[Math.floor(Math.random() * poolNames.length)];
+            const root = roots[Math.floor(Math.random() * roots.length)];
+            const def = EXAM_CHORD_DEFS[name];
+            item = def.seventh ? _genSeventhItem(root, name, def) : _genTriadItem(root, name, def);
+            key = root + '|' + name;
+        } while (key === prevKey && poolNames.length * roots.length > 1);
+        out.push(item);
         prevKey = key;
     }
     return out;
@@ -15282,6 +15340,11 @@ async function _playChordOnce(chords, bpm) {
     for (const c of chords) {
         c.notes.forEach(n => playNoteWithWebAudio(n, 2.0, 0.8));
         await examSleep(2250);
+        // 七和弦：随后播放解决三和弦（功能进行）
+        if (c.resolution && c.resolution.notes) {
+            c.resolution.notes.forEach(n => playNoteWithWebAudio(n, 2.0, 0.8));
+            await examSleep(2250);
+        }
     }
 }
 
