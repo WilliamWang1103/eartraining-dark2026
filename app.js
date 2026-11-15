@@ -14576,21 +14576,20 @@ function barDescToTickables(desc, clef) {
 function buildExamStaffBars(q) {
     const clef = 'treble';
     const bars = [];
+    const barGroups = []; // 每个 bar 的题项索引（和弦题用于保持"解决搭配"不拆行）
     const opts = { clef, beatsPerBar: 4, beatValue: 4 };
+    const pushBar = (tickables, groupIdx) => { bars.push(tickables); barGroups.push(groupIdx); };
     if (q.type === 'single') {
-        (q.data || []).forEach(n => bars.push([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(n)], duration: 'w' })]));
+        (q.data || []).forEach(n => pushBar([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(n)], duration: 'w' })], barGroups.length));
     } else if (q.type === 'interval-pitch' || q.type === 'interval-quality') {
-        (q.data || []).forEach(iv => bars.push([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(iv.note1), noteNameToVexKey(iv.note2)], duration: 'w' })]));
+        (q.data || []).forEach(iv => pushBar([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(iv.note1), noteNameToVexKey(iv.note2)], duration: 'w' })], barGroups.length));
     } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
-        (q.data || []).forEach(ch => {
+        (q.data || []).forEach((ch, ci) => {
+            // 每个和弦 1 小节（全音符）
+            pushBar([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.notes || []).map(noteNameToVexKey), duration: 'w' })], ci);
+            // 需要解决的和弦（七和弦/减三）后，下一小节是固定解决和弦
             if (ch.resolution && ch.resolution.notes) {
-                // 七和弦 + 解决三和弦：同一个小节，各 2 拍（二分音符），保持 10 个和弦 = 10 小节
-                bars.push([
-                    new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.notes || []).map(noteNameToVexKey), duration: 'h' }),
-                    new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.resolution.notes).map(noteNameToVexKey), duration: 'h' })
-                ]);
-            } else {
-                bars.push([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.notes || []).map(noteNameToVexKey), duration: 'w' })]);
+                pushBar([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.resolution.notes).map(noteNameToVexKey), duration: 'w' })], ci);
             }
         });
     } else if (q.type === 'rhythm') {
@@ -14603,17 +14602,17 @@ function buildExamStaffBars(q) {
                 const rn = RHYTHM_DURATION_MAP[pattern];
                 if (rn) rn.forEach(n => desc.push({ duration: n.duration, dots: n.dots || 0, pitch: 'A4' }));
             });
-            bars.push(barDescToTickables(desc, clef));
+            pushBar(barDescToTickables(desc, clef), barGroups.length);
         });
     } else if (q.type === 'melody') {
         const ts = (q.data && q.data.timeSignature) || '4/4';
         const bpb = parseInt(ts.split('/')[0]) || 4;
         opts.timeSig = ts; opts.beatsPerBar = bpb;
         ((q.data && q.data.measures) || []).forEach(bar => {
-            bars.push(barDescToTickables((bar || []).map(n => ({ duration: n.duration, dots: n.dots || 0, pitch: n.pitch })), clef));
+            pushBar(barDescToTickables((bar || []).map(n => ({ duration: n.duration, dots: n.dots || 0, pitch: n.pitch })), clef), barGroups.length);
         });
     }
-    return { bars, opts };
+    return { bars, opts, barGroups };
 }
 
 // 生成试卷预览 HTML（题干 + 每题的 VexFlow 五线谱容器）
@@ -14639,14 +14638,25 @@ function drawTeacherExamCanvases(container, questions) {
         const wrap = container.querySelector(`.tq-canvas[data-idx="${qi}"]`);
         if (!wrap) return;
         wrap.innerHTML = '';
-        const { bars, opts } = buildExamStaffBars(q);
+        const { bars, opts, barGroups } = buildExamStaffBars(q);
         if (!bars.length) return;
-        // 旋律题每 4 小节折行；和弦题超过 10 小节每行 10 小节；其余一行放下所有小节
-        let perLine = bars.length;
-        if (q.type === 'melody') perLine = 4;
-        else if ((q.type === 'chord-pitch' || q.type === 'chord-quality') && bars.length > 10) perLine = 10;
+        // 折行：旋律每 4 小节；和弦按题项（每行 10 个题项，解决和弦不拆行）；其余一行放下
         const lines = [];
-        for (let i = 0; i < bars.length; i += perLine) lines.push(bars.slice(i, i + perLine));
+        if (q.type === 'melody') {
+            for (let i = 0; i < bars.length; i += 4) lines.push(bars.slice(i, i + 4));
+        } else if ((q.type === 'chord-pitch' || q.type === 'chord-quality') && bars.length > 10) {
+            // 和弦题折行：每行约 10 小节，但"解决搭配"（七和弦+解决）不拆行
+            let line = [], lineBars = 0;
+            for (let i = 0; i < bars.length; i++) {
+                line.push(bars[i]);
+                lineBars++;
+                const nextSameGroup = i + 1 < bars.length && barGroups[i + 1] === barGroups[i];
+                if (lineBars >= 10 && !nextSameGroup) { lines.push(line); line = []; lineBars = 0; }
+            }
+            if (line.length) lines.push(line);
+        } else {
+            lines.push(bars);
+        }
         const canvas = document.createElement('canvas');
         canvas.width = TEACHER_STAFF_W * TEACHER_SCALE;
         canvas.height = lines.length * TEACHER_ROW_H * TEACHER_SCALE;
