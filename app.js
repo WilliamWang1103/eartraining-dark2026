@@ -14481,8 +14481,8 @@ function downloadBytes(bytes, filename, mime) {
 
 // ==================== 试卷 PDF 渲染（VexFlow 出版级五线谱） ====================
 const TEACHER_STAFF_W = 720;   // 每行五线谱宽度（CSS 逻辑宽度）
-const TEACHER_ROW_H = 100;     // 每行五线谱高度（含上下留白，紧凑固定）
-const TEACHER_STAVE_Y = 30;    // 第一行五线谱顶部 y
+const TEACHER_ROW_H = 150;     // 每行五线谱高度（恢复到上一版第1题的上下留白）
+const TEACHER_STAVE_Y = 50;    // 第一行五线谱顶部 y
 const TEACHER_SCALE = 2;       // VexFlow 渲染分辨率倍率（高分辨率，缩小后音符清晰）
 
 // 音名 → VexFlow key（'C4'→'c/4'，'C#4'→'c#/4'，'Bb4'→'bb/4'）
@@ -14512,7 +14512,7 @@ function renderVexStaffLine(ctx, bars, opts) {
     const beatValue = opts.beatValue || 4;
     bars.forEach((bar, i) => {
         const x = marginX + i * staveW;
-        const stave = new Vex.Flow.Stave(x, staveY, staveW, { fill_style: '#000000', stroke_style: '#000000', spacing_between_lines_px: 12 });
+        const stave = new Vex.Flow.Stave(x, staveY, staveW, { fill_style: '#000000', stroke_style: '#000000', space_above_staff_ln: 2 });
         if (i === 0) {
             stave.addClef(clef);
             if (opts.timeSig) stave.addTimeSignature(opts.timeSig);
