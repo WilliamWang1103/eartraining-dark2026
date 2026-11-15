@@ -14762,12 +14762,33 @@ function _genSingle(count, difficulty) {
     // 限制到考试音域 A3-F5
     const notePool = rawPool.filter(n => HUMAN_VOICE_NOTES.includes(n));
     const finalPool = notePool.length ? notePool : HUMAN_VOICE_NOTES;
-    // 不放回抽取，避免重复出题
-    const pool = [...finalPool];
+    // 黑键音（升降号）与白键音（自然音）
+    const blackKeys = finalPool.filter(n => /[#b]/.test(n));
+    const whiteKeys = finalPool.filter(n => !/[#b]/.test(n));
     const out = [];
-    for (let i = 0; i < count && pool.length > 0; i++) {
-        const idx = Math.floor(Math.random() * pool.length);
-        out.push(pool.splice(idx, 1)[0]);
+    const used = new Set();
+    // 适当出现 1 个黑键音（随机位置，避开首尾）
+    const blackIndex = (Math.random() < 0.5 && blackKeys.length) ? 1 + Math.floor(Math.random() * Math.max(1, count - 2)) : -1;
+    let prev = null;
+    for (let i = 0; i < count; i++) {
+        const basePool = (i === blackIndex ? blackKeys : whiteKeys).filter(n => !used.has(n));
+        // 平稳（级进 ≤2 半音）与跳进（>2 半音）穿插；相邻音不超过八度（≤12 半音）
+        const wantStep = Math.random() < 0.5;
+        let candidates = basePool;
+        if (prev) {
+            candidates = basePool.filter(n => {
+                const d = Math.abs(noteNameToMidi(n) - noteNameToMidi(prev));
+                if (d > 12) return false;
+                return wantStep ? d <= 2 : d > 2;
+            });
+        }
+        if (!candidates.length) candidates = basePool.filter(n => !prev || Math.abs(noteNameToMidi(n) - noteNameToMidi(prev)) <= 12);
+        if (!candidates.length) candidates = basePool;
+        if (!candidates.length) candidates = finalPool.filter(n => !used.has(n));
+        const n = candidates[Math.floor(Math.random() * candidates.length)];
+        used.add(n);
+        out.push(n);
+        prev = n;
     }
     return out;
 }
@@ -14778,37 +14799,63 @@ function _genInterval(count, difficulty) {
     const notePool = rawPool.filter(n => HUMAN_VOICE_NOTES.includes(n));
     const finalPool = notePool.length ? notePool : HUMAN_VOICE_NOTES;
     const out = [];
-    const semis = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-    const used = new Set();
-    for (let i = 0; i < count; i++) {
-        let n1, best, key;
-        let tries = 0;
+    // 决定增音程（三全音：增四度/减五度）数量 k（每个占 2 小节：增音程 + 解决音程；可为 0）
+    const maxK = Math.floor(count / 2);
+    const minK = 0;
+    const k = minK + Math.floor(Math.random() * (maxK - minK + 1));
+    const seq = [];
+    for (let j = 0; j < k; j++) seq.push('tritone');
+    for (let j = 0; j < count - 2 * k; j++) seq.push('interval');
+    for (let j = seq.length - 1; j > 0; j--) { const r = Math.floor(Math.random() * (j + 1)); [seq[j], seq[r]] = [seq[r], seq[j]]; }
+
+    const nearest = (f) => {
+        let best = null, md = Infinity;
+        for (const n of finalPool) { const d = Math.abs(getFrequency(n) - f); if (d < md) { md = d; best = n; } }
+        return best;
+    };
+    // 三全音（增四度/减五度）及解决
+    const genTritone = () => {
+        let n1, n2, resolution = null, tries = 0;
         do {
             n1 = finalPool[Math.floor(Math.random() * Math.max(1, finalPool.length - 7))];
-            const st = semis[Math.floor(Math.random() * semis.length)];
-            const f1 = getFrequency(n1), f2 = f1 * Math.pow(2, st / 12);
-            best = null; let md = Infinity;
-            for (const n of finalPool) { const d = Math.abs(getFrequency(n) - f2); if (d < md) { md = d; best = n; } }
-            key = n1 + '|' + best;
+            const st = 6; // 三全音 6 半音
+            n2 = nearest(getFrequency(n1) * Math.pow(2, st / 12));
             tries++;
-        } while ((used.has(key) || n1 === best) && tries < 50 && finalPool.length > 2);
-        used.add(key);
-        // 增四度/减五度（三全音）需要解决到相邻自然音
-        let resolution = null;
-        if (Math.abs(getIntervalSemitones(n1, best)) === 6) {
-            const letters = { 'C': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'A': 5, 'B': 6 };
-            const l1 = letters[n1[0]], l2 = letters[best[0]];
-            const degree = ((l2 - l1 + 7) % 7) + 1;
-            if (degree === 4) {
-                // 增四度：低音下行、高音上行
-                resolution = { res1: _resolveToNatural(n1, -1), res2: _resolveToNatural(best, 1), kind: '增四度' };
-            } else if (degree === 5) {
-                // 减五度：低音上行、高音下行
-                resolution = { res1: _resolveToNatural(n1, 1), res2: _resolveToNatural(best, -1), kind: '减五度' };
-            }
+        } while (n1 === n2 && tries < 30 && finalPool.length > 2);
+        const letters = { 'C': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'A': 5, 'B': 6 };
+        const degree = ((letters[n2[0]] - letters[n1[0]] + 7) % 7) + 1;
+        if (degree === 4) {
+            resolution = { note1: _resolveToNatural(n1, -1), note2: _resolveToNatural(n2, 1), kind: 'resolution' };
+        } else if (degree === 5) {
+            resolution = { note1: _resolveToNatural(n1, 1), note2: _resolveToNatural(n2, -1), kind: 'resolution' };
         }
-        out.push({ note1: n1, note2: best, resolution });
-    }
+        return { note1: n1, note2: n2, kind: 'tritone', resolution };
+    };
+    // 普通音程（1-8 度，半音 1-12 中除 6 三全音），避免连续同性质
+    let prevSemis = -1;
+    const genInterval = () => {
+        const semisPool = [1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
+        let n1, n2, semis, tries = 0;
+        do {
+            n1 = finalPool[Math.floor(Math.random() * Math.max(1, finalPool.length - 7))];
+            semis = semisPool[Math.floor(Math.random() * semisPool.length)];
+            n2 = nearest(getFrequency(n1) * Math.pow(2, semis / 12));
+            tries++;
+        } while ((semis === prevSemis || n1 === n2) && tries < 50 && finalPool.length > 2);
+        prevSemis = semis;
+        return { note1: n1, note2: n2, kind: 'interval' };
+    };
+
+    seq.forEach(item => {
+        if (item === 'tritone') {
+            const t = genTritone();
+            out.push({ note1: t.note1, note2: t.note2, kind: 'tritone' });
+            if (t.resolution) out.push(t.resolution);
+            else out.push(genInterval());
+        } else {
+            out.push(genInterval());
+        }
+    });
     return out;
 }
 
@@ -14910,6 +14957,7 @@ function _genChord(count, difficulty) {
     const f5midi = noteNameToMidi('F5');
     // 需要解决的和弦（七和弦/减三）；难度 >= 2 时含七和弦
     const resolvingNames = difficulty >= 2 ? ['属七', '小七', '减七', '减三'] : ['减三'];
+    const seventhNames = ['属七', '小七', '减七'];
     // 不需要解决的三和弦
     const plainNames = ['大三', '小三', '增三'];
     const rootPoolFor = (name) => {
@@ -14925,7 +14973,6 @@ function _genChord(count, difficulty) {
     const maxK = Math.floor(count / 2);
     const minK = Math.min(2, maxK);
     const k = minK + Math.floor(Math.random() * (maxK - minK + 1));
-    // 生成序列：k 个"解决组" + (count - 2k) 个普通三和弦，洗牌排列
     const seq = [];
     for (let j = 0; j < k; j++) seq.push('resolving');
     for (let j = 0; j < count - 2 * k; j++) seq.push('triad');
@@ -14934,28 +14981,62 @@ function _genChord(count, difficulty) {
         [seq[j], seq[r]] = [seq[r], seq[j]];
     }
     // 生成和弦（每个占 1 小节，总 count 个小节）
+    let seventhCount = 0; // 七和弦数量上限 3
+    let prevType = null;  // 避免连续同性质
+    let prevLow = null;   // 相邻低音 ≤ 5 度（半音 ≤ 7）
+    const pickRoot = (name, pool) => {
+        let cands = pool;
+        if (prevLow) {
+            const near = cands.filter(r => Math.abs(noteNameToMidi(r) - noteNameToMidi(prevLow)) <= 7);
+            if (near.length) cands = near;
+        }
+        return cands[Math.floor(Math.random() * cands.length)];
+    };
+    const pushChord = (ch) => {
+        out.push(ch);
+        prevType = ch.typeName;
+        prevLow = ch.notes && ch.notes.length ? _sortNotesByMidi(ch.notes)[0] : prevLow;
+    };
+    // 生成并约束低音（转位可能使低音偏离根音，重试换根音/转位）
+    const genWithLowRange = (makeChord) => {
+        let ch = makeChord();
+        for (let attempt = 0; attempt < 30; attempt++) {
+            const low = _sortNotesByMidi(ch.notes)[0];
+            if (!prevLow || Math.abs(noteNameToMidi(low) - noteNameToMidi(prevLow)) <= 7) break;
+            ch = makeChord();
+        }
+        return ch;
+    };
     seq.forEach(item => {
         if (item === 'resolving') {
-            const name = resolvingNames[Math.floor(Math.random() * resolvingNames.length)];
+            // 七和弦不超过 3 个；达到上限后只出减三
+            let pool = seventhCount < 3 ? resolvingNames : resolvingNames.filter(n => !seventhNames.includes(n));
+            if (!pool.length) pool = ['减三'];
+            let name = pool[Math.floor(Math.random() * pool.length)];
+            let guard = 0;
+            while (name === prevType && pool.length > 1 && guard++ < 10) name = pool[Math.floor(Math.random() * pool.length)];
+            if (seventhNames.includes(name)) seventhCount++;
             const def = EXAM_CHORD_DEFS[name];
-            const pool = rootPoolFor(name);
-            const root = pool[Math.floor(Math.random() * pool.length)];
-            if (def.seventh) {
-                const s = _genSeventhItem(root, name, def);
-                out.push({ root: s.root, typeName: s.typeName, notes: s.notes, kind: 'seventh', inversion: s.inversion });
-                out.push({ root: s.resolution.root, typeName: s.resolution.typeName, notes: s.resolution.notes, kind: 'resolution' });
-            } else {
-                const t = _genTriadItem(root, name, def);
-                out.push({ root: t.root, typeName: t.typeName, notes: t.notes, kind: 'dimTriad', inversion: t.inversion });
-                out.push({ root: t.resolution.root, typeName: t.resolution.typeName, notes: t.resolution.notes, kind: 'resolution' });
+            const mk = () => {
+                const root = pickRoot(name, rootPoolFor(name));
+                return def.seventh ? _genSeventhItem(root, name, def) : _genTriadItem(root, name, def);
+            };
+            const item1 = genWithLowRange(mk);
+            pushChord({ root: item1.root, typeName: item1.typeName, notes: item1.notes, kind: def.seventh ? 'seventh' : 'dimTriad', inversion: item1.inversion });
+            if (item1.resolution) {
+                pushChord({ root: item1.resolution.root, typeName: item1.resolution.typeName, notes: item1.resolution.notes, kind: 'resolution' });
             }
         } else {
-            const name = plainNames[Math.floor(Math.random() * plainNames.length)];
+            let name = plainNames[Math.floor(Math.random() * plainNames.length)];
+            let guard = 0;
+            while (name === prevType && plainNames.length > 1 && guard++ < 10) name = plainNames[Math.floor(Math.random() * plainNames.length)];
             const def = EXAM_CHORD_DEFS[name];
-            const pool = rootPoolFor(name);
-            const root = pool[Math.floor(Math.random() * pool.length)];
-            const t = _genTriadItem(root, name, def);
-            out.push({ root: t.root, typeName: t.typeName, notes: t.notes, kind: 'triad', inversion: t.inversion });
+            const mk = () => {
+                const root = pickRoot(name, rootPoolFor(name));
+                return _genTriadItem(root, name, def);
+            };
+            const t = genWithLowRange(mk);
+            pushChord({ root: t.root, typeName: t.typeName, notes: t.notes, kind: 'triad', inversion: t.inversion });
         }
     });
     return out;
@@ -15046,6 +15127,13 @@ function _genMelodyPitches(scaleNotes, tonicName, style, semitones, pianyin, not
     if ((style === 'major' || style === 'minor') && noteCount >= 2 && n >= 7) {
         degrees[noteCount - 2] = 4;
     }
+    // 消除相邻同音反复（黄金分割点或边界截断可能导致），保持高潮位置不动
+    for (let i = 1; i < degrees.length; i++) {
+        if (degrees[i] === degrees[i - 1]) {
+            if (i === goldenIndex) degrees[i - 1] = degrees[i - 1] > 0 ? degrees[i - 1] - 1 : 1;
+            else degrees[i] = degrees[i] > 0 ? degrees[i] - 1 : 1;
+        }
+    }
 
     const result = degrees.map(deg => degreeToPitch(tonicNote, semitones, deg));
 
@@ -15061,32 +15149,36 @@ function _genMelodyPitches(scaleNotes, tonicName, style, semitones, pianyin, not
     return result;
 }
 
-// 根据风格决定下一个音级
+// 根据风格决定下一个音级（避免同音反复）
 function _nextMelodyDegree(current, n, style) {
     const r = Math.random();
+    let d;
     if (style === 'major' || style === 'minor') {
         // 西洋大小调：级进为主 + 少量跳进 + 和弦化进行
         if (r < 0.55) {
             const step = Math.random() < 0.5 ? 1 : -1;
-            return Math.max(0, Math.min(n - 1, current + step));
+            d = Math.max(0, Math.min(n - 1, current + step));
         } else if (r < 0.85) {
             const leap = [2, 3, -2, -3][Math.floor(Math.random() * 4)];
-            return Math.max(0, Math.min(n - 1, current + leap));
+            d = Math.max(0, Math.min(n - 1, current + leap));
         } else {
-            // 和弦化进行（分解和弦：主和弦音级 0,2,4）
-            const chordTones = [0, 2, 4];
-            return chordTones[Math.floor(Math.random() * chordTones.length)];
+            // 和弦化进行（分解和弦：主和弦音级 0,2,4，排除当前音避免同音反复）
+            const chordTones = [0, 2, 4].filter(t => t !== current);
+            d = chordTones[Math.floor(Math.random() * chordTones.length)];
         }
     } else {
         // 民族五声：音阶级进为主，偶尔五声跳进
         if (r < 0.8) {
             const step = Math.random() < 0.5 ? 1 : -1;
-            return Math.max(0, Math.min(n - 1, current + step));
+            d = Math.max(0, Math.min(n - 1, current + step));
         } else {
             const leap = [2, -2][Math.floor(Math.random() * 2)];
-            return Math.max(0, Math.min(n - 1, current + leap));
+            d = Math.max(0, Math.min(n - 1, current + leap));
         }
     }
+    // 边界截断仍可能同音，微调
+    if (d === current && n > 1) d = current > 0 ? current - 1 : 1;
+    return d;
 }
 
 // 音级 → 实际音名（含八度，限制在人声音域 G3-G5）
