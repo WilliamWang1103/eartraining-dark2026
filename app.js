@@ -14531,12 +14531,16 @@ function renderVexStaffLine(ctx, bars, opts) {
             voice.addTickables(bar);
             new Vex.Flow.Formatter().joinVoices([voice]).format([voice], Math.max(1, staveW - 10));
             voice.draw(ctx, stave);
-            // VexFlow 4.2.3 的 beam 不会随 voice 自动渲染，需显式 draw（修复符干/符尾缺失）
+            // VexFlow 4.2.3 的 beam/tuplet 不会随 voice 自动渲染，需显式 draw（修复符干/符尾/三连音缺失）
             const drawnBeams = new Set();
             bar.forEach(t => {
                 if (t instanceof Vex.Flow.StaveNote && t.beam && !drawnBeams.has(t.beam)) {
                     drawnBeams.add(t.beam);
                     try { t.beam.setContext(ctx); t.beam.draw(); } catch (e) { /* ignore */ }
+                }
+                if (t instanceof Vex.Flow.StaveNote && t.getTuplet && t.getTuplet() && !drawnBeams.has(t.getTuplet())) {
+                    drawnBeams.add(t.getTuplet());
+                    try { t.getTuplet().setContext(ctx); t.getTuplet().draw(); } catch (e) { /* ignore */ }
                 }
             });
         }
@@ -14555,6 +14559,7 @@ function barDescToTickables(desc, clef) {
             const tn = [0, 1, 2].map(k => new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(desc[i + k].pitch)], duration: '8' }));
             const tuplet = new Vex.Flow.Tuplet(tn);
             tn.forEach(n => { if (n.setTuplet) n.setTuplet(tuplet); });
+            new Vex.Flow.Beam(tn); // 三连音也需 beam（横梁连接）
             tickables.push(...tn);
             i += 3;
         } else {
