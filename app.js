@@ -14476,120 +14476,152 @@ function downloadBytes(bytes, filename, mime) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ==================== 试卷 PDF 渲染 ====================
-// 音高 → 五线谱 Y 坐标（复用 noteToStaffPosition，高音谱表）
-function staffNoteY(pitch, staffTopY, lineSpacing) {
-    const position = noteToStaffPosition(pitch);
-    return staffTopY + (8 - position) * (lineSpacing / 2);
+// ==================== 试卷 PDF 渲染（VexFlow 出版级五线谱） ====================
+const TEACHER_STAFF_W = 720;   // 每行五线谱宽度
+const TEACHER_ROW_H = 150;     // 每行五线谱高度（含上下留白）
+const TEACHER_STAVE_Y = 55;    // 第一行五线谱顶部 y
+
+// 音名 → VexFlow key（'C4'→'c/4'，'C#4'→'c#/4'，'Bb4'→'bb/4'）
+function noteNameToVexKey(note) {
+    const m = (note || '').match(/^([A-G])([#b]?)(\d)$/);
+    if (!m) return 'c/4';
+    const letter = m[1].toLowerCase();
+    const acc = m[2] === '#' ? '#' : (m[2] === 'b' ? 'b' : '');
+    return letter + acc + '/' + m[3];
 }
 
-// 仅绘制符头（柱式和弦/音程用）
-function drawNoteHeadOnly(ctx, x, noteY, filled) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(x, noteY, 7, 5, -0.3, 0, 2 * Math.PI);
-    if (filled) { ctx.fillStyle = '#222'; ctx.fill(); } else { ctx.fillStyle = '#fff'; ctx.fill(); }
-    ctx.strokeStyle = '#222'; ctx.lineWidth = 1.2; ctx.stroke();
-    ctx.restore();
+// 时值 → VexFlow duration（三连音用八分音符近似，由 Tuplet 处理）
+function durToVex(d) {
+    return d === 'triplet' ? '8' : d;
 }
 
-// 在一行五线谱上绘制一组柱式音符
-function drawExamStaff(canvas, noteGroups, opts) {
+// 在一行五线谱上渲染多个小节（每小节一个 Stave，横向紧贴，小节线自然形成）
+function renderVexStaffLine(ctx, bars, opts) {
     opts = opts || {};
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width, H = canvas.height;
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-    const lineSpacing = 12;
-    const staffTop = 36;
-    const staffLeft = 70;
-    drawClef(ctx, staffLeft - 55, 0, staffTop, 'treble', lineSpacing);
-    if (opts.timeSig) drawTimeSignature(ctx, opts.timeSig, staffLeft - 12, staffTop, lineSpacing);
-    if (opts.key) drawKeySignature(ctx, opts.key, staffLeft + 15, staffTop);
-    drawStaffLines(ctx, staffLeft, staffTop, W - staffLeft - 16, lineSpacing);
-    const n = Math.max(noteGroups.length, 1);
-    const startX = staffLeft + 48;
-    const avail = W - startX - 16;
-    const gap = Math.min(60, avail / n);
-    noteGroups.forEach((grp, i) => {
-        const x = startX + i * gap;
-        (grp.pitches || []).forEach(p => drawNoteHeadOnly(ctx, x, staffNoteY(p, staffTop, lineSpacing), true));
+    const W = TEACHER_STAFF_W;
+    const marginX = 10;
+    const staveY = opts.staveY || TEACHER_STAVE_Y;
+    const n = bars.length || 1;
+    const staveW = (W - marginX * 2) / n;
+    const clef = opts.clef || 'treble';
+    const beatsPerBar = opts.beatsPerBar || 4;
+    const beatValue = opts.beatValue || 4;
+    bars.forEach((bar, i) => {
+        const x = marginX + i * staveW;
+        const stave = new Vex.Flow.Stave(x, staveY, staveW, { fill_style: '#000000', stroke_style: '#000000' });
+        if (i === 0) {
+            stave.addClef(clef);
+            if (opts.timeSig) stave.addTimeSignature(opts.timeSig);
+            if (opts.keySig) stave.addKeySignature(opts.keySig);
+        }
+        stave.setContext(ctx).draw();
+        if (!bar || !bar.length) return;
+        const staveNotes = bar.filter(t => t instanceof Vex.Flow.StaveNote && !t.getTuplet());
+        if (staveNotes.length > 1) Vex.Flow.Beam.generateBeams(staveNotes);
+        const voice = new Vex.Flow.Voice({ num_beats: beatsPerBar, beat_value: beatValue });
+        voice.setMode(Vex.Flow.Voice.Mode.SOFT);
+        voice.addTickables(bar);
+        new Vex.Flow.Formatter().joinVoices([voice]).format([voice], Math.max(1, staveW - 15));
+        voice.draw(ctx, stave);
     });
-    if (opts.labelNotes !== false) {
-        ctx.save();
-        ctx.fillStyle = '#333';
-        ctx.font = '11px sans-serif';
-        ctx.textAlign = 'center';
-        noteGroups.forEach((grp, i) => {
-            ctx.fillText((grp.pitches || []).join(' '), startX + i * gap, staffTop + 4 * lineSpacing + 22);
-        });
-        ctx.restore();
-    }
 }
 
-// 收集题目的柱式音符组
-function collectNoteGroups(q) {
-    const groups = [];
-    const d = q.data || [];
+// 把一小节的扁平音符描述转成 VexFlow tickables（含三连音 → Tuplet）
+function barDescToTickables(desc, clef) {
+    const tickables = [];
+    let i = 0;
+    while (i < desc.length) {
+        const it = desc[i];
+        if (it.duration === 'triplet' && i + 2 < desc.length &&
+            desc[i + 1].duration === 'triplet' && desc[i + 2].duration === 'triplet') {
+            const tn = [0, 1, 2].map(k => new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(desc[i + k].pitch)], duration: '8' }));
+            const tuplet = new Vex.Flow.Tuplet(tn);
+            tn.forEach(n => { if (n.setTuplet) n.setTuplet(tuplet); });
+            tickables.push(...tn);
+            i += 3;
+        } else {
+            const opts = { clef, keys: [noteNameToVexKey(it.pitch)], duration: durToVex(it.duration) };
+            if (it.dots) opts.dots = it.dots;
+            tickables.push(new Vex.Flow.StaveNote(opts));
+            i++;
+        }
+    }
+    return tickables;
+}
+
+// 把题目数据构造成五线谱小节（bars：每小节一组 VexFlow tickables）
+function buildExamStaffBars(q) {
+    const clef = 'treble';
+    const bars = [];
+    const opts = { clef, beatsPerBar: 4, beatValue: 4 };
     if (q.type === 'single') {
-        d.forEach(n => groups.push({ pitches: [n] }));
+        (q.data || []).forEach(n => bars.push([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(n)], duration: 'w' })]));
     } else if (q.type === 'interval-pitch' || q.type === 'interval-quality') {
-        d.forEach(iv => groups.push({ pitches: [iv.note1, iv.note2] }));
+        (q.data || []).forEach(iv => bars.push([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(iv.note1), noteNameToVexKey(iv.note2)], duration: 'w' })]));
     } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
-        d.forEach(ch => groups.push({ pitches: ch.notes || [] }));
+        (q.data || []).forEach(ch => bars.push([new Vex.Flow.StaveNote({ clef, keys: (ch.notes || []).map(noteNameToVexKey), duration: 'w' })]));
+    } else if (q.type === 'rhythm') {
+        const ts = (q.data && q.data.timeSignature) || q.timeSig || '4/4';
+        const bpb = parseInt(ts.split('/')[0]) || 4;
+        opts.timeSig = ts; opts.beatsPerBar = bpb;
+        ((q.data && q.data.measures) || []).forEach(bar => {
+            const desc = [];
+            (bar || []).forEach(pattern => {
+                const rn = RHYTHM_DURATION_MAP[pattern];
+                if (rn) rn.forEach(n => desc.push({ duration: n.duration, dots: n.dots || 0, pitch: 'B4' }));
+            });
+            bars.push(barDescToTickables(desc, clef));
+        });
     } else if (q.type === 'melody') {
-        (d.notes || []).forEach(n => groups.push({ pitches: [n.pitch] }));
+        const ts = (q.data && q.data.timeSignature) || '4/4';
+        const bpb = parseInt(ts.split('/')[0]) || 4;
+        opts.timeSig = ts; opts.beatsPerBar = bpb;
+        ((q.data && q.data.measures) || []).forEach(bar => {
+            bars.push(barDescToTickables((bar || []).map(n => ({ duration: n.duration, dots: n.dots || 0, pitch: n.pitch })), clef));
+        });
     }
-    return groups;
+    return { bars, opts };
 }
 
-// 节奏题文字描述
-function describeRhythm(data) {
-    if (!data || !data.measures) return '（无节奏数据）';
-    let html = `<div style="font-weight:bold;">拍号：${data.timeSignature || '2/4'}</div>`;
-    data.measures.forEach((bar, i) => {
-        html += `<div>第${i + 1}小节：${(bar || []).join(' ｜ ')}</div>`;
-    });
-    return html;
-}
-
-// 生成试卷预览 HTML
+// 生成试卷预览 HTML（题干 + 每题的 VexFlow 五线谱容器）
 function buildTeacherExamHTML(questions) {
-    let html = `<div style="font-family:'Times New Roman',serif;color:#111;width:720px;box-sizing:border-box;">
-        <h1 style="text-align:center;font-size:22px;margin:0 0 4px;">视唱练耳综合考试试卷</h1>
-        <p style="text-align:center;font-size:13px;margin:0 0 14px;color:#555;">（默认 6 题 · 共 100 分）</p>`;
+    let html = `<div style="font-family:'Times New Roman',serif;color:#111;width:${TEACHER_STAFF_W}px;box-sizing:border-box;">
+        <h1 style="text-align:center;font-size:22px;margin:0 0 4px;">视唱练耳综合考试试卷（参考答案）</h1>
+        <p style="text-align:center;font-size:13px;margin:0 0 14px;color:#555;">默认 6 题 · 共 100 分</p>`;
     questions.forEach((q, qi) => {
         const meta = getExamTypeMeta(q.type);
         const total = getExamItemScore(q);
-        html += `<div class="tq" style="margin-bottom:18px;">
-            <div style="font-size:15px;font-weight:bold;margin-bottom:4px;">第${qi + 1}题　${meta ? meta.name : q.type}（共 ${total} 分）</div>
-            <div class="tq-canvas" data-idx="${qi}" style="background:#fff;border:1px solid #ddd;border-radius:4px;padding:6px;"></div>
+        html += `<div class="tq" style="margin-bottom:14px;">
+            <div style="font-size:15px;font-weight:bold;margin-bottom:2px;">第${qi + 1}题　${meta ? meta.name : q.type}（${total} 分）</div>
+            <div class="tq-canvas" data-idx="${qi}" style="background:#fff;"></div>
         </div>`;
     });
     html += `</div>`;
     return html;
 }
 
-// 绘制每题的画布
+// 用 VexFlow 渲染每题的五线谱（答案）
 function drawTeacherExamCanvases(container, questions) {
     questions.forEach((q, qi) => {
         const wrap = container.querySelector(`.tq-canvas[data-idx="${qi}"]`);
         if (!wrap) return;
         wrap.innerHTML = '';
-        if (q.type === 'rhythm') {
-            wrap.innerHTML = `<div style="font-size:14px;line-height:1.9;color:#222;">${describeRhythm(q.data)}</div>`;
-            return;
-        }
-        const groups = collectNoteGroups(q);
-        const perRow = 12;
-        const labelNotes = q.type !== 'melody';
-        for (let i = 0; i < groups.length; i += perRow) {
-            const row = groups.slice(i, i + perRow);
-            const canvas = document.createElement('canvas');
-            canvas.width = 720;
-            canvas.height = 128;
-            wrap.appendChild(canvas);
-            drawExamStaff(canvas, row, { timeSig: q.data && q.data.timeSignature, key: q.data && q.data.key, labelNotes });
-        }
+        const { bars, opts } = buildExamStaffBars(q);
+        if (!bars.length) return;
+        // 旋律题每 4 小节折行，其余一行放下所有小节
+        const perLine = q.type === 'melody' ? 4 : bars.length;
+        const lines = [];
+        for (let i = 0; i < bars.length; i += perLine) lines.push(bars.slice(i, i + perLine));
+        const canvas = document.createElement('canvas');
+        canvas.width = TEACHER_STAFF_W;
+        canvas.height = lines.length * TEACHER_ROW_H;
+        canvas.style.display = 'block';
+        wrap.appendChild(canvas);
+        const renderer = new Vex.Flow.Renderer(canvas, Vex.Flow.Renderer.Backends.CANVAS);
+        const ctx = renderer.getContext();
+        lines.forEach((line, li) => {
+            renderVexStaffLine(ctx, line, Object.assign({}, opts, { staveY: TEACHER_STAVE_Y + li * TEACHER_ROW_H }));
+        });
     });
 }
 
