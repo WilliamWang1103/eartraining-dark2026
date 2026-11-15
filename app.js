@@ -14526,7 +14526,8 @@ function renderVexStaffLine(ctx, bars, opts) {
             const voice = new Vex.Flow.Voice({ num_beats: beatsPerBar, beat_value: beatValue });
             voice.setMode(Vex.Flow.Voice.Mode.SOFT);
             voice.addTickables(tickables);
-            new Vex.Flow.Formatter().joinVoices([voice]).format([voice], Math.max(1, staveW - 10));
+            const noteArea = stave.getNoteEndX() - stave.getNoteStartX();
+            new Vex.Flow.Formatter().joinVoices([voice]).format([voice], Math.max(1, noteArea));
             voice.draw(ctx, stave);
             // VexFlow 4.2.3 的 beam/tuplet 需显式 draw（与考试渲染 renderExamRhythmVexflow 一致）
             ((bar && bar.beams) || []).forEach(b => { try { b.setContext(ctx); b.draw(); } catch (e) { /* ignore */ } });
@@ -14567,7 +14568,7 @@ function buildExamStaffBars(q) {
                 if (rn) rn.forEach(n => desc.push({ duration: n.duration, beats: n.beats, dots: n.dots || 0, rest: false }));
             });
             const built = buildVexRhythmNotes(desc, 'a/4');
-            pushBar(built.notes, built.beams, built.tuplets, 40 + bpb * 55, barGroups.length);
+            pushBar(built.notes, built.beams, built.tuplets, 50 + bpb * 60, barGroups.length);
         });
     } else if (q.type === 'melody') {
         const ts = (q.data && q.data.timeSignature) || '4/4';
@@ -14575,7 +14576,7 @@ function buildExamStaffBars(q) {
         opts.timeSig = ts; opts.beatsPerBar = bpb;
         ((q.data && q.data.measures) || []).forEach(bar => {
             const built = buildMelodyVexNotes(bar || []);
-            pushBar(built.notes, built.beams, built.tuplets, 40 + bpb * 55, barGroups.length);
+            pushBar(built.notes, built.beams, built.tuplets, 50 + bpb * 60, barGroups.length);
         });
     }
     return { bars, opts, barGroups };
@@ -14813,17 +14814,21 @@ function _genInterval(count, difficulty) {
         for (const n of finalPool) { const d = Math.abs(getFrequency(n) - f); if (d < md) { md = d; best = n; } }
         return best;
     };
-    // 三全音（增四度/减五度）及解决
+    // 三全音（增四度/减五度）及解决：只生成调内音池里真正相差 6 半音的组合（如 F-B、D-G#）
     const genTritone = () => {
-        let n1, n2, resolution = null, tries = 0;
-        do {
-            n1 = finalPool[Math.floor(Math.random() * Math.max(1, finalPool.length - 7))];
-            const st = 6; // 三全音 6 半音
-            n2 = nearest(getFrequency(n1) * Math.pow(2, st / 12));
-            tries++;
-        } while (n1 === n2 && tries < 30 && finalPool.length > 2);
+        const pairs = [];
+        for (const n1 of finalPool) {
+            const n2 = _noteFromSemitone(n1, 6);
+            if (Math.abs(noteNameToMidi(n2) - noteNameToMidi(n1)) === 6 && finalPool.includes(n2)) {
+                pairs.push({ n1, n2 });
+            }
+        }
+        if (!pairs.length) return null;
+        const pair = pairs[Math.floor(Math.random() * pairs.length)];
+        const n1 = pair.n1, n2 = pair.n2;
         const letters = { 'C': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'A': 5, 'B': 6 };
         const degree = ((letters[n2[0]] - letters[n1[0]] + 7) % 7) + 1;
+        let resolution = null;
         if (degree === 4) {
             resolution = { note1: _resolveToNatural(n1, -1), note2: _resolveToNatural(n2, 1), kind: 'resolution' };
         } else if (degree === 5) {
@@ -14849,9 +14854,13 @@ function _genInterval(count, difficulty) {
     seq.forEach(item => {
         if (item === 'tritone') {
             const t = genTritone();
-            out.push({ note1: t.note1, note2: t.note2, kind: 'tritone' });
-            if (t.resolution) out.push(t.resolution);
-            else out.push(genInterval());
+            if (t) {
+                out.push({ note1: t.note1, note2: t.note2, kind: 'tritone' });
+                if (t.resolution) out.push(t.resolution);
+                else out.push(genInterval());
+            } else {
+                out.push(genInterval()); // 调内无三全音组合时退化为普通音程
+            }
         } else {
             out.push(genInterval());
         }
@@ -15009,9 +15018,10 @@ function _genChord(count, difficulty) {
     };
     seq.forEach(item => {
         if (item === 'resolving') {
-            // 七和弦不超过 3 个；达到上限后只出减三
-            let pool = seventhCount < 3 ? resolvingNames : resolvingNames.filter(n => !seventhNames.includes(n));
-            if (!pool.length) pool = ['减三'];
+            // 七和弦不超过 2 个，且出现概率更低（优先减三）
+            let pool;
+            if (seventhCount < 2 && Math.random() < 0.4) pool = seventhNames;
+            else pool = ['减三'];
             let name = pool[Math.floor(Math.random() * pool.length)];
             let guard = 0;
             while (name === prevType && pool.length > 1 && guard++ < 10) name = pool[Math.floor(Math.random() * pool.length)];
