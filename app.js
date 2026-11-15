@@ -14584,13 +14584,9 @@ function buildExamStaffBars(q) {
     } else if (q.type === 'interval-pitch' || q.type === 'interval-quality') {
         (q.data || []).forEach(iv => pushBar([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(iv.note1), noteNameToVexKey(iv.note2)], duration: 'w' })], barGroups.length));
     } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
+        // 每个和弦（含搭配的解决三和弦）1 小节（全音符），总 count 个小节
         (q.data || []).forEach((ch, ci) => {
-            // 每个和弦 1 小节（全音符）
             pushBar([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.notes || []).map(noteNameToVexKey), duration: 'w' })], ci);
-            // 需要解决的和弦（七和弦/减三）后，下一小节是固定解决和弦
-            if (ch.resolution && ch.resolution.notes) {
-                pushBar([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.resolution.notes).map(noteNameToVexKey), duration: 'w' })], ci);
-            }
         });
     } else if (q.type === 'rhythm') {
         const ts = (q.data && q.data.timeSignature) || q.timeSig || '4/4';
@@ -14873,18 +14869,24 @@ function _sortNotesByMidi(notes) {
     return [...notes].sort((a, b) => noteNameToMidi(a) - noteNameToMidi(b));
 }
 
-// 解决到相邻自然音（无升降号音阶 C D E F G A B），用于三全音/减三/七和弦解决
+// 解决到相邻自然音（无升降号音阶 C D E F G A B），按半音数找最近自然音
 function _resolveToNatural(note, direction) {
-    const letters = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-    const letter = (note || 'C4')[0];
-    const octave = parseInt((note || 'C4').slice(1)) || 4;
-    let idx = letters.indexOf(letter);
-    if (idx < 0) idx = 0;
-    let newIdx = idx + direction;
-    let newOctave = octave;
-    if (newIdx < 0) { newIdx = 6; newOctave--; }
-    if (newIdx > 6) { newIdx = 0; newOctave++; }
-    return letters[newIdx] + newOctave;
+    const naturalNotes = { 0: 'C', 2: 'D', 4: 'E', 5: 'F', 7: 'G', 9: 'A', 11: 'B' };
+    const naturalPcs = [0, 2, 4, 5, 7, 9, 11];
+    const midi = noteNameToMidi(note);
+    const pc = ((midi % 12) + 12) % 12;
+    let targetPc;
+    if (direction > 0) {
+        const candidates = naturalPcs.filter(p => p > pc);
+        targetPc = candidates.length ? Math.min(...candidates) : 0; // 越八度到 C
+    } else {
+        const candidates = naturalPcs.filter(p => p < pc);
+        targetPc = candidates.length ? Math.max(...candidates) : 11; // 越八度到 B
+    }
+    let octave = Math.floor(midi / 12) - 1; // MIDI→八度（C4=60）
+    if (direction > 0 && targetPc <= pc) octave++;
+    if (direction < 0 && targetPc >= pc) octave--;
+    return naturalNotes[targetPc] + octave;
 }
 
 // 生成三和弦题项（原位 0 / 一转 1 / 二转 2）
@@ -14931,42 +14933,61 @@ function _genSeventhItem(root, typeName, def) {
 
 function _genChord(count, difficulty) {
     const out = [];
-    // 根音池 = 考试音域 A3-F5（过滤后确保和弦各音不超 F5）
-    const allRoots = HUMAN_VOICE_NOTES.slice();
-    // 三和弦池；难度 >= 2 时加入七和弦（大小七/小小七/减七）
-    const triadNames = ['大三', '小三', '增三', '减三'];
-    const seventhNames = ['属七', '小七', '减七'];
-    const poolNames = triadNames.concat(difficulty >= 2 ? seventhNames : []);
+    // 根音池 = 调内音（scaleDifficultyConfig）∩ 考试音域 A3-F5
+    const rawPool = scaleDifficultyConfig[difficulty] ? scaleDifficultyConfig[difficulty].notes : EXAM_NOTES;
+    const allRoots = rawPool.filter(n => HUMAN_VOICE_NOTES.includes(n));
+    const finalRoots = allRoots.length ? allRoots : HUMAN_VOICE_NOTES;
     const f5midi = noteNameToMidi('F5');
-    // 根据和弦类型过滤根音，保证和弦各音（转位/七音/解决三和弦）落在 A3-F5 内
+    // 需要解决的和弦（七和弦/减三）；难度 >= 2 时含七和弦
+    const resolvingNames = difficulty >= 2 ? ['属七', '小七', '减七', '减三'] : ['减三'];
+    // 不需要解决的三和弦
+    const plainNames = ['大三', '小三', '增三'];
     const rootPoolFor = (name) => {
         const def = EXAM_CHORD_DEFS[name];
         if (!def.seventh) {
-            // 三和弦：二转最高音 = 根音 + 16（三音高八度）
-            return allRoots.filter(r => noteNameToMidi(r) + 16 <= f5midi);
+            return finalRoots.filter(r => noteNameToMidi(r) + 16 <= f5midi);
         }
-        // 七和弦：七音跨度 与 解决三和弦最高音 取较大者
         const seventhSpan = Math.max(...def.intervals.filter((it, idx) => idx !== 2));
         const resolveSpan = def.resolveStep + 7;
-        const maxSpan = Math.max(seventhSpan, resolveSpan);
-        return allRoots.filter(r => noteNameToMidi(r) + maxSpan <= f5midi);
+        return finalRoots.filter(r => noteNameToMidi(r) + Math.max(seventhSpan, resolveSpan) <= f5midi);
     };
-    const used = new Set();
-    for (let i = 0; i < count; i++) {
-        let item, key;
-        let tries = 0;
-        do {
-            const name = poolNames[Math.floor(Math.random() * poolNames.length)];
-            const def = EXAM_CHORD_DEFS[name];
-            const rootPool = rootPoolFor(name);
-            const root = rootPool[Math.floor(Math.random() * rootPool.length)];
-            item = def.seventh ? _genSeventhItem(root, name, def) : _genTriadItem(root, name, def);
-            key = root + '|' + name + '|' + (item.inversion !== undefined ? item.inversion : '');
-            tries++;
-        } while (used.has(key) && tries < 100 && poolNames.length * allRoots.length > 1);
-        used.add(key);
-        out.push(item);
+    // 决定"需要解决的和弦"数量 k（每个占 2 小节：和弦 + 搭配的解决三和弦）
+    const maxK = Math.floor(count / 2);
+    const minK = Math.min(2, maxK);
+    const k = minK + Math.floor(Math.random() * (maxK - minK + 1));
+    // 生成序列：k 个"解决组" + (count - 2k) 个普通三和弦，洗牌排列
+    const seq = [];
+    for (let j = 0; j < k; j++) seq.push('resolving');
+    for (let j = 0; j < count - 2 * k; j++) seq.push('triad');
+    for (let j = seq.length - 1; j > 0; j--) {
+        const r = Math.floor(Math.random() * (j + 1));
+        [seq[j], seq[r]] = [seq[r], seq[j]];
     }
+    // 生成和弦（每个占 1 小节，总 count 个小节）
+    seq.forEach(item => {
+        if (item === 'resolving') {
+            const name = resolvingNames[Math.floor(Math.random() * resolvingNames.length)];
+            const def = EXAM_CHORD_DEFS[name];
+            const pool = rootPoolFor(name);
+            const root = pool[Math.floor(Math.random() * pool.length)];
+            if (def.seventh) {
+                const s = _genSeventhItem(root, name, def);
+                out.push({ root: s.root, typeName: s.typeName, notes: s.notes, kind: 'seventh', inversion: s.inversion });
+                out.push({ root: s.resolution.root, typeName: s.resolution.typeName, notes: s.resolution.notes, kind: 'resolution' });
+            } else {
+                const t = _genTriadItem(root, name, def);
+                out.push({ root: t.root, typeName: t.typeName, notes: t.notes, kind: 'dimTriad', inversion: t.inversion });
+                out.push({ root: t.resolution.root, typeName: t.resolution.typeName, notes: t.resolution.notes, kind: 'resolution' });
+            }
+        } else {
+            const name = plainNames[Math.floor(Math.random() * plainNames.length)];
+            const def = EXAM_CHORD_DEFS[name];
+            const pool = rootPoolFor(name);
+            const root = pool[Math.floor(Math.random() * pool.length)];
+            const t = _genTriadItem(root, name, def);
+            out.push({ root: t.root, typeName: t.typeName, notes: t.notes, kind: 'triad', inversion: t.inversion });
+        }
+    });
     return out;
 }
 
