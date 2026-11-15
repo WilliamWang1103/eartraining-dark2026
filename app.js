@@ -14527,6 +14527,14 @@ function renderVexStaffLine(ctx, bars, opts) {
         voice.addTickables(bar);
         new Vex.Flow.Formatter().joinVoices([voice]).format([voice], Math.max(1, staveW - 15));
         voice.draw(ctx, stave);
+        // VexFlow 4.2.3 的 beam 不会随 voice 自动渲染，需显式 draw（修复符干/符尾缺失）
+        const drawnBeams = new Set();
+        bar.forEach(t => {
+            if (t instanceof Vex.Flow.StaveNote && t.beam && !drawnBeams.has(t.beam)) {
+                drawnBeams.add(t.beam);
+                try { t.beam.setContext(ctx); t.beam.draw(); } catch (e) { /* ignore */ }
+            }
+        });
     });
 }
 
@@ -14564,9 +14572,14 @@ function buildExamStaffBars(q) {
         (q.data || []).forEach(iv => bars.push([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(iv.note1), noteNameToVexKey(iv.note2)], duration: 'w' })]));
     } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
         (q.data || []).forEach(ch => {
-            bars.push([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.notes || []).map(noteNameToVexKey), duration: 'w' })]);
             if (ch.resolution && ch.resolution.notes) {
-                bars.push([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.resolution.notes).map(noteNameToVexKey), duration: 'w' })]);
+                // 七和弦 + 解决三和弦：同一个小节，各 2 拍（二分音符），保持 10 个和弦 = 10 小节
+                bars.push([
+                    new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.notes || []).map(noteNameToVexKey), duration: 'h' }),
+                    new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.resolution.notes).map(noteNameToVexKey), duration: 'h' })
+                ]);
+            } else {
+                bars.push([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.notes || []).map(noteNameToVexKey), duration: 'w' })]);
             }
         });
     } else if (q.type === 'rhythm') {
@@ -14577,7 +14590,7 @@ function buildExamStaffBars(q) {
             const desc = [];
             (bar || []).forEach(pattern => {
                 const rn = RHYTHM_DURATION_MAP[pattern];
-                if (rn) rn.forEach(n => desc.push({ duration: n.duration, dots: n.dots || 0, pitch: 'B4' }));
+                if (rn) rn.forEach(n => desc.push({ duration: n.duration, dots: n.dots || 0, pitch: 'A4' }));
             });
             bars.push(barDescToTickables(desc, clef));
         });
@@ -14649,7 +14662,8 @@ function buildPDFFromJPEGs(jpegs, pageW, pageH) {
     jpegs.forEach(jp => {
         const imageNum = newObj(`<< /Type /XObject /Subtype /Image /Width ${jp.w} /Height ${jp.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jp.stream.length} >>\nstream\n${jp.stream}\nendstream`);
         const displayH = pageW * jp.h / jp.w;
-        const content = `q ${pageW} 0 0 ${displayH} 0 0 cm /Im0 Do Q`;
+        const yOffset = pageH - displayH;
+        const content = `q ${pageW} 0 0 ${displayH} 0 ${yOffset} cm /Im0 Do Q`;
         const contentNum = newObj(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
         const pageNum = newObj(`<< /Type /Page /Parent ${pagesNum} 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /Im0 ${imageNum} 0 R >> >> /Contents ${contentNum} 0 R >>`);
         kids.push(pageNum);
@@ -14837,10 +14851,13 @@ function _genSeventhItem(root, typeName, def) {
     // 省略五音：intervals 下标 2 为五音
     const omitFifth = def.intervals.filter((it, idx) => idx !== 2);
     const notes = _sortNotesByMidi(omitFifth.map(iv => _noteFromSemitone(root, iv)));
-    const resolveDef = EXAM_CHORD_DEFS[def.resolve];
-    const resolveRoot = _noteFromSemitone(root, def.resolveStep);
-    const resolveNotes = _sortNotesByMidi(resolveDef.intervals.map(iv => _noteFromSemitone(resolveRoot, iv)));
-    return { root, typeName, notes, kind: 'seventh', resolution: { root: resolveRoot, typeName: def.resolve, notes: resolveNotes } };
+    // 解决三和弦：按"七五下、三上、根音保持"推导（减七额外根音上行小二度）
+    const isDim = typeName === '减七';
+    const resRoot = _noteFromSemitone(notes[0], isDim ? 1 : 0);   // 根音：减七上行小二度，其余保持
+    const resThird = _noteFromSemitone(notes[1], isDim ? 2 : 1);  // 三音上行
+    const resSeventh = _noteFromSemitone(notes[2], -1);           // 七音下行小二度
+    const resolveNotes = _sortNotesByMidi([resRoot, resThird, resSeventh]);
+    return { root, typeName, notes, kind: 'seventh', resolution: { root: resRoot, typeName: def.resolve, notes: resolveNotes } };
 }
 
 function _genChord(count, difficulty) {
