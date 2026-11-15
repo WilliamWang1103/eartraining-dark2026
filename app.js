@@ -9165,7 +9165,7 @@ function getCurrentRhythmSelections() {
 }
 
 // 把节奏描述符（duration/beats/dots/rest/breakBeam）转成 VexFlow 音符 / 休止符
-function buildVexRhythmNotes(descriptors) {
+function buildVexRhythmNotes(descriptors, pitch = 'b/4') {
     const VF = Vex.Flow;
     const notes = [];
     const beams = [];
@@ -9184,7 +9184,7 @@ function buildVexRhythmNotes(descriptors) {
             dur = isTriplet ? '8' : d.duration;
             if (d.dots && !isTriplet) dur = dur + 'd';
         }
-        const note = new VF.StaveNote({ keys: ['b/4'], duration: dur });
+        const note = new VF.StaveNote({ keys: [pitch], duration: dur });
         // 附点（音符与休止符都需手动 addDot 渲染出圆点）
         if (d.dots && !isTriplet) note.addDot(0);
         if (!isRest) note.setStemDirection(VF.Stem.UP);
@@ -14505,17 +14505,15 @@ function renderVexStaffLine(ctx, bars, opts) {
     const W = TEACHER_STAFF_W;
     const marginX = 10;
     const staveY = opts.staveY || TEACHER_STAVE_Y;
-    const n = bars.length || 1;
     const clef = opts.clef || 'treble';
     const beatsPerBar = opts.beatsPerBar || 4;
     const beatValue = opts.beatValue || 4;
-    // 按每小节音符数量灵活分配宽度，避免音符多的小节溢出
-    const weights = bars.map(bar => Math.max(1, (bar && bar.length) || 1));
-    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    // 小节宽度按基础宽度（bar.width）比例分配，小节线随内容灵活移动
+    const totalWidth = bars.reduce((s, bar) => s + ((bar && bar.width) || 92), 0);
     const availW = W - marginX * 2;
     let x = marginX;
     bars.forEach((bar, i) => {
-        const staveW = Math.max(40, availW * weights[i] / totalWeight);
+        const staveW = Math.max(40, availW * ((bar && bar.width) || 92) / totalWidth);
         const stave = new Vex.Flow.Stave(x, staveY, staveW, { fill_style: '#000000', stroke_style: '#000000', space_above_staff_ln: 2 });
         if (i === 0) {
             stave.addClef(clef);
@@ -14523,70 +14521,40 @@ function renderVexStaffLine(ctx, bars, opts) {
             if (opts.keySig) stave.addKeySignature(opts.keySig);
         }
         stave.setContext(ctx).draw();
-        if (bar && bar.length) {
-            const staveNotes = bar.filter(t => t instanceof Vex.Flow.StaveNote && !t.getTuplet());
-            if (staveNotes.length > 1) Vex.Flow.Beam.generateBeams(staveNotes);
+        const tickables = (bar && bar.tickables) || [];
+        if (tickables.length) {
             const voice = new Vex.Flow.Voice({ num_beats: beatsPerBar, beat_value: beatValue });
             voice.setMode(Vex.Flow.Voice.Mode.SOFT);
-            voice.addTickables(bar);
+            voice.addTickables(tickables);
             new Vex.Flow.Formatter().joinVoices([voice]).format([voice], Math.max(1, staveW - 10));
             voice.draw(ctx, stave);
-            // VexFlow 4.2.3 的 beam/tuplet 不会随 voice 自动渲染，需显式 draw（修复符干/符尾/三连音缺失）
-            const drawnBeams = new Set();
-            bar.forEach(t => {
-                if (t instanceof Vex.Flow.StaveNote && t.beam && !drawnBeams.has(t.beam)) {
-                    drawnBeams.add(t.beam);
-                    try { t.beam.setContext(ctx); t.beam.draw(); } catch (e) { /* ignore */ }
-                }
-                if (t instanceof Vex.Flow.StaveNote && t.getTuplet && t.getTuplet() && !drawnBeams.has(t.getTuplet())) {
-                    drawnBeams.add(t.getTuplet());
-                    try { t.getTuplet().setContext(ctx); t.getTuplet().draw(); } catch (e) { /* ignore */ }
-                }
-            });
+            // VexFlow 4.2.3 的 beam/tuplet 需显式 draw（与考试渲染 renderExamRhythmVexflow 一致）
+            ((bar && bar.beams) || []).forEach(b => { try { b.setContext(ctx); b.draw(); } catch (e) { /* ignore */ } });
+            ((bar && bar.tuplets) || []).forEach(t => { try { t.setContext(ctx); t.draw(); } catch (e) { /* ignore */ } });
         }
         x += staveW;
     });
 }
 
-// 把一小节的扁平音符描述转成 VexFlow tickables（含三连音 → Tuplet）
-function barDescToTickables(desc, clef) {
-    const tickables = [];
-    let i = 0;
-    while (i < desc.length) {
-        const it = desc[i];
-        if (it.duration === 'triplet' && i + 2 < desc.length &&
-            desc[i + 1].duration === 'triplet' && desc[i + 2].duration === 'triplet') {
-            const tn = [0, 1, 2].map(k => new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(desc[i + k].pitch)], duration: '8' }));
-            const tuplet = new Vex.Flow.Tuplet(tn);
-            tn.forEach(n => { if (n.setTuplet) n.setTuplet(tuplet); });
-            new Vex.Flow.Beam(tn); // 三连音也需 beam（横梁连接）
-            tickables.push(...tn);
-            i += 3;
-        } else {
-            const opts = { clef, keys: [noteNameToVexKey(it.pitch)], duration: durToVex(it.duration) };
-            if (it.dots) opts.dots = it.dots;
-            tickables.push(new Vex.Flow.StaveNote(opts));
-            i++;
-        }
-    }
-    return tickables;
-}
-
-// 把题目数据构造成五线谱小节（bars：每小节一组 VexFlow tickables）
+// 把题目数据构造成五线谱小节（bars：每元素 {tickables, beams, tuplets, width}）
+// 节奏/旋律复用 app 成熟的 buildVexRhythmNotes / buildMelodyVexNotes（含符杠、三连音、符干方向）
 function buildExamStaffBars(q) {
     const clef = 'treble';
     const bars = [];
     const barGroups = []; // 每个 bar 的题项索引（和弦题用于保持"解决搭配"不拆行）
     const opts = { clef, beatsPerBar: 4, beatValue: 4 };
-    const pushBar = (tickables, groupIdx) => { bars.push(tickables); barGroups.push(groupIdx); };
+    const pushBar = (tickables, beams, tuplets, width, groupIdx) => {
+        bars.push({ tickables, beams: beams || [], tuplets: tuplets || [], width });
+        barGroups.push(groupIdx);
+    };
     if (q.type === 'single') {
-        (q.data || []).forEach(n => pushBar([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(n)], duration: 'w' })], barGroups.length));
+        (q.data || []).forEach(n => pushBar([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(n)], duration: 'w' })], [], [], 92, barGroups.length));
     } else if (q.type === 'interval-pitch' || q.type === 'interval-quality') {
-        (q.data || []).forEach(iv => pushBar([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(iv.note1), noteNameToVexKey(iv.note2)], duration: 'w' })], barGroups.length));
+        (q.data || []).forEach(iv => pushBar([new Vex.Flow.StaveNote({ clef, keys: [noteNameToVexKey(iv.note1), noteNameToVexKey(iv.note2)], duration: 'w' })], [], [], 92, barGroups.length));
     } else if (q.type === 'chord-pitch' || q.type === 'chord-quality') {
         // 每个和弦（含搭配的解决三和弦）1 小节（全音符），总 count 个小节
         (q.data || []).forEach((ch, ci) => {
-            pushBar([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.notes || []).map(noteNameToVexKey), duration: 'w' })], ci);
+            pushBar([new Vex.Flow.StaveNote({ clef, keys: _sortNotesByMidi(ch.notes || []).map(noteNameToVexKey), duration: 'w' })], [], [], 92, ci);
         });
     } else if (q.type === 'rhythm') {
         const ts = (q.data && q.data.timeSignature) || q.timeSig || '4/4';
@@ -14596,16 +14564,18 @@ function buildExamStaffBars(q) {
             const desc = [];
             (bar || []).forEach(pattern => {
                 const rn = RHYTHM_DURATION_MAP[pattern];
-                if (rn) rn.forEach(n => desc.push({ duration: n.duration, dots: n.dots || 0, pitch: 'A4' }));
+                if (rn) rn.forEach(n => desc.push({ duration: n.duration, beats: n.beats, dots: n.dots || 0, rest: false }));
             });
-            pushBar(barDescToTickables(desc, clef), barGroups.length);
+            const built = buildVexRhythmNotes(desc, 'a/4');
+            pushBar(built.notes, built.beams, built.tuplets, 40 + bpb * 55, barGroups.length);
         });
     } else if (q.type === 'melody') {
         const ts = (q.data && q.data.timeSignature) || '4/4';
         const bpb = parseInt(ts.split('/')[0]) || 4;
         opts.timeSig = ts; opts.beatsPerBar = bpb;
         ((q.data && q.data.measures) || []).forEach(bar => {
-            pushBar(barDescToTickables((bar || []).map(n => ({ duration: n.duration, dots: n.dots || 0, pitch: n.pitch })), clef), barGroups.length);
+            const built = buildMelodyVexNotes(bar || []);
+            pushBar(built.notes, built.beams, built.tuplets, 40 + bpb * 55, barGroups.length);
         });
     }
     return { bars, opts, barGroups };
