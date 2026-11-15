@@ -14648,7 +14648,8 @@ function buildPDFFromJPEGs(jpegs, pageW, pageH) {
     const kids = [];
     jpegs.forEach(jp => {
         const imageNum = newObj(`<< /Type /XObject /Subtype /Image /Width ${jp.w} /Height ${jp.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jp.stream.length} >>\nstream\n${jp.stream}\nendstream`);
-        const content = `q ${pageW} 0 0 ${pageH} 0 0 cm /Im0 Do Q`;
+        const displayH = pageW * jp.h / jp.w;
+        const content = `q ${pageW} 0 0 ${displayH} 0 0 cm /Im0 Do Q`;
         const contentNum = newObj(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
         const pageNum = newObj(`<< /Type /Page /Parent ${pagesNum} 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /Im0 ${imageNum} 0 R >> >> /Contents ${contentNum} 0 R >>`);
         kids.push(pageNum);
@@ -14757,30 +14758,30 @@ function _genChordQuality(count, difficulty) {
 
 function _genSingle(count, difficulty) {
     const rawPool = scaleDifficultyConfig[difficulty] ? buildScaleNotesForLevel(difficulty) : EXAM_NOTES;
-    // 限制到人声音域 G3-G5
+    // 限制到考试音域 A3-F5
     const notePool = rawPool.filter(n => HUMAN_VOICE_NOTES.includes(n));
     const finalPool = notePool.length ? notePool : HUMAN_VOICE_NOTES;
+    // 不放回抽取，避免重复出题
+    const pool = [...finalPool];
     const out = [];
-    let prev = null;
-    for (let i = 0; i < count; i++) {
-        let n;
-        do { n = finalPool[Math.floor(Math.random() * finalPool.length)]; } while (n === prev && finalPool.length > 1);
-        out.push(n);
-        prev = n;
+    for (let i = 0; i < count && pool.length > 0; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        out.push(pool.splice(idx, 1)[0]);
     }
     return out;
 }
 
 function _genInterval(count, difficulty) {
     const rawPool = scaleDifficultyConfig[difficulty] ? scaleDifficultyConfig[difficulty].notes : EXAM_NOTES;
-    // 限制到人声音域 G3-G5
+    // 限制到考试音域 A3-F5
     const notePool = rawPool.filter(n => HUMAN_VOICE_NOTES.includes(n));
     const finalPool = notePool.length ? notePool : HUMAN_VOICE_NOTES;
     const out = [];
     const semis = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-    let prevKey = null;
+    const used = new Set();
     for (let i = 0; i < count; i++) {
         let n1, best, key;
+        let tries = 0;
         do {
             n1 = finalPool[Math.floor(Math.random() * Math.max(1, finalPool.length - 7))];
             const st = semis[Math.floor(Math.random() * semis.length)];
@@ -14788,9 +14789,10 @@ function _genInterval(count, difficulty) {
             best = null; let md = Infinity;
             for (const n of finalPool) { const d = Math.abs(getFrequency(n) - f2); if (d < md) { md = d; best = n; } }
             key = n1 + '|' + best;
-        } while (key === prevKey && finalPool.length > 2);
+            tries++;
+        } while ((used.has(key) || n1 === best) && tries < 50 && finalPool.length > 2);
+        used.add(key);
         out.push({ note1: n1, note2: best });
-        prevKey = key;
     }
     return out;
 }
@@ -14863,19 +14865,21 @@ function _genChord(count, difficulty) {
         const maxSpan = Math.max(seventhSpan, resolveSpan);
         return allRoots.filter(r => noteNameToMidi(r) + maxSpan <= f5midi);
     };
-    let prevKey = null;
+    const used = new Set();
     for (let i = 0; i < count; i++) {
         let item, key;
+        let tries = 0;
         do {
             const name = poolNames[Math.floor(Math.random() * poolNames.length)];
             const def = EXAM_CHORD_DEFS[name];
             const rootPool = rootPoolFor(name);
             const root = rootPool[Math.floor(Math.random() * rootPool.length)];
             item = def.seventh ? _genSeventhItem(root, name, def) : _genTriadItem(root, name, def);
-            key = root + '|' + name;
-        } while (key === prevKey && poolNames.length * allRoots.length > 1);
+            key = root + '|' + name + '|' + (item.inversion !== undefined ? item.inversion : '');
+            tries++;
+        } while (used.has(key) && tries < 100 && poolNames.length * allRoots.length > 1);
+        used.add(key);
         out.push(item);
-        prevKey = key;
     }
     return out;
 }
@@ -14884,25 +14888,57 @@ function _genRhythm(timeSig, bars, difficulty) {
     // timeSig=null => random 2/4 or 3/4 (考核项，不固定)
     const finalTimeSig = timeSig || (Math.random() > 0.5 ? '2/4' : '3/4');
     const bpb = parseInt(finalTimeSig.split('/')[0]);
-    // Difficulty affects rhythm complexity
-    let easy1 = ['四分', '2个八分'];
-    let easy2 = ['二分'];
+    // 难度池（扩大一拍/二拍种类，便于避免重复出题）
+    let easy1 = ['四分', '2个八分', '4个十六分', '前十六', '后十六', '小附点'];
+    let easy2 = ['二分', '八分大切分', '八分大附点'];
     let med1 = ['四分', '2个八分', '4个十六分', '前十六', '后十六', '小附点'];
-    let med2 = ['二分', '八分大附点', '后十六大切分'];
+    let med2 = ['二分', '八分大切分', '八分大附点', '后十六大切分'];
     let hard1 = EXAM_RHYTHM_1BEAT;
     let hard2 = EXAM_RHYTHM_2BEAT;
     let pool1, pool2;
     if (difficulty <= 1) { pool1 = easy1; pool2 = easy2; }
     else if (difficulty === 2) { pool1 = med1; pool2 = med2; }
     else { pool1 = hard1; pool2 = hard2; }
+
     const measures = [];
-    for (let m = 0; m < bars; m++) {
-        const bar = []; let rem = bpb;
-        while (rem > 0) {
-            if (rem >= 2 && Math.random() > 0.6) { bar.push(pool2[Math.floor(Math.random() * pool2.length)]); rem -= 2; }
-            else { bar.push(pool1[Math.floor(Math.random() * pool1.length)]); rem -= 1; }
+    const used = new Set();
+    const pickUnused = (pool, extraFilter) => {
+        let cands = pool.filter(p => !used.has(p));
+        if (extraFilter) cands = cands.filter(extraFilter);
+        if (!cands.length) cands = pool.filter(p => !used.has(p));
+        if (!cands.length) cands = pool;
+        const p = cands[Math.floor(Math.random() * cands.length)];
+        used.add(p);
+        return p;
+    };
+
+    if (bpb === 2) {
+        // 2/4：最后小节用二分（长时值收尾）
+        measures[bars - 1] = ['二分'];
+        used.add('二分');
+        // 前 bars-1 小节：只允许 1 个"非二分二拍节奏型"，其余为两个一拍
+        const nonHalf2 = pool2.filter(p => p !== '二分');
+        const twoBeatPos = nonHalf2.length ? Math.floor(Math.random() * (bars - 1)) : -1;
+        for (let m = 0; m < bars - 1; m++) {
+            if (m === twoBeatPos) {
+                measures[m] = [pickUnused(pool2, p => p !== '二分')];
+            } else {
+                measures[m] = [pickUnused(pool1), pickUnused(pool1)];
+            }
         }
-        measures.push(bar);
+    } else {
+        // 3/4：最后小节用附点二分（长时值收尾）
+        measures[bars - 1] = ['附点二分'];
+        used.add('附点二分');
+        // 前 bars-1 小节：自由组合一拍 + 二拍（1+2 或 2+1），不重复
+        for (let m = 0; m < bars - 1; m++) {
+            const twoFirst = Math.random() < 0.5;
+            if (twoFirst) {
+                measures[m] = [pickUnused(pool2), pickUnused(pool1)];
+            } else {
+                measures[m] = [pickUnused(pool1), pickUnused(pool2)];
+            }
+        }
     }
     return { timeSignature: finalTimeSig, bars, measures };
 }
@@ -15056,25 +15092,52 @@ function _genMelody(bars, difficulty) {
     };
 
     // 2. 先收集节奏（扁平），再生成音高序列
-    const rhythmNotes = [];
-    for (let m = 0; m < bars; m++) {
+    // 长时值收尾节奏型（换气/结束）：2/4 用二分，3/4 用附点二分
+    const longPat = bpb === 2 ? '二分' : '附点二分';
+    const half = Math.max(1, Math.floor(bars / 2)); // 前半小节数（默认 8 小节时为 4）
+    const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    // 变化重复：同拍数节奏型互换（保持或换一个）
+    const varyPattern = (pat) => {
+        if (Math.random() < 0.5) return pat; // 重复
+        const beats = getRhythmBeats(pat);
+        const pool = beats <= 1.01 ? EXAM_RHYTHM_1BEAT : EXAM_RHYTHM_2BEAT;
+        const others = pool.filter(x => x !== pat);
+        return others.length ? pickRandom(others) : pat;
+    };
+    // 生成一个非收尾小节的节奏型列表
+    const genBar = () => {
+        const bar = [];
         let rem = bpb;
         while (rem > 0.001) {
-            let pat, patBeats;
             if (rem >= 2 - 0.001 && Math.random() > 0.6) {
-                pat = EXAM_RHYTHM_2BEAT[Math.floor(Math.random() * EXAM_RHYTHM_2BEAT.length)];
-                patBeats = 2;
+                bar.push(pickRandom(EXAM_RHYTHM_2BEAT));
+                rem -= 2;
             } else {
-                pat = EXAM_RHYTHM_1BEAT[Math.floor(Math.random() * EXAM_RHYTHM_1BEAT.length)];
-                patBeats = 1;
+                bar.push(pickRandom(EXAM_RHYTHM_1BEAT));
+                rem -= 1;
             }
+        }
+        return bar;
+    };
+    // 前半（第1..half 小节），第 half 小节为长时值换气
+    const frontBars = [];
+    for (let m = 0; m < half; m++) {
+        frontBars.push(m === half - 1 ? [longPat] : genBar());
+    }
+    // 后半 = 前半的变化重复，最后小节长时值收尾
+    const backBars = frontBars.map((bar, m) => (m === half - 1 ? [longPat] : bar.map(varyPattern)));
+    const allBars = frontBars.concat(backBars).slice(0, bars);
+    while (allBars.length < bars) allBars.push(allBars.length === bars - 1 ? [longPat] : genBar());
+    // 展开为扁平 rhythmNotes
+    const rhythmNotes = [];
+    allBars.forEach(bar => {
+        bar.forEach(pat => {
             const rn = RHYTHM_DURATION_MAP[pat];
             if (rn && rn.length > 0) {
                 rn.forEach(n => rhythmNotes.push({ duration: n.duration, beats: n.beats, dots: n.dots || 0 }));
             }
-            rem -= patBeats;
-        }
-    }
+        });
+    });
 
     // 3. 生成音高序列（体现中西风格 + 黄金分割高潮）
     const totalNotes = rhythmNotes.length;
