@@ -14092,9 +14092,9 @@ function getDifficultyOptions(difficultySource) {
 }
 
 const EXAM_NOTES = [];
-for (let oct = 3; oct <= 6; oct++) {
+for (let oct = 3; oct <= 7; oct++) {
     ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].forEach(n => {
-        if (oct === 6 && n !== 'C') return; // 最高到 C6
+        if (oct === 7 && n !== 'C') return; // 最高到 C7（容纳和弦转位高音）
         EXAM_NOTES.push(n + oct);
     });
 }
@@ -14506,12 +14506,16 @@ function renderVexStaffLine(ctx, bars, opts) {
     const marginX = 10;
     const staveY = opts.staveY || TEACHER_STAVE_Y;
     const n = bars.length || 1;
-    const staveW = (W - marginX * 2) / n;
     const clef = opts.clef || 'treble';
     const beatsPerBar = opts.beatsPerBar || 4;
     const beatValue = opts.beatValue || 4;
+    // 按每小节音符数量灵活分配宽度，避免音符多的小节溢出
+    const weights = bars.map(bar => Math.max(1, (bar && bar.length) || 1));
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    const availW = W - marginX * 2;
+    let x = marginX;
     bars.forEach((bar, i) => {
-        const x = marginX + i * staveW;
+        const staveW = Math.max(40, availW * weights[i] / totalWeight);
         const stave = new Vex.Flow.Stave(x, staveY, staveW, { fill_style: '#000000', stroke_style: '#000000', space_above_staff_ln: 2 });
         if (i === 0) {
             stave.addClef(clef);
@@ -14519,22 +14523,24 @@ function renderVexStaffLine(ctx, bars, opts) {
             if (opts.keySig) stave.addKeySignature(opts.keySig);
         }
         stave.setContext(ctx).draw();
-        if (!bar || !bar.length) return;
-        const staveNotes = bar.filter(t => t instanceof Vex.Flow.StaveNote && !t.getTuplet());
-        if (staveNotes.length > 1) Vex.Flow.Beam.generateBeams(staveNotes);
-        const voice = new Vex.Flow.Voice({ num_beats: beatsPerBar, beat_value: beatValue });
-        voice.setMode(Vex.Flow.Voice.Mode.SOFT);
-        voice.addTickables(bar);
-        new Vex.Flow.Formatter().joinVoices([voice]).format([voice], Math.max(1, staveW - 15));
-        voice.draw(ctx, stave);
-        // VexFlow 4.2.3 的 beam 不会随 voice 自动渲染，需显式 draw（修复符干/符尾缺失）
-        const drawnBeams = new Set();
-        bar.forEach(t => {
-            if (t instanceof Vex.Flow.StaveNote && t.beam && !drawnBeams.has(t.beam)) {
-                drawnBeams.add(t.beam);
-                try { t.beam.setContext(ctx); t.beam.draw(); } catch (e) { /* ignore */ }
-            }
-        });
+        if (bar && bar.length) {
+            const staveNotes = bar.filter(t => t instanceof Vex.Flow.StaveNote && !t.getTuplet());
+            if (staveNotes.length > 1) Vex.Flow.Beam.generateBeams(staveNotes);
+            const voice = new Vex.Flow.Voice({ num_beats: beatsPerBar, beat_value: beatValue });
+            voice.setMode(Vex.Flow.Voice.Mode.SOFT);
+            voice.addTickables(bar);
+            new Vex.Flow.Formatter().joinVoices([voice]).format([voice], Math.max(1, staveW - 10));
+            voice.draw(ctx, stave);
+            // VexFlow 4.2.3 的 beam 不会随 voice 自动渲染，需显式 draw（修复符干/符尾缺失）
+            const drawnBeams = new Set();
+            bar.forEach(t => {
+                if (t instanceof Vex.Flow.StaveNote && t.beam && !drawnBeams.has(t.beam)) {
+                    drawnBeams.add(t.beam);
+                    try { t.beam.setContext(ctx); t.beam.draw(); } catch (e) { /* ignore */ }
+                }
+            });
+        }
+        x += staveW;
     });
 }
 
@@ -14806,7 +14812,21 @@ function _genInterval(count, difficulty) {
             tries++;
         } while ((used.has(key) || n1 === best) && tries < 50 && finalPool.length > 2);
         used.add(key);
-        out.push({ note1: n1, note2: best });
+        // 增四度/减五度（三全音）需要解决到相邻自然音
+        let resolution = null;
+        if (Math.abs(getIntervalSemitones(n1, best)) === 6) {
+            const letters = { 'C': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'A': 5, 'B': 6 };
+            const l1 = letters[n1[0]], l2 = letters[best[0]];
+            const degree = ((l2 - l1 + 7) % 7) + 1;
+            if (degree === 4) {
+                // 增四度：低音下行、高音上行
+                resolution = { res1: _resolveToNatural(n1, -1), res2: _resolveToNatural(best, 1), kind: '增四度' };
+            } else if (degree === 5) {
+                // 减五度：低音上行、高音下行
+                resolution = { res1: _resolveToNatural(n1, 1), res2: _resolveToNatural(best, -1), kind: '减五度' };
+            }
+        }
+        out.push({ note1: n1, note2: best, resolution });
     }
     return out;
 }
@@ -14838,26 +14858,60 @@ function _sortNotesByMidi(notes) {
     return [...notes].sort((a, b) => noteNameToMidi(a) - noteNameToMidi(b));
 }
 
+// 解决到相邻自然音（无升降号音阶 C D E F G A B），用于三全音/减三/七和弦解决
+function _resolveToNatural(note, direction) {
+    const letters = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    const letter = (note || 'C4')[0];
+    const octave = parseInt((note || 'C4').slice(1)) || 4;
+    let idx = letters.indexOf(letter);
+    if (idx < 0) idx = 0;
+    let newIdx = idx + direction;
+    let newOctave = octave;
+    if (newIdx < 0) { newIdx = 6; newOctave--; }
+    if (newIdx > 6) { newIdx = 0; newOctave++; }
+    return letters[newIdx] + newOctave;
+}
+
 // 生成三和弦题项（原位 0 / 一转 1 / 二转 2）
 function _genTriadItem(root, typeName, def) {
     const inversion = Math.floor(Math.random() * 3);
     const invIntervals = def.intervals.map((it, idx) => (idx < inversion ? it + 12 : it));
-    const notes = _sortNotesByMidi(invIntervals.map(iv => _noteFromSemitone(root, iv)));
-    return { root, typeName, notes, kind: 'triad', inversion };
+    const invNotes = invIntervals.map(iv => _noteFromSemitone(root, iv));
+    const notes = _sortNotesByMidi(invNotes);
+    let resolution = null;
+    if (typeName === '减三') {
+        // 减三和弦解决到主和弦：根音上行到自然音、三音/五音下行到自然音
+        const resNotes = invNotes.map((n, idx) => {
+            if (idx === 0) return _resolveToNatural(n, 1);  // 根音上行
+            return _resolveToNatural(n, -1);                // 三音、五音下行
+        });
+        resolution = { root: resNotes[0], typeName: '大三', notes: _sortNotesByMidi(resNotes) };
+    }
+    return { root, typeName, notes, kind: 'triad', inversion, resolution };
 }
 
-// 生成七和弦题项（省略五音 + 后接解决三和弦）
+// 生成七和弦题项（省略五音 + 原/转位 + 后接解决三和弦）
 function _genSeventhItem(root, typeName, def) {
-    // 省略五音：intervals 下标 2 为五音
-    const omitFifth = def.intervals.filter((it, idx) => idx !== 2);
-    const notes = _sortNotesByMidi(omitFifth.map(iv => _noteFromSemitone(root, iv)));
-    // 解决三和弦：按"七五下、三上、根音保持"推导（减七额外根音上行小二度）
+    // 七和弦省略五音：根音(0)、三音(def.intervals[1])、七音(def.intervals[3])
+    const r = 0, t = def.intervals[1], s = def.intervals[3];
+    const inversion = Math.floor(Math.random() * 3); // 0=原位, 1=一转(三音低), 2=三转(七音低)
+    let invIntervals;
+    if (inversion === 0) invIntervals = [r, t, s];
+    else if (inversion === 1) invIntervals = [t, s, r + 12];
+    else invIntervals = [s, r + 12, t + 12];
+    const invNotes = invIntervals.map(iv => _noteFromSemitone(root, iv));
+    const notes = _sortNotesByMidi(invNotes);
+    // 解决：按音的身份（根音保持/减七上行小二度、三音上行、七音下行小二度）
     const isDim = typeName === '减七';
-    const resRoot = _noteFromSemitone(notes[0], isDim ? 1 : 0);   // 根音：减七上行小二度，其余保持
-    const resThird = _noteFromSemitone(notes[1], isDim ? 2 : 1);  // 三音上行
-    const resSeventh = _noteFromSemitone(notes[2], -1);           // 七音下行小二度
-    const resolveNotes = _sortNotesByMidi([resRoot, resThird, resSeventh]);
-    return { root, typeName, notes, kind: 'seventh', resolution: { root: resRoot, typeName: def.resolve, notes: resolveNotes } };
+    const identityMap = inversion === 0 ? ['root', 'third', 'seventh'] : inversion === 1 ? ['third', 'seventh', 'root'] : ['seventh', 'root', 'third'];
+    const resNotes = invNotes.map((n, idx) => {
+        const id = identityMap[idx];
+        if (id === 'root') return isDim ? _resolveToNatural(n, 1) : n; // 减七根音上行到自然音，其余保持
+        if (id === 'third') return _resolveToNatural(n, 1);   // 三音上行到自然音
+        return _resolveToNatural(n, -1);                      // 七音下行到自然音
+    });
+    const resolveNotes = _sortNotesByMidi(resNotes);
+    return { root, typeName, notes, kind: 'seventh', inversion, resolution: { root: resNotes[0], typeName: def.resolve, notes: resolveNotes } };
 }
 
 function _genChord(count, difficulty) {
