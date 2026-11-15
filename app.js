@@ -14099,16 +14099,16 @@ for (let oct = 3; oct <= 6; oct++) {
     });
 }
 
-// 人声音域 G3-G5（单音/音程/和弦出题音域，避免过低或过高的音）
+// 考试出题音域 A3-F5（单音/音程/和弦/旋律出题音域）
 const HUMAN_VOICE_NOTES = [];
 (function () {
-    const g3 = getFrequency('G3');
-    const g5 = getFrequency('G5');
+    const a3 = getFrequency('A3');
+    const f5 = getFrequency('F5');
     for (let oct = 3; oct <= 6; oct++) {
         ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].forEach(n => {
             const note = n + oct;
             const f = getFrequency(note);
-            if (f >= g3 - 0.01 && f <= g5 + 0.01) HUMAN_VOICE_NOTES.push(note);
+            if (f >= a3 - 0.01 && f <= f5 + 0.01) HUMAN_VOICE_NOTES.push(note);
         });
     }
 })();
@@ -14750,23 +14750,9 @@ function _genIntervalQuality(count, difficulty) {
     return out;
 }
 
+// 和弦性质听辨：与和弦音准听辨同源出题（三和弦原位/转位 + 七和弦省略五音+解决三和弦）
 function _genChordQuality(count, difficulty) {
-    const out = [];
-    const chordPool = difficultyConfig[difficulty] ? difficultyConfig[difficulty].chords : EXAM_CHORD_TYPES.slice(0, 4);
-    const roots = EXAM_NOTES.filter(n => { const o = parseInt(n.slice(-1)); return o === 4; });
-    for (let i = 0; i < count; i++) {
-        const type = chordPool[Math.floor(Math.random() * chordPool.length)];
-        const root = roots[Math.floor(Math.random() * roots.length)];
-        const rf = getFrequency(root);
-        const notes = type.intervals.map(iv => {
-            const f = rf * Math.pow(2, iv / 12);
-            let best = null, md = Infinity;
-            for (const n of EXAM_NOTES) { const d = Math.abs(getFrequency(n) - f); if (d < md) { md = d; best = n; } }
-            return best;
-        });
-        out.push({ root, typeName: type.name, notes, quality: type.name });
-    }
-    return out;
+    return _genChord(count, difficulty).map(item => ({ ...item, quality: item.typeName }));
 }
 
 function _genSingle(count, difficulty) {
@@ -14857,22 +14843,37 @@ function _genSeventhItem(root, typeName, def) {
 
 function _genChord(count, difficulty) {
     const out = [];
-    // 根音限制在人声音域 G3-G5 内的第4八度（C4-B4）
-    const roots = HUMAN_VOICE_NOTES.filter(n => parseInt(n.slice(-1)) === 4);
+    // 根音池 = 考试音域 A3-F5（过滤后确保和弦各音不超 F5）
+    const allRoots = HUMAN_VOICE_NOTES.slice();
     // 三和弦池；难度 >= 2 时加入七和弦（大小七/小小七/减七）
     const triadNames = ['大三', '小三', '增三', '减三'];
     const seventhNames = ['属七', '小七', '减七'];
     const poolNames = triadNames.concat(difficulty >= 2 ? seventhNames : []);
+    const f5midi = noteNameToMidi('F5');
+    // 根据和弦类型过滤根音，保证和弦各音（转位/七音/解决三和弦）落在 A3-F5 内
+    const rootPoolFor = (name) => {
+        const def = EXAM_CHORD_DEFS[name];
+        if (!def.seventh) {
+            // 三和弦：二转最高音 = 根音 + 16（三音高八度）
+            return allRoots.filter(r => noteNameToMidi(r) + 16 <= f5midi);
+        }
+        // 七和弦：七音跨度 与 解决三和弦最高音 取较大者
+        const seventhSpan = Math.max(...def.intervals.filter((it, idx) => idx !== 2));
+        const resolveSpan = def.resolveStep + 7;
+        const maxSpan = Math.max(seventhSpan, resolveSpan);
+        return allRoots.filter(r => noteNameToMidi(r) + maxSpan <= f5midi);
+    };
     let prevKey = null;
     for (let i = 0; i < count; i++) {
         let item, key;
         do {
             const name = poolNames[Math.floor(Math.random() * poolNames.length)];
-            const root = roots[Math.floor(Math.random() * roots.length)];
             const def = EXAM_CHORD_DEFS[name];
+            const rootPool = rootPoolFor(name);
+            const root = rootPool[Math.floor(Math.random() * rootPool.length)];
             item = def.seventh ? _genSeventhItem(root, name, def) : _genTriadItem(root, name, def);
             key = root + '|' + name;
-        } while (key === prevKey && poolNames.length * roots.length > 1);
+        } while (key === prevKey && poolNames.length * allRoots.length > 1);
         out.push(item);
         prevKey = key;
     }
