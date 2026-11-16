@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>王向辉 · 音乐艺术空间</title>
+  <meta name="description" content="王向辉的音乐艺术空间 —— 音乐教育、听觉训练研究与数字音乐创作，内含音乐听觉综合训练系统（练耳 App）。">
+  <link rel="icon" type="image/jpeg" href="logo.jpg">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="home.css?v=1">
+</head>
+<body>
+  <!-- 浮动音符背景 -->
+  <canvas id="notes-canvas" aria-hidden="true"></canvas>
+
+  <!-- 导航 -->
+  <header class="nav" id="topnav">
+    <div class="nav-inner container">
+      <a class="brand" href="#hero">
+        <span class="brand-mark">🎼</span>
+        <span class="brand-text">王向辉<em>音乐艺术空间</em></span>
+      </a>
+      <nav class="nav-links" id="nav-links">
+        <a href="#hero" class="nav-link active">首页</a>
+        <a href="#about" class="nav-link">简介</a>
+        <a href="#resume" class="nav-link">简历</a>
+        <a href="#news" class="nav-link">资讯</a>
+        <a href="#guestbook" class="nav-link">留言板</a>
+        <a href="index.html" class="nav-cta">🎹 练耳 App</a>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" aria-label="打开菜单">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 英雄区 -->
+  <section id="hero" class="hero">
+    <div class="container hero-inner">
+      <div class="hero-text">
+        <p class="hero-eyebrow reveal">🎵 欢迎来到我的音乐世界</p>
+        <h1 class="reveal">王向辉</h1>
+        <p class="hero-sub reveal">音乐教育 · 听觉训练 · 数字音乐创作</p>
+        <p class="hero-desc reveal">
+          内蒙古民族大学音乐学院 —— 用技术与艺术，点亮每一双会听音乐的耳朵。
+          这里是我的个人主页，也是「音乐听觉综合训练系统」的入口。
+        </p>
+        <div class="hero-cta reveal">
+          <a href="index.html" class="btn btn-gold">进入练耳 App <i class="fas fa-arrow-right"></i></a>
+          <a href="#about" class="btn btn-ghost">了解更多</a>
+        </div>
+        <div class="hero-eq reveal" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="hero-visual reveal" aria-hidden="true">
+        <div class="vinyl">
+          <div class="vinyl-grooves"></div>
+          <div class="vinyl-label"><span>♪</span><small>MUSIC</small></div>
+          <div class="vinyl-shine"></div>
+        </div>
+        <div class="tonearm"></div>
+        <span class="float-note n1">♪</span>
+        <span class="float-note n2">♫</span>
+        <span class="float-note n3">♬</span>
+      </div>
+    </div>
+    <div class="container">
+      <div class="piano" aria-hidden="true">
+        <div class="piano-keys">
+          <div class="p-key lit"></div><div class="p-key"></div><div class="p-key lit"></div>
+          <div class="p-key"></div><div class="p-key"></div><div class="p-key lit"></div>
+          <div class="p-key"></div><div class="p-key lit"></div><div class="p-key"></div>
+          <div class="p-key"></div><div class="p-key lit"></div><div class="p-key"></div>
+          <div class="p-key lit"></div><div class="p-key"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 简介 -->
+  <section id="about" class="section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-tag">About</span>
+        <h2>个人简介</h2>
+        <p class="section-sub">一个热爱音乐、教育与技术的人</p>
+      </div>
+      <div class="about-grid">
+        <div class="about-card reveal">
+          <div class="about-icon"><i class="fas fa-graduation-cap"></i></div>
+          <h3>音乐教育</h3>
+          <p>长期从事音乐教学与学习陪伴工作，关注如何让学生「听得懂、练得对、学得乐」。</p>
+        </div>
+        <div class="about-card reveal">
+          <div class="about-icon"><i class="fas fa-ear-listen"></i></div>
+          <h3>听觉训练研究</h3>
+          <p>围绕单音、音程、和弦、节奏与旋律听辨，探索系统化、可量化的练耳方法。</p>
+        </div>
+        <div class="about-card reveal">
+          <div class="about-icon"><i class="fas fa-laptop-code"></i></div>
+          <h3>数字音乐技术</h3>
+          <p>独立设计并开发「音乐听觉综合训练系统」，支持 Web Audio 与 MIDI 键盘输入。</p>
+        </div>
+        <div class="about-card reveal">
+          <div class="about-icon"><i class="fas fa-palette"></i></div>
+          <h3>艺术创作</h3>
+          <p>以音乐艺术感为底色，探索声音、视觉与交互融合的创作表达。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 简历 -->
+  <section id="resume" class="section section-alt">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-tag">Resume</span>
+        <h2>个人简历</h2>
+        <p class="section-sub">教育与工作经历（请按需更新）</p>
+      </div>
+      <div class="timeline">
+        <div class="tl-item reveal">
+          <div class="tl-time">NOW</div>
+          <h3>音乐听觉综合训练系统</h3>
+          <h4>开发者 / 指导教师</h4>
+          <p>设计并开发覆盖五大听辨模式（单音、音程、和弦、节奏、旋律）的练耳应用，集成 MIDI 键盘与 AI 学习分析。</p>
+        </div>
+        <div class="tl-item reveal">
+          <div class="tl-time">EDUCATION</div>
+          <h3>音乐学专业</h3>
+          <h4>内蒙古民族大学音乐学院</h4>
+          <p>系统学习音乐理论、视唱练耳与教学法，为听觉训练研究打下基础。</p>
+        </div>
+        <div class="tl-item reveal">
+          <div class="tl-time">TEACHING</div>
+          <h3>音乐教学实践</h3>
+          <h4>音乐教育工作者</h4>
+          <p>面向音乐学专业学生开展练耳与乐理教学，持续收集反馈并迭代教学工具。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 资讯 -->
+  <section id="news" class="section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-tag">News</span>
+        <h2>最新资讯</h2>
+        <p class="section-sub">项目动态与音乐分享</p>
+      </div>
+      <div class="news-grid">
+        <article class="news-card reveal">
+          <div class="news-tag">App</div>
+          <h3>练耳 App 已上线 MIDI 键盘支持</h3>
+          <p>支持实时音符输入、设备自动检测与热插拔，延迟低于 100ms，跨全部练习模式可用。</p>
+          <div class="news-foot"><span><i class="far fa-calendar"></i> 2026-05-02</span><a href="index.html">前往体验 →</a></div>
+        </article>
+        <article class="news-card reveal">
+          <div class="news-tag">Feature</div>
+          <h3>五大听辨模式全面覆盖</h3>
+          <p>单音、音程、和弦、节奏与旋律五大模式，搭配练习 / 测试 / 综合考试三种方式。</p>
+          <div class="news-foot"><span><i class="far fa-calendar"></i> 持续更新</span><a href="index.html">了解详情 →</a></div>
+        </article>
+        <article class="news-card reveal">
+          <div class="news-tag">AI</div>
+          <h3>AI 学习助手上线</h3>
+          <p>学习分析、错题分析、理论答疑、和弦库与每日目标，让练习更高效、更有针对性。</p>
+          <div class="news-foot"><span><i class="far fa-calendar"></i> 持续更新</span><a href="index.html">立即体验 →</a></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 留言板 -->
+  <section id="guestbook" class="section section-alt">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-tag">Guestbook</span>
+        <h2>留言板</h2>
+        <p class="section-sub">欢迎留下你的声音，我会认真阅读每一条留言</p>
+      </div>
+      <div class="gb-wrap reveal">
+        <form id="gb-form" class="gb-form">
+          <div class="gb-row">
+            <input id="gb-name" class="gb-input" type="text" maxlength="24" placeholder="你的称呼（选填）">
+          </div>
+          <div class="gb-row">
+            <textarea id="gb-msg" class="gb-input gb-textarea" maxlength="500" rows="3" placeholder="写下想说的话…" required></textarea>
+          </div>
+          <div class="gb-row gb-actions">
+            <span class="gb-hint"><i class="fas fa-circle-info"></i> 留言保存在本机浏览器（localStorage）</span>
+            <button type="submit" class="btn btn-gold">发布留言 <i class="fas fa-paper-plane"></i></button>
+          </div>
+        </form>
+        <div class="gb-list-head"><h3>全部留言 <span class="gb-badge" id="gb-count">0</span></h3></div>
+        <div id="gb-list" class="gb-list"></div>
+        <div id="gb-empty" class="gb-empty" style="display:none;">还没有留言，快来抢沙发～ 🎵</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="brand-mark">🎼</span>
+        <div>
+          <strong>王向辉 · 音乐艺术空间</strong>
+          <p>音乐教育 · 听觉训练 · 数字音乐创作</p>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="#hero">首页</a><a href="#about">简介</a><a href="#resume">简历</a>
+        <a href="#news">资讯</a><a href="#guestbook">留言板</a><a href="index.html">练耳 App</a>
+      </div>
+      <button id="music-toggle" class="music-toggle" type="button"><span>播放音乐</span> ♪</button>
+    </div>
+    <div class="footer-bottom">
+      <div class="container">© <span id="year"></span> 王向辉 · 音乐艺术空间 · 保留所有权利</div>
+    </div>
+  </footer>
+
+  <script src="home.js?v=1"></script>
+</body>
+</html>
