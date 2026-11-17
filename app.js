@@ -2858,6 +2858,104 @@ function init() {
     }, { once: true });
 
     console.log('系统初始化完成');
+
+    // ==================== 深链接：URL 参数直达模块 ====================
+    // 支持 ?mode=chord|interval|pitch|rhythm|melody|exam&func=&level=&scale=&count=
+    // 供赛事平台智能体的「去练习」按钮精准跳转使用
+    applyDeepLink();
+}
+
+// ==================== 深链接解析 ====================
+const DEEP_LINK_MODE_MAP = {
+    pitch: 'single-page',
+    single: 'single-page',
+    interval: 'interval-page',
+    chord: 'chord-page',
+    rhythm: 'rhythm-page',
+    melody: 'melody-page',
+    exam: 'comprehensive-exam-page',
+    'comprehensive-exam': 'comprehensive-exam-page'
+};
+
+// 供智能体链接使用的对外跳转地址（基于当前站点地址）
+function buildDeepLink(params) {
+    const base = window.location.origin + window.location.pathname;
+    const q = new URLSearchParams();
+    Object.keys(params || {}).forEach(k => {
+        if (params[k] !== undefined && params[k] !== null && params[k] !== '') q.append(k, params[k]);
+    });
+    return base + (q.toString() ? '?' + q.toString() : '');
+}
+
+function applyDeepLink() {
+    let qs = '';
+    try { qs = window.location.search || ''; } catch (e) { qs = ''; }
+    if (!qs) return;
+
+    const params = new URLSearchParams(qs);
+    const mode = (params.get('mode') || '').toLowerCase().trim();
+    const pageId = DEEP_LINK_MODE_MAP[mode];
+    if (!pageId) return;
+
+    // 未填写学生信息时，先回到首页并提示（与首页点击模式卡片的行为一致）
+    if (!chordAppState.userInfo.saved) {
+        pageManager.switchToPage('home-page');
+        userManager.showSaveStatus('请先填写并保存学生信息，才能进入练习模式', 'error');
+        setTimeout(() => userManager.hideSaveStatus(), 3000);
+        return;
+    }
+
+    // 先切换到目标页面（切页会触发该模块的 init 并重建下拉框选项）
+    pageManager.switchToPage(pageId);
+
+    // 再应用模块级参数（必须在切页之后，否则会被 init 重建的选项覆盖）
+    const func = params.get('func');
+    if (func) {
+        if (mode === 'chord') {
+            const fn = func === 'quality' ? switchToQualityIdentificationChord : switchToPitchIdentificationChord;
+            if (typeof fn === 'function') { try { fn(); } catch (e) {} }
+        } else if (mode === 'interval') {
+            const fn = func === 'quality' ? switchToQualityIdentificationInterval : switchToPitchIdentificationInterval;
+            if (typeof fn === 'function') { try { fn(); } catch (e) {} }
+        } else if (mode === 'rhythm' && typeof switchToRhythmFunction === 'function') {
+            try { switchToRhythmFunction(func === 'meter' ? 'meter' : 'rhythm'); } catch (e) {}
+        }
+    }
+
+    // 调式难度：scale=1..8
+    // 注意：和弦模块的「调式调性」value 为数字 "1"；单音/音程模块为 "level-1" 字符串
+    const scale = parseInt(params.get('scale'), 10);
+    if (scale >= 1 && scale <= 8) {
+        const scaleKey = (mode === 'pitch' || mode === 'single') ? 'single' : (mode === 'interval' ? 'interval' : 'chord');
+        const scaleSel = document.getElementById('scale-difficulty-' + scaleKey);
+        if (scaleSel) {
+            const opts = Array.from(scaleSel.options);
+            const opt = opts.find(o => o.value === 'level-' + scale) || opts.find(o => o.value === String(scale));
+            if (opt) { scaleSel.value = opt.value; scaleSel.dispatchEvent(new Event('change')); }
+        }
+    }
+
+    // 级别：level=1..3（和弦 / 音程的「级别」下拉框）
+    const level = parseInt(params.get('level'), 10);
+    if (level >= 1 && level <= 3) {
+        const lvlSel = document.getElementById('difficulty-' + (mode === 'chord' ? 'chord' : 'interval'));
+        if (lvlSel) {
+            const opt = Array.from(lvlSel.options).find(o => o.value === String(level));
+            if (opt) { lvlSel.value = opt.value; lvlSel.dispatchEvent(new Event('change')); }
+        }
+    }
+
+    // 数量：count=4|8|12（节奏型）或 2|4（节拍）
+    const count = parseInt(params.get('count'), 10);
+    if (count) {
+        const cntSel = document.getElementById('quantity-rhythm');
+        if (cntSel) {
+            const opt = Array.from(cntSel.options).find(o => o.value === String(count));
+            if (opt) { cntSel.value = opt.value; cntSel.dispatchEvent(new Event('change')); }
+        }
+    }
+
+    console.log('深链接跳转:', mode, '->', pageId);
 }
 
 function initHomePage() {
