@@ -2946,6 +2946,7 @@ function applyDeepLink() {
     }
 
     // 数量：count=4|8|12（节奏型）或 2|4（节拍）
+    // 注意：必须在 func 切换之后设置——switchToRhythmFunction 会重建该下拉框的选项
     const count = parseInt(params.get('count'), 10);
     if (count) {
         const cntSel = document.getElementById('quantity-rhythm');
