@@ -5135,3 +5135,52 @@ body {
     padding-top: 0;
     margin-top: 0;
 }
+
+/* ========== AI 教学助手浮窗（赛事平台智能体入口） ========== */
+#ai-assistant-fab {
+    position: fixed;
+    right: 24px;
+    bottom: 28px;
+    z-index: 9990;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #2f6f6a 0%, #1f4d4a 100%);
+    color: #eaf6f4;
+    font-family: "仿宋_GB2312", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+#ai-assistant-fab:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
+}
+
+#ai-assistant-fab:active {
+    transform: translateY(0);
+}
+
+#ai-assistant-fab .ai-fab-label {
+    white-space: nowrap;
+    line-height: 1;
+}
+
+@media (max-width: 768px) {
+    #ai-assistant-fab {
+        right: 14px;
+        bottom: 16px;
+        padding: 9px 13px 9px 10px;
+        font-size: 13px;
+    }
+    #ai-assistant-fab svg {
+        width: 22px;
+        height: 22px;
+    }
+}

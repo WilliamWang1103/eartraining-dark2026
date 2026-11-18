@@ -1887,4 +1887,56 @@
         });
     </script>
 
+    <!-- ========== 赛事平台智能体入口（AI 教学助手浮窗） ========== -->
+    <button id="ai-assistant-fab" type="button" aria-label="打开AI教学助手" title="AI教学助手">
+        <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+            <path fill="currentColor" d="M12 2a10 10 0 0 0-10 10v6a4 4 0 0 0 4 4h1v-4H5v-2a7 7 0 0 1 14 0v2h-2v4h1a4 4 0 0 0 4-4v-6a10 10 0 0 0-10-10Z"/>
+            <circle cx="8.5" cy="12" r="1.6" fill="currentColor"/>
+            <circle cx="15.5" cy="12" r="1.6" fill="currentColor"/>
+        </svg>
+        <span class="ai-fab-label">AI教学助手</span>
+    </button>
+
+    <script type="text/javascript" src="https://robot.chaoxing.com/sdk/CxRobotSdkJs.js" defer></script>
+    <script type="text/javascript">
+    // 赛事平台智能体（音乐听觉智能训练系统）内嵌入口
+    // 参数由 AI 能力中心 → 接入渠道 → 网站 → 网页SDK接入 页面提供
+    window.MUSIC_ROBOT_CONFIG = {
+        unitId: '353067',
+        robotId: 'cb3c3d300a4e419fad1b261385661e56',
+        accessToken: '01ec8a8b7b7ea9959f1b12830bf0a3d5',
+        groupId: '0',
+        openType: 'openUrl',
+        openPage: 'coze'
+    };
+
+    (function () {
+        var fab = document.getElementById('ai-assistant-fab');
+        if (!fab) return;
+
+        function openAssistant() {
+            var c = window.MUSIC_ROBOT_CONFIG;
+            // 优先用 SDK 加载（可拿到更完整的形态与事件能力）；失败则直接跳转对话页
+            if (window.CxRobotSdkJs && typeof window.CxRobotSdkJs.init === 'function') {
+                try {
+                    var url = 'https://robot.chaoxing.com/embedChat'
+                        + '?unitId=' + c.unitId
+                        + '&robotId=' + c.robotId
+                        + '&groupId=' + c.groupId
+                        + '&openType=' + c.openType
+                        + '&openPage=' + c.openPage;
+                    window.CxRobotSdkJs.init({ url: url, accessToken: c.accessToken });
+                    return;
+                } catch (e) {
+                    console.warn('SDK 初始化失败，改用直达方式', e);
+                }
+            }
+            window.open('https://robot.chaoxing.com/coze?unitId=' + c.unitId
+                + '&robotId=' + c.robotId, '_blank', 'noopener');
+        }
+
+        fab.addEventListener('click', openAssistant);
+    })();
+    </script>
+
 </html>
