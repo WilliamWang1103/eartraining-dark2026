@@ -5205,3 +5205,27 @@ body {
     border-color: rgba(77, 182, 172, 0.75);
     color: #d3ece8;
 }
+
+/* ========== 评审快速通道入口 ========== */
+.judge-entry {
+    margin-top: 14px;
+}
+
+.judge-entry-btn {
+    display: inline-block;
+    padding: 9px 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 214, 102, 0.42);
+    background: linear-gradient(135deg, rgba(255, 214, 102, 0.16) 0%, rgba(255, 214, 102, 0.04) 100%);
+    color: #ffd966;
+    font-size: 0.86rem;
+    letter-spacing: 1px;
+    text-decoration: none;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.judge-entry-btn:hover {
+    background: linear-gradient(135deg, rgba(255, 214, 102, 0.28) 0%, rgba(255, 214, 102, 0.10) 100%);
+    border-color: rgba(255, 214, 102, 0.78);
+    color: #ffe9a8;
+}
