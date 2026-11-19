@@ -1937,7 +1937,8 @@
                     console.warn('SDK 初始化失败，改用直达方式', e);
                 }
             }
-            window.open('https://robot.chaoxing.com/coze?unitId=' + c.unitId
+            // 降级路径与已验证可用的地址保持一致（coze/web）
+            window.open('https://robot.chaoxing.com/coze/web?unitId=' + c.unitId
                 + '&robotId=' + c.robotId, '_blank', 'noopener');
         }
 
