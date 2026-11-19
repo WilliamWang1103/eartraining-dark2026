@@ -1144,21 +1144,21 @@ const pageManager = {
     },
     getPageTitle(pageId) {
         const titles = {
-            'home-page': '音乐听觉综合训练系统',
-            'chord-page': '和弦听辨 - 音乐听觉综合训练系统',
-            'chord-test-end-page': '和弦听辨结果 - 音乐听觉综合训练系统',
-            'single-page': '单音听辨 - 音乐听觉综合训练系统',
-            'single-test-end-page': '单音听辨结果 - 音乐听觉综合训练系统',
-            'rhythm-page': '节奏听辨 - 音乐听觉综合训练系统',
-            'rhythm-test-end-page': '节奏听辨结果 - 音乐听觉综合训练系统',
-            'melody-page': '旋律听辨 - 音乐听觉综合训练系统',
-            'melody-test-end-page': '旋律听辨结果 - 音乐听觉综合训练系统',
-            'learning-report-page': '学习报告 - 音乐听觉综合训练系统',
-            'error-book-page': '错题本 - 音乐听觉综合训练系统',
-            'adaptive-page': '智能推荐 - 音乐听觉综合训练系统',
-            'comprehensive-exam-page': '综合考试 - 音乐听觉综合训练系统'
+            'home-page': '音乐听觉智能训练系统',
+            'chord-page': '和弦听辨 - 音乐听觉智能训练系统',
+            'chord-test-end-page': '和弦听辨结果 - 音乐听觉智能训练系统',
+            'single-page': '单音听辨 - 音乐听觉智能训练系统',
+            'single-test-end-page': '单音听辨结果 - 音乐听觉智能训练系统',
+            'rhythm-page': '节奏听辨 - 音乐听觉智能训练系统',
+            'rhythm-test-end-page': '节奏听辨结果 - 音乐听觉智能训练系统',
+            'melody-page': '旋律听辨 - 音乐听觉智能训练系统',
+            'melody-test-end-page': '旋律听辨结果 - 音乐听觉智能训练系统',
+            'learning-report-page': '学习报告 - 音乐听觉智能训练系统',
+            'error-book-page': '错题本 - 音乐听觉智能训练系统',
+            'adaptive-page': '智能推荐 - 音乐听觉智能训练系统',
+            'comprehensive-exam-page': '综合考试 - 音乐听觉智能训练系统'
         };
-        return titles[pageId] || '音乐听觉综合训练系统';
+        return titles[pageId] || '音乐听觉智能训练系统';
     },
     initializeChordPage() {
         if (!window.chordPianoInitialized) {
@@ -1236,6 +1236,24 @@ const userManager = {
                 this.showSaveStatus('已加载保存的学生信息', 'success');
                 setTimeout(() => this.hideSaveStatus(), 2000);
             } catch (e) { console.error('加载用户信息失败:', e); }
+        }
+    },
+    // 访客快速体验：无需填写任何信息即可进入训练（评审与评委友好）
+    // silent=true 时不自动跳转到首页默认模块（用于深链接直达场景）
+    enterGuestMode(silent) {
+        const userInfo = { school: '访客', majorClass: '体验', name: '访客', teacher: '—', saved: true };
+        chordAppState.userInfo = { ...userInfo };
+        singleAppState.userInfo = { ...userInfo };
+        intervalAppState.userInfo = { ...userInfo };
+        rhythmAppState.userInfo = { ...userInfo };
+        melodyAppState.userInfo = { ...userInfo };
+        try { localStorage.setItem('userInfo', JSON.stringify(userInfo)); } catch (e) {}
+        if (!silent) {
+            this.showSaveStatus('已进入访客体验模式', 'success');
+            setTimeout(() => { this.hideSaveStatus(); }, 1500);
+            // 自动进入第一个练习模块
+            const firstCard = document.querySelector('.mode-card.active');
+            if (firstCard) firstCard.click();
         }
     },
     showSaveStatus(message, type) {
@@ -2897,12 +2915,13 @@ function applyDeepLink() {
     const pageId = DEEP_LINK_MODE_MAP[mode];
     if (!pageId) return;
 
-    // 未填写学生信息时，先回到首页并提示（与首页点击模式卡片的行为一致）
+    // 未填写学生信息时的深链接处理：
+    // 智能体给出的「去练习」链接是评审与评委的主要入口，不能把用户弹回首页挡住。
+    // 策略：自动以访客身份放行并直达目标模块，同时在状态栏提示可填写信息以启用学情统计。
+    let guestFallback = false;
     if (!chordAppState.userInfo.saved) {
-        pageManager.switchToPage('home-page');
-        userManager.showSaveStatus('请先填写并保存学生信息，才能进入练习模式', 'error');
-        setTimeout(() => userManager.hideSaveStatus(), 3000);
-        return;
+        userManager.enterGuestMode(true);
+        guestFallback = true;
     }
 
     // 先切换到目标页面（切页会触发该模块的 init 并重建下拉框选项）
@@ -2956,6 +2975,10 @@ function applyDeepLink() {
         }
     }
 
+    if (guestFallback) {
+        userManager.showSaveStatus('已进入访客模式，可直接练习；如需记录学习数据，请在首页填写学生信息', 'success');
+        setTimeout(() => userManager.hideSaveStatus(), 4000);
+    }
     console.log('深链接跳转:', mode, '->', pageId);
 }
 
@@ -2976,6 +2999,7 @@ function initHomePage() {
         });
     });
     const saveBtn = document.getElementById('save-user'); if (saveBtn) saveBtn.addEventListener('click', function () { userManager.saveUserInfo(); });
+    const guestBtn = document.getElementById('guest-mode'); if (guestBtn) guestBtn.addEventListener('click', function () { userManager.enterGuestMode(); });
 }
 
 // 初始化调式选择器
@@ -14459,16 +14483,18 @@ function renderExamInstructions() {
 }
 
 // ==================== 教师隐藏功能：任课教师出卷（PDF + MIDI） ====================
-const TEACHER_NAMES = ['王向辉', '斯琴', '王艳', '刘利剑'];
+// 教师模式开关：专业班级填写「任课教师」即启用（不硬编码任何具体姓名）
+const TEACHER_MODE_KEY = 'teacherModeEnabled';
 
 function getSavedUserInfo() {
     try { return JSON.parse(localStorage.getItem('userInfo') || 'null'); } catch (e) { return null; }
 }
 
-// 是否任课教师：专业班级填「任课教师」且姓名为指定 4 位教师之一
+// 是否任课教师：专业班级填「任课教师」
 function isTeacherUser() {
     const ui = getSavedUserInfo() || (typeof melodyAppState !== 'undefined' ? melodyAppState.userInfo : null) || {};
-    return ui.majorClass === '任课教师' && TEACHER_NAMES.includes(ui.name);
+    if (ui.majorClass === '任课教师') return true;
+    try { return localStorage.getItem(TEACHER_MODE_KEY) === '1'; } catch (e) { return false; }
 }
 
 // 音名 → MIDI 编号（C4 = 60）

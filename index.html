@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>音乐听觉综合训练系统 - 和弦听辨</title>
+    <title>音乐听觉智能训练系统 - 和弦听辨</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/abcjs@6.5.2/dist/abcjs-basic-min.js"></script>
     <!-- VexFlow已移除，改用Canvas渲染 -->
@@ -40,8 +40,8 @@
             <div class="container">
                 <div class="home-page">
                     <div class="home-header">
-                        <h1>🎵 音乐听觉综合训练系统</h1>
-                        <p class="welcome-message">欢迎使用内蒙古民族大学音乐学院学习陪伴程序</p>
+                        <h1>🎵 音乐听觉智能训练系统</h1>
+                        <p class="welcome-message">视唱练耳听觉训练学习陪伴程序 · 音乐听觉智能训练系统</p>
                     </div>
 
 
@@ -51,11 +51,11 @@
                         <h3>学生信息</h3>
                         <div class="form-group">
                             <label for="school">学校</label>
-                            <input type="text" id="school" class="form-input" placeholder="内蒙古民族大学音乐学院">
+                            <input type="text" id="school" class="form-input" placeholder="请输入所在学校 / 学院">
                         </div>
                         <div class="form-group">
                             <label for="major-class">专业班级</label>
-                            <input type="text" id="major-class" class="form-input" placeholder="2025级音乐学1班">
+                            <input type="text" id="major-class" class="form-input" placeholder="请输入专业班级，如 音乐学2025级1班">
                         </div>
                         <div class="form-group">
                             <label for="name">姓名</label>
@@ -63,9 +63,10 @@
                         </div>
                         <div class="form-group">
                             <label for="teacher">指导教师</label>
-                            <input type="text" id="teacher" class="form-input" placeholder="王向辉">
+                            <input type="text" id="teacher" class="form-input" placeholder="请输入指导教师姓名">
                         </div>
                         <button id="save-user" class="btn save">保存信息</button>
+                        <button id="guest-mode" class="btn guest" type="button">访客快速体验（跳过填写）</button>
                         <div id="save-status" class="save-status"></div>
                     </div>
 
@@ -380,10 +381,10 @@
 
                     <!-- 学生信息卡片 - 在测试结果分析区域上方 -->
                     <div class="compact-user-info">
-                        <p><strong>学校：</strong><span id="end-school-chord">内蒙古民族大学音乐学院</span></p>
-                        <p><strong>专业班级：</strong><span id="end-major-class-chord">2025级音乐学1班</span></p>
-                        <p><strong>姓名：</strong><span id="end-name-chord">张三</span></p>
-                        <p><strong>指导教师：</strong><span id="end-teacher-chord">王向辉</span></p>
+                        <p><strong>学校：</strong><span id="end-school-chord">—</span></p>
+                        <p><strong>专业班级：</strong><span id="end-major-class-chord">—</span></p>
+                        <p><strong>姓名：</strong><span id="end-name-chord">—</span></p>
+                        <p><strong>指导教师：</strong><span id="end-teacher-chord">—</span></p>
                     </div>
 
                     <div class="score-summary">
