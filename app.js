@@ -531,10 +531,153 @@ function ensureAudioReady() {
     if (!window.audioContext) {
         window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
+    // 首次激活时后台加载真实钢琴采样（失败自动退回合成音色）
+    loadPianoSamples();
     if (window.audioContext.state === 'suspended') {
         return window.audioContext.resume();
     }
     return Promise.resolve();
+}
+
+// ============================================================
+// 真实钢琴采样（MusyngKite 开源采样，渐进增强 + 合成兜底）
+// 采样位于 samples/piano/，黑键用降号命名（Db/Eb/Gb/Ab/Bb）
+// ============================================================
+const pianoSamples = {};             // 升号音名 -> AudioBuffer
+let pianoSamplesLoading = false;
+let pianoSamplesReady = false;
+const SAMPLE_BASE_PATH = 'samples/piano/';
+const activeSampleSources = new Map(); // 持续按压中的采样 -> { source, gain }
+
+// 将 app 内升号音名（如 C#4）转换为采样文件名（Db4）
+function sampleFileNameFor(note) {
+    const flatMap = { 'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab', 'A#': 'Bb' };
+    const m = note.match(/^([A-G][#b]?)(\d)$/);
+    if (!m) return null;
+    let name = m[1];
+    const oct = m[2];
+    if (flatMap[name]) name = flatMap[name];
+    return name + oct;
+}
+
+function loadPianoSamples() {
+    if (pianoSamplesLoading || pianoSamplesReady) return;
+    pianoSamplesLoading = true;
+
+    const ctx = window.audioContext;
+    if (!ctx || typeof fetch !== 'function') {
+        pianoSamplesLoading = false;
+        return;
+    }
+
+    const notes = Array.isArray(allNotes) ? allNotes.map(n => n.note) : [];
+    if (notes.length === 0) {
+        pianoSamplesLoading = false;
+        return;
+    }
+
+    let pending = notes.length;
+    notes.forEach(note => {
+        const file = sampleFileNameFor(note);
+        if (!file) {
+            if (--pending === 0) finishSampleLoad(notes);
+            return;
+        }
+        fetch(SAMPLE_BASE_PATH + file + '.mp3')
+            .then(res => {
+                if (!res.ok) throw new Error('missing ' + file);
+                return res.arrayBuffer();
+            })
+            .then(buf => ctx.decodeAudioData(buf))
+            .then(audioBuf => { pianoSamples[note] = audioBuf; })
+            .catch(() => { /* 单个采样失败静默忽略，该音走合成兜底 */ })
+            .finally(() => {
+                if (--pending === 0) finishSampleLoad(notes);
+            });
+    });
+}
+
+function finishSampleLoad(notes) {
+    pianoSamplesLoading = false;
+    pianoSamplesReady = Object.keys(pianoSamples).length > 0;
+    console.log(`🎹 钢琴采样就绪：${Object.keys(pianoSamples).length}/${notes.length}（缺失部分自动用合成音色）`);
+}
+
+function playSampleNote(note, duration, volume) {
+    const ctx = window.audioContext;
+    const buf = pianoSamples[note];
+    if (!ctx || !buf) return false;
+
+    const src = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    src.buffer = buf;
+
+    const now = ctx.currentTime;
+    const end = now + duration;
+    const peak = Math.min(1, (volume || 1) * 0.9);
+
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(peak, now + 0.005);
+    // 采样自带自然衰减，仅在结尾做防爆音淡出
+    gain.gain.setValueAtTime(peak, Math.max(now + 0.005, end - 0.15));
+    gain.gain.exponentialRampToValueAtTime(0.001, end);
+
+    src.connect(gain);
+    gain.connect(ctx.destination);
+    src.start(now);
+    src.stop(end + 0.05);
+
+    // 与合成路径一致：纳入旋律音频追踪，便于立即停止
+    melodyAppState.activeAudioNodes.push(src);
+    src.onended = () => {
+        const i = melodyAppState.activeAudioNodes.indexOf(src);
+        if (i >= 0) melodyAppState.activeAudioNodes.splice(i, 1);
+    };
+
+    return true;
+}
+
+function startSampleNote(note, volume) {
+    const ctx = window.audioContext;
+    const buf = pianoSamples[note];
+    if (!ctx || !buf) return false;
+
+    if (activeSampleSources.has(note)) stopSampleNote(note);
+
+    const src = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    src.buffer = buf;
+
+    const now = ctx.currentTime;
+    const peak = Math.min(1, (volume || 1) * 0.9);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(peak, now + 0.005);
+
+    src.connect(gain);
+    gain.connect(ctx.destination);
+    src.start(now);
+
+    activeSampleSources.set(note, { source: src, gain });
+    return true;
+}
+
+function stopSampleNote(note) {
+    if (!activeSampleSources.has(note)) return;
+    const ctx = window.audioContext;
+    const now = ctx.currentTime;
+    const { source, gain } = activeSampleSources.get(note);
+
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.linearRampToValueAtTime(0, now + 0.1);
+    try { source.stop(now + 0.12); } catch (e) { /* 已停止 */ }
+
+    setTimeout(() => {
+        try { source.disconnect(); } catch (e) {}
+        try { gain.disconnect(); } catch (e) {}
+    }, 200);
+
+    activeSampleSources.delete(note);
 }
 
 function setupAudioUnlock() {
@@ -857,6 +1000,9 @@ const activeOscillators = new Map(); // note -> { oscillators, gains, masterGain
 
 // 钢琴音色合成（更接近真实钢琴）
 function playNoteWithWebAudio(note, duration = 2.5, volume = 1.0) {
+    // 优先使用真实钢琴采样（加载失败自动走下方合成兜底）
+    if (pianoSamplesReady && playSampleNote(note, duration, volume)) return;
+
     const ctx = window.audioContext;
     const now = ctx.currentTime;
     const freq = getFrequency(note);
@@ -865,10 +1011,10 @@ function playNoteWithWebAudio(note, duration = 2.5, volume = 1.0) {
     const masterGain = ctx.createGain();
     masterGain.gain.value = volume * 0.7; // 从 0.5 提高到 0.7
 
-    // 添加低通滤波器模拟钢琴的温暖音色 - 提高截止频率让更多高频通过
+    // 添加低通滤波器 - 高截止频率保留明亮高频
     const lowpassFilter = ctx.createBiquadFilter();
     lowpassFilter.type = 'lowpass';
-    lowpassFilter.frequency.value = 12000; // 从 8000 提高到 12000
+    lowpassFilter.frequency.value = 16000;
     lowpassFilter.Q.value = 0.5;
 
     lowpassFilter.connect(masterGain);
@@ -877,18 +1023,14 @@ function playNoteWithWebAudio(note, duration = 2.5, volume = 1.0) {
     const oscillators = [];
     const gains = [];
 
-    // 基频 + 多个泛音（增强谐波，更丰富的音色）
+    // 基频 + 少量泛音（正弦波叠加，基频主导，更接近真实钢琴）
     const harmonics = [
-        { ratio: 1, amp: 1.0, type: 'triangle' },    // 基频
-        { ratio: 2, amp: 0.7, type: 'sine' },        // 2次泛音（增强）
-        { ratio: 3, amp: 0.45, type: 'sine' },       // 3次泛音（增强）
-        { ratio: 4, amp: 0.3, type: 'sine' },        // 4次泛音（增强）
-        { ratio: 5, amp: 0.2, type: 'sine' },        // 5次泛音（增强）
-        { ratio: 6, amp: 0.15, type: 'sine' },       // 6次泛音（增强）
-        { ratio: 7, amp: 0.1, type: 'sine' },        // 7次泛音（增强）
-        { ratio: 8, amp: 0.06, type: 'sine' },       // 8次泛音（增强）
-        { ratio: 9, amp: 0.04, type: 'sine' },       // 9次泛音（新增）
-        { ratio: 10, amp: 0.02, type: 'sine' },      // 10次泛音（新增）
+        { ratio: 1, amp: 1.0, type: 'sine', sustain: 0.35, end: 0.95 },  // 基频（纯正弦，主导）
+        { ratio: 2, amp: 0.30, type: 'sine', sustain: 0.18, end: 0.65 }, // 2次泛音
+        { ratio: 3, amp: 0.18, type: 'sine', sustain: 0.12, end: 0.45 }, // 3次泛音
+        { ratio: 4, amp: 0.12, type: 'sine', sustain: 0.08, end: 0.30 }, // 4次泛音
+        { ratio: 5, amp: 0.07, type: 'sine', sustain: 0.05, end: 0.20 }, // 5次泛音
+        { ratio: 6, amp: 0.04, type: 'sine', sustain: 0.03, end: 0.14 }, // 6次泛音
     ];
 
     harmonics.forEach((h, idx) => {
@@ -898,34 +1040,28 @@ function playNoteWithWebAudio(note, duration = 2.5, volume = 1.0) {
         osc.type = h.type;
         osc.frequency.value = freq * h.ratio;
 
-        // 高频泛音稍微失谐，更自然（增加失谐范围创造合唱效果）
-        if (idx > 3) {
-            osc.detune.value = (Math.random() - 0.5) * 15; // ±7.5 cents（从 ±5 增加到 ±7.5）
-        }
-
-        // 钢琴的 ADSR 包络：快速起音，快速衰减到延音水平
-        const attackTime = 0.003; // 3ms 更快起音
-        const decayTime = 0.2;    // 200ms 更快衰减
-        const sustainLevel = 0.2;  // 稍高的延音水平
+        // 每个泛音独立包络：高频泛音起音更快、衰减更快、结束更早，模拟真实钢琴
+        const attackTime = Math.max(0.0015, 0.004 - idx * 0.0006);
+        const decayTime = Math.max(0.05, 0.3 - idx * 0.05);
+        const noteEnd = now + duration * h.end;
 
         gain.gain.setValueAtTime(0, now);
         gain.gain.linearRampToValueAtTime(h.amp, now + attackTime);
-        gain.gain.exponentialRampToValueAtTime(Math.max(h.amp * sustainLevel, 0.001), now + attackTime + decayTime);
-        // 长衰减
-        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        gain.gain.exponentialRampToValueAtTime(Math.max(h.amp * h.sustain, 0.001), now + attackTime + decayTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, noteEnd);
 
         osc.connect(gain);
         gain.connect(lowpassFilter);
 
         osc.start(now);
-        osc.stop(now + duration);
+        osc.stop(noteEnd + 0.05);
 
         oscillators.push(osc);
         gains.push(gain);
     });
 
-    // 添加击弦噪声（模拟琴槌击弦的机械声）- 增强噪声
-    const noiseDuration = 0.1;
+    // 添加击弦噪声（模拟琴槌击弦的机械声）- 短促克制
+    const noiseDuration = 0.04;
     const bufferSize = ctx.sampleRate * noiseDuration;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -938,9 +1074,9 @@ function playNoteWithWebAudio(note, duration = 2.5, volume = 1.0) {
 
     noise.buffer = buffer;
     noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.value = freq * 3; // 噪声频率跟随音高
-    noiseFilter.Q.value = 2;
-    noiseGain.gain.setValueAtTime(0.35, now); // 从 0.25 提高到 0.35
+    noiseFilter.frequency.value = freq * 3;
+    noiseFilter.Q.value = 1.5;
+    noiseGain.gain.setValueAtTime(0.14, now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseDuration);
 
     noise.connect(noiseFilter);
@@ -974,6 +1110,9 @@ function stopMelodyAudio() {
 
 // 启动一个可控制的音符（用于 MIDI 和鼠标持续按压）
 function startNoteWithWebAudio(note, volume = 1.0) {
+    // 优先使用真实钢琴采样（加载失败自动走下方合成兜底）
+    if (pianoSamplesReady && startSampleNote(note, volume)) return;
+
     const ctx = window.audioContext;
     const now = ctx.currentTime;
     const freq = getFrequency(note);
@@ -986,12 +1125,12 @@ function startNoteWithWebAudio(note, volume = 1.0) {
     // 创建主增益节点
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0, now);
-    masterGain.gain.linearRampToValueAtTime(volume * 0.5, now + 0.005);
+    masterGain.gain.linearRampToValueAtTime(volume * 0.6, now + 0.005);
 
-    // 添加低通滤波器
+    // 添加低通滤波器 - 高截止频率保留明亮高频
     const lowpassFilter = ctx.createBiquadFilter();
     lowpassFilter.type = 'lowpass';
-    lowpassFilter.frequency.value = 8000;
+    lowpassFilter.frequency.value = 16000;
     lowpassFilter.Q.value = 0.5;
 
     lowpassFilter.connect(masterGain);
@@ -1000,16 +1139,14 @@ function startNoteWithWebAudio(note, volume = 1.0) {
     const oscillators = [];
     const gains = [];
 
-    // 钢琴谐波结构
+    // 钢琴谐波结构（正弦波叠加，基频主导）
     const harmonics = [
-        { ratio: 1, amp: 1.0, type: 'triangle' },
-        { ratio: 2, amp: 0.6, type: 'sine' },
-        { ratio: 3, amp: 0.35, type: 'sine' },
-        { ratio: 4, amp: 0.2, type: 'sine' },
-        { ratio: 5, amp: 0.12, type: 'sine' },
-        { ratio: 6, amp: 0.08, type: 'sine' },
-        { ratio: 7, amp: 0.05, type: 'sine' },
-        { ratio: 8, amp: 0.03, type: 'sine' },
+        { ratio: 1, amp: 1.0, type: 'sine', sustain: 0.35 },
+        { ratio: 2, amp: 0.30, type: 'sine', sustain: 0.18 },
+        { ratio: 3, amp: 0.18, type: 'sine', sustain: 0.12 },
+        { ratio: 4, amp: 0.12, type: 'sine', sustain: 0.08 },
+        { ratio: 5, amp: 0.07, type: 'sine', sustain: 0.05 },
+        { ratio: 6, amp: 0.04, type: 'sine', sustain: 0.03 },
     ];
 
     harmonics.forEach((h, idx) => {
@@ -1019,19 +1156,13 @@ function startNoteWithWebAudio(note, volume = 1.0) {
         osc.type = h.type;
         osc.frequency.value = freq * h.ratio;
 
-        // 高频泛音轻微失谐
-        if (idx > 4) {
-            osc.detune.value = (Math.random() - 0.5) * 10;
-        }
-
-        // ADSR 包络：快速起音，衰减到延音水平
-        const attackTime = 0.005;
-        const decayTime = 0.3;
-        const sustainLevel = 0.3; // 延音时保持较高音量
+        // 每个泛音独立包络：高频泛音起音更快、衰减更快、延音更低，模拟真实钢琴
+        const attackTime = Math.max(0.0015, 0.004 - idx * 0.0006);
+        const decayTime = Math.max(0.05, 0.3 - idx * 0.05);
 
         gain.gain.setValueAtTime(0, now);
         gain.gain.linearRampToValueAtTime(h.amp, now + attackTime);
-        gain.gain.exponentialRampToValueAtTime(Math.max(h.amp * sustainLevel, 0.001), now + attackTime + decayTime);
+        gain.gain.exponentialRampToValueAtTime(Math.max(h.amp * h.sustain, 0.001), now + attackTime + decayTime);
 
         osc.connect(gain);
         gain.connect(lowpassFilter);
@@ -1043,7 +1174,7 @@ function startNoteWithWebAudio(note, volume = 1.0) {
     });
 
     // 添加击弦噪声
-    const noiseDuration = 0.08;
+    const noiseDuration = 0.04;
     const bufferSize = ctx.sampleRate * noiseDuration;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -1057,8 +1188,8 @@ function startNoteWithWebAudio(note, volume = 1.0) {
     noise.buffer = buffer;
     noiseFilter.type = 'bandpass';
     noiseFilter.frequency.value = freq * 3;
-    noiseFilter.Q.value = 2;
-    noiseGain.gain.setValueAtTime(0.25, now);
+    noiseFilter.Q.value = 1.5;
+    noiseGain.gain.setValueAtTime(0.14, now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseDuration);
 
     noise.connect(noiseFilter);
@@ -1077,6 +1208,11 @@ function startNoteWithWebAudio(note, volume = 1.0) {
 
 // 停止一个音符
 function stopNoteWithWebAudio(note) {
+    // 若当前是采样播放，则先停止采样
+    if (activeSampleSources.has(note)) {
+        stopSampleNote(note);
+        return;
+    }
     if (!activeOscillators.has(note)) return;
 
     const ctx = window.audioContext;
