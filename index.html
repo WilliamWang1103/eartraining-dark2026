@@ -1903,46 +1903,42 @@
         <span class="ai-fab-label">AI教学助手</span>
     </button>
 
-    <script type="text/javascript" src="https://robot.chaoxing.com/sdk/CxRobotSdkJs.js" defer></script>
     <script type="text/javascript">
-    // 赛事平台智能体（音乐听觉智能训练系统）内嵌入口
+    // 赛事平台智能体（音乐听觉智能训练系统）入口
     // 参数由 AI 能力中心 → 接入渠道 → 网站 → 网页SDK接入 页面提供
     window.MUSIC_ROBOT_CONFIG = {
         unitId: '353067',
         robotId: 'cb3c3d300a4e419fad1b261385661e56',
-        accessToken: '01ec8a8b7b7ea9959f1b12830bf0a3d5',
-        groupId: '0',
-        openType: 'openUrl',
-        openPage: 'coze'
+        accessToken: '01ec8a8b7b7ea9959f1b12830bf0a3d5'
     };
 
     (function () {
         var fab = document.getElementById('ai-assistant-fab');
         if (!fab) return;
 
-        function openAssistant() {
-            var c = window.MUSIC_ROBOT_CONFIG;
-            // 优先用 SDK 加载（可拿到更完整的形态与事件能力）；失败则直接跳转对话页
-            if (window.CxRobotSdkJs && typeof window.CxRobotSdkJs.init === 'function') {
-                try {
-                    var url = 'https://robot.chaoxing.com/embedChat'
-                        + '?unitId=' + c.unitId
-                        + '&robotId=' + c.robotId
-                        + '&groupId=' + c.groupId
-                        + '&openType=' + c.openType
-                        + '&openPage=' + c.openPage;
-                    window.CxRobotSdkJs.init({ url: url, accessToken: c.accessToken });
-                    return;
-                } catch (e) {
-                    console.warn('SDK 初始化失败，改用直达方式', e);
-                }
-            }
-            // 降级路径与已验证可用的地址保持一致（coze/web）
-            window.open('https://robot.chaoxing.com/coze/web?unitId=' + c.unitId
-                + '&robotId=' + c.robotId, '_blank', 'noopener');
+        function buildUrl() {
+            var c = window.MUSIC_ROBOT_CONFIG || {};
+            return 'https://robot.chaoxing.com/coze/web'
+                + '?unitId=' + encodeURIComponent(c.unitId || '')
+                + '&robotId=' + encodeURIComponent(c.robotId || '');
         }
 
-        fab.addEventListener('click', openAssistant);
+        function openAssistant() {
+            var url = buildUrl();
+            // 直接开新标签页，不走平台 SDK。
+            // 原因：CxRobotSdkJs.init 需要宿主页提供容器，参数不匹配时静默失败，
+            // 页面上表现为"点了没反应"。coze/web 直链已验证可在电脑与手机打开。
+            var win = window.open(url, '_blank', 'noopener');
+            if (!win) {
+                // 被浏览器弹窗拦截时退化为当前页跳转，保证点击一定有反馈
+                window.location.href = url;
+            }
+        }
+
+        fab.addEventListener('click', function (e) {
+            e.preventDefault();
+            openAssistant();
+        });
     })();
     </script>
 
